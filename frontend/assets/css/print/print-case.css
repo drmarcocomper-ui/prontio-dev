@@ -1,0 +1,108 @@
+/* =========================================
+   PRONTIO - print-base.css
+   Estilos aplicados SOMENTE na impressão.
+   Não afetam a visualização normal no navegador.
+========================================= */
+
+@page {
+  size: A4;
+  margin: 18mm 14mm 18mm 14mm; /* margem padrão profissional */
+}
+
+/* Regras de impressão universais */
+@media print {
+
+  body {
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-family: "Times New Roman", serif;
+    font-size: 12pt;
+  }
+
+  /* Oculta navegação, botões e elementos interativos */
+  .sidebar,
+  .topbar,
+  nav,
+  header,
+  footer,
+  .topbar-actions,
+  .sidebar-header,
+  .sidebar-footer,
+  .no-print,
+  .button,
+  button,
+  .btn,
+  .actions,
+  .acoes-config {
+    display: none !important;
+    visibility: hidden !important;
+  }
+
+  /* Conteúdo principal ocupa 100% */
+  .main-area,
+  .content,
+  .pagina-conteudo {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Elementos que só aparecem na impressão */
+  .print-only {
+    display: block !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  /* Tabelas com boa visibilidade */
+  table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+  }
+
+  table th,
+  table td {
+    border: 1px solid #000 !important;
+    padding: 4px 6px !important;
+  }
+
+  table th {
+    background: #eee !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Links exibem o href como texto */
+  a::after {
+    content: " (" attr(href) ")";
+    font-size: 10pt;
+  }
+
+  /* Evita quebra de página em elementos críticos */
+  .card,
+  .bloco,
+  .secao,
+  .paciente-detalhe,
+  .laudo-secao,
+  .receita-secao {
+    page-break-inside: avoid !important;
+  }
+
+  /* Cabeçalhos opcionais para impressão */
+  .print-header {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 16px;
+    font-size: 13pt;
+    font-weight: bold;
+  }
+
+  .print-subheader {
+    display: block !important;
+    text-align: center;
+    margin-bottom: 24px;
+    font-size: 11pt;
+  }
+}

@@ -1,0 +1,100 @@
+<!-- painel-receita.html -->
+<section class="painel-receita-container">
+
+  <!-- Cabeçalho interno do painel -->
+  <header class="painel-receita-header">
+    <div class="painel-receita-titulo">
+      <h3>Nova receita médica</h3>
+      <p class="painel-receita-subtitulo">
+        Preencha os dados da prescrição para o paciente selecionado no prontuário.
+      </p>
+    </div>
+    <div class="painel-receita-meta">
+      <span class="painel-receita-meta-item">
+        <span class="label">Paciente</span>
+        <span id="receitaPacienteNome" class="valor">—</span>
+      </span>
+      <span class="painel-receita-meta-item">
+        <span class="label">ID Paciente</span>
+        <span id="receitaPacienteId" class="valor">—</span>
+      </span>
+    </div>
+  </header>
+
+  <form id="formReceitaProntuario" class="form-vertical form-receita-panel">
+
+    <!-- BLOCO: Dados da receita -->
+    <div class="form-section">
+      <div class="form-section-header">
+        <h4>Dados da receita</h4>
+        <p>Data e diagnóstico associado à prescrição.</p>
+      </div>
+
+      <div class="form-row form-row-inline">
+        <div class="campo">
+          <label for="receitaData" class="campo-label">Data</label>
+          <input type="date" id="receitaData">
+        </div>
+
+        <div class="campo">
+          <label for="receitaDiagnostico" class="campo-label">
+            Diagnóstico / CID <span class="campo-label-optional">(opcional)</span>
+          </label>
+          <input
+            type="text"
+            id="receitaDiagnostico"
+            placeholder="Ex.: Cefaleia tensional (CID G44.2)">
+        </div>
+      </div>
+    </div>
+
+    <!-- BLOCO: Medicamentos -->
+    <div class="form-section">
+      <div class="form-section-header">
+        <h4>Medicamentos e posologia</h4>
+        <p>
+          Descreva os medicamentos, concentrações, posologia e duração do tratamento.
+        </p>
+      </div>
+
+      <div class="form-row">
+        <label for="receitaMedicamentos" class="campo-label">Medicamentos / Posologia</label>
+        <textarea
+          id="receitaMedicamentos"
+          rows="6"
+          placeholder="Exemplo:
+Dipirona 500 mg – 1 comprimido de 6/6h por 3 dias
+Ibuprofeno 400 mg – 1 comprimido de 8/8h por 5 dias"></textarea>
+      </div>
+    </div>
+
+    <!-- BLOCO: Orientações -->
+    <div class="form-section">
+      <div class="form-section-header">
+        <h4>Orientações adicionais</h4>
+        <p>
+          Recomendações gerais ao paciente (repouso, retorno, sinais de alarme).
+        </p>
+      </div>
+
+      <div class="form-row">
+        <label for="receitaOrientacoes" class="campo-label">Orientações</label>
+        <textarea
+          id="receitaOrientacoes"
+          rows="3"
+          placeholder="Repouso, hidratação, retorno se piora ou sinais de alarme..."></textarea>
+      </div>
+    </div>
+
+    <!-- AÇÕES -->
+    <div class="form-row form-row-actions form-row-actions-inline painel-receita-acoes">
+      <button type="button" class="btn secundario" data-close-receita>
+        Cancelar
+      </button>
+      <button type="submit" class="btn primario">
+        Salvar / Imprimir
+      </button>
+    </div>
+
+  </form>
+</section>

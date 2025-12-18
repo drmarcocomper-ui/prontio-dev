@@ -1,0 +1,178 @@
+/* =====================================
+   PRONTIO - TOPBAR (Design System)
+   - Baseada em tokens
+   - Tema claro/escuro automático
+   - Estrutura limpa e profissional
+===================================== */
+
+/* Container principal */
+.topbar {
+  background: var(--cor-fundo-card);               /* controlado pelo tema */
+  border-bottom: 1px solid var(--cor-borda-suave);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.06);          /* sombra leve compatível com cards */
+}
+
+/* Colunas */
+.topbar-col-left,
+.topbar-col-right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+/* ===============================
+   TÍTULOS E BREADCRUMB
+================================ */
+
+.topbar-title {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Breadcrumb */
+.topbar-breadcrumb {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--cor-texto-suave);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Título + Tag */
+.topbar-title-main {
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.topbar-title-main h1,
+#topbar-title-text {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--cor-texto-principal);
+}
+
+/* Tag */
+.topbar-tag {
+  padding: 2px 8px;
+  font-size: 11px;
+  font-weight: 600;
+  background: var(--cor-fundo-card-alt);
+  color: var(--cor-primaria);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--radius-pill);
+}
+
+/* Subtítulo */
+.topbar-subtitle,
+#topbar-subtitle {
+  font-size: 13px;
+  color: var(--cor-texto-secundario);
+  margin: 0;
+}
+
+/* ===============================
+   AÇÕES E META-INFORMAÇÕES
+================================ */
+
+.topbar-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--sp-2);
+  min-width: 160px;
+}
+
+.topbar-extra {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.topbar-meta {
+  display: flex;
+  gap: var(--sp-3);
+  font-size: 12px;
+  color: var(--cor-texto-suave);
+}
+
+.topbar-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.topbar-meta-item svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.75;
+}
+
+/* ===============================
+   MENU MOBILE
+================================ */
+
+.topbar-left-header {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.topbar-menu-button {
+  display: none;
+}
+
+@media (max-width: 900px) {
+  .topbar-menu-button {
+    display: inline-flex;
+  }
+}
+
+/* ===============================
+   RESPONSIVIDADE
+================================ */
+
+@media (max-width: 900px) {
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-2);
+  }
+
+  .topbar-col-left,
+  .topbar-col-right {
+    width: 100%;
+  }
+
+  .topbar-actions {
+    align-items: flex-start;
+  }
+
+  .topbar-title-main h1 {
+    font-size: 18px;
+  }
+
+  .topbar-meta {
+    flex-wrap: wrap;
+    font-size: 11px;
+  }
+}
+
+/* ===============================
+   TOKENS DE HARMONIZAÇÃO
+   (automaticamente controlados por tema)
+================================ */
+
+/* Tema claro (já tratado no theme-default.css) */
+/* Tema escuro (já tratado no theme-dark.css) */
+

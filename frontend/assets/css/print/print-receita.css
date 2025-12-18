@@ -1,0 +1,6 @@
+@media print {
+  .receita-secao {
+    font-size: 12pt;
+    line-height: 1.4;
+  }
+}

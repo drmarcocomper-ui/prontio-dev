@@ -1,0 +1,238 @@
+/* =====================================
+   PRONTIO - FORMS (Design System)
+   - Inputs, selects, textareas
+   - 100% baseados em tokens
+   - Tema claro/escuro automático
+===================================== */
+
+/* ==============================
+   BASE DOS ELEMENTOS DE FORMULÁRIO
+============================== */
+
+input,
+select,
+textarea {
+  width: 100%;
+  padding: var(--sp-3) var(--sp-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--cor-borda-suave);
+  background: var(--cor-fundo-card);
+  color: var(--cor-texto-principal);
+  font-size: var(--font-size-base);
+  font-family: var(--font-base);
+  line-height: 1.4;
+
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    background-color 0.15s ease;
+}
+
+/* Placeholder */
+input::placeholder,
+textarea::placeholder {
+  color: var(--cor-texto-suave);
+}
+
+/* Foco Acessível */
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--cor-primaria);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.22);
+}
+
+/* Desabilitado */
+input[disabled],
+select[disabled],
+textarea[disabled] {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* ==============================
+   TEXTAREA
+============================== */
+
+textarea {
+  resize: vertical;
+  min-height: 90px;
+}
+
+/* ==============================
+   SELECTS
+============================== */
+
+select {
+  appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%236b7280' height='18' viewBox='0 0 24 24' width='18' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+  background-position: right 12px center;
+  background-repeat: no-repeat;
+  background-size: 16px;
+  padding-right: 38px;
+}
+
+/* Hover do select */
+select:hover {
+  border-color: var(--cor-primaria-clara);
+}
+
+/* ==============================
+   CHECKBOXES E RADIO
+============================== */
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: auto;
+  margin-right: var(--sp-2);
+  accent-color: var(--cor-primaria);
+}
+
+/* ==============================
+   LABELS
+============================== */
+
+label {
+  display: block;
+  font-size: 13px;
+  color: var(--cor-texto-secundario);
+  margin-bottom: var(--sp-1);
+}
+
+/* ==============================
+   FORM ROWS (estrutura 100% unificada)
+============================== */
+
+.form-row {
+  margin-bottom: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* DUAS COLUNAS → Responsivo automático */
+.form-row.grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-3);
+}
+
+@media (max-width: 768px) {
+  .form-row.grid-2 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Três colunas */
+.form-row.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-3);
+}
+
+@media (max-width: 900px) {
+  .form-row.grid-3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Ações alinhadas */
+.form-row-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.form-row-actions-end {
+  justify-content: flex-end;
+}
+
+.form-row-actions-center {
+  justify-content: center;
+}
+
+/* ==============================
+   CAMPOS DE ERRO
+============================== */
+
+.form-error {
+  font-size: 12px;
+  color: var(--cor-perigo);
+  margin-top: -4px;
+}
+
+/* Borda vermelha quando houver erro */
+input.is-invalid,
+select.is-invalid,
+textarea.is-invalid {
+  border-color: var(--cor-perigo);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15);
+}
+
+/* ==============================
+   CAMPOS SOMENTE LEITURA
+============================== */
+
+input[readonly],
+textarea[readonly] {
+  background: var(--cor-fundo-card-alt);
+  cursor: default;
+}
+
+/* ==============================
+   FILE INPUT
+============================== */
+
+input[type="file"] {
+  padding: var(--sp-2);
+  background: var(--cor-fundo-card-alt);
+}
+
+input[type="file"]::file-selector-button {
+  margin-right: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--cor-borda-suave);
+  background: var(--cor-fundo-card);
+  color: var(--cor-texto-secundario);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+input[type="file"]::file-selector-button:hover {
+  background: var(--cor-fundo-card-alt);
+}
+
+/* ==============================
+   SWITCH (Toggle)
+============================== */
+
+.switch {
+  position: relative;
+  width: 42px;
+  height: 22px;
+  background: var(--cor-borda-suave);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.switch::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 16px;
+  height: 16px;
+  background: #ffffff;
+  border-radius: 50%;
+  transition: transform 0.2s ease;
+}
+
+input[type="checkbox"].switch-input:checked + .switch {
+  background: var(--cor-primaria);
+}
+
+input[type="checkbox"].switch-input:checked + .switch::after {
+  transform: translateX(20px);
+}

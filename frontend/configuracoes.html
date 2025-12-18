@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>PRONTIO - Configurações</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <link rel="stylesheet" href="assets/css/style.css">
+  <link rel="stylesheet" href="assets/css/components/modals.css">
+  <link rel="stylesheet" href="assets/css/components/topbar.css">
+</head>
+
+<body
+  data-theme="light"
+  data-page-id="configuracoes"
+  data-subtitle="Dados do médico, da clínica e preferências da agenda"
+  data-tag="Sistema"
+  data-context="Configurações"
+>
+  <div class="app-shell">
+    <aside id="sidebar" class="sidebar" data-component="sidebar">
+      <div class="sidebar-header">
+        <button
+          type="button"
+          class="icon-button js-toggle-compact"
+          aria-label="Alternar modo compacto da barra lateral"
+          aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+            <path d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2z" fill="currentColor" />
+          </svg>
+        </button>
+
+        <div class="app-brand">
+          <div class="app-logo">PRONTIO</div>
+          <div class="app-version" id="appVersion">v1.0.3 - Dr. Marco Antônio Comper</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="Navegação principal">
+        <a href="index.html" class="nav-link" data-page-id="index">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 0-1 1h-5v-6H10v6H5a1 1 0 0 0-1-1v-9.5z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Início</span>
+        </a>
+
+        <a href="agenda.html" class="nav-link" data-page-id="agenda">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 2a1 1 0 0 0-1 1v1H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 0 0-2 0v1H9V3A1 1 0 0 0 8 2zM5 9h14v9H5z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Agenda</span>
+        </a>
+
+        <a href="pacientes.html" class="nav-link" data-page-id="pacientes">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Pacientes</span>
+        </a>
+
+        <a href="prontuario.html" class="nav-link" data-page-id="prontuario" data-nav-section="prontuario">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5L14.5 3zM14 4.5 18.5 9H14z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Prontuário</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-group" data-nav-group="sistema">
+        <div class="nav-label">Sistema</div>
+
+        <a href="configuracoes.html#perfil" class="nav-link nav-link-sub" data-page-id="perfil">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.5 0-6 1.7-6 4v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1c0-2.3-2.5-4-6-4z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Perfil</span>
+        </a>
+
+        <a href="javascript:void(0)" class="nav-link nav-link-sub" data-page-id="sistema-sobre" data-modal-open="modalSobreSistema">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm0 4a1.25 1.25 0 1 1-1.25 1.25A1.25 1.25 0 0 1 12 6zm2 11h-4v-1.5h1V11H10V9.5h3a1 1 0 0 1 1 1v5h1z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Sobre</span>
+        </a>
+
+        <button type="button" class="nav-link nav-link-sub nav-link-action" data-nav-action="logout">
+          <span class="label">Sair</span>
+        </button>
+      </div>
+
+      <div class="sidebar-footer">
+        <small class="sidebar-user" id="sidebarUser"></small>
+        <span class="sidebar-year">
+          &copy; <span id="anoAtualSidebar"></span> PRONTIO
+        </span>
+      </div>
+    </aside>
+
+    <div class="sidebar-backdrop" data-sidebar-backdrop></div>
+
+    <main class="main-area">
+      <div id="topbarMount" data-partial="topbar"></div>
+
+      <section class="content content-configuracoes">
+        <div
+          id="mensagemConfig"
+          class="mensagem"
+          style="display:none;"
+          role="alert"
+          aria-live="polite"
+        ></div>
+
+        <form id="formConfiguracoes" novalidate>
+          <section class="card" aria-labelledby="sec-medico-titulo">
+            <div class="card-header">
+              <h2 id="sec-medico-titulo" class="secao-config-titulo">Dados do médico</h2>
+              <p class="secao-config-subtitulo">
+                Estas informações aparecem em receitas, laudos e atestados emitidos pelo sistema.
+              </p>
+            </div>
+
+            <div class="form-config-grid">
+              <div class="campo-controle col-span-2" id="perfil">
+                <label for="medicoNomeCompleto" class="campo-label">Nome completo *</label>
+                <input type="text" id="medicoNomeCompleto" autocomplete="name" required>
+                <div class="campo-ajuda">Será exibido nos documentos (receitas, laudos, atestados).</div>
+              </div>
+
+              <div class="campo-controle">
+                <label for="medicoCRM" class="campo-label">CRM *</label>
+                <input type="text" id="medicoCRM" placeholder="CRM 000000 / UF" required>
+                <div class="campo-ajuda">Informe número e UF, por exemplo: CRM 000000 / RS.</div>
+              </div>
+
+              <div class="campo-controle">
+                <label for="medicoEspecialidade" class="campo-label">Especialidade</label>
+                <input type="text" id="medicoEspecialidade" placeholder="Ex.: Ortopedia, Psiquiatria">
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="sec-clinica-titulo">
+            <div class="card-header">
+              <h2 id="sec-clinica-titulo" class="secao-config-titulo">Dados da clínica / consultório</h2>
+              <p class="secao-config-subtitulo">
+                Informações de cabeçalho usadas nos documentos gerados pelo PRONTIO.
+              </p>
+            </div>
+
+            <div class="form-config-grid">
+              <div class="campo-controle col-span-2">
+                <label for="clinicaNome" class="campo-label">Nome da clínica / consultório</label>
+                <input type="text" id="clinicaNome" placeholder="Nome fantasia ou razão social">
+              </div>
+
+              <div class="campo-controle col-span-2">
+                <label for="clinicaEndereco" class="campo-label">Endereço</label>
+                <textarea id="clinicaEndereco" rows="2" placeholder="Rua, número, complemento, bairro, cidade - UF"></textarea>
+                <div class="campo-ajuda">Será mostrado em receitas e laudos; você pode incluir CEP se desejar.</div>
+              </div>
+
+              <div class="campo-controle">
+                <label for="clinicaTelefone" class="campo-label">Telefone / WhatsApp</label>
+                <input type="tel" id="clinicaTelefone" placeholder="(00) 00000-0000">
+              </div>
+
+              <div class="campo-controle">
+                <label for="clinicaEmail" class="campo-label">E-mail</label>
+                <input type="email" id="clinicaEmail" placeholder="contato@clinica.com.br">
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="sec-identidade-titulo">
+            <div class="card-header">
+              <h2 id="sec-identidade-titulo" class="secao-config-titulo">Identidade visual</h2>
+              <p class="secao-config-subtitulo">
+                Configure o logo que será exibido nos documentos em PDF (receitas, laudos, etc.).
+              </p>
+            </div>
+
+            <div class="form-config-grid">
+              <div class="campo-controle col-span-2">
+                <label for="clinicaLogoUrl" class="campo-label">URL do logo da clínica</label>
+                <input type="url" id="clinicaLogoUrl" placeholder="https://exemplo.com/logo.png">
+                <div class="campo-ajuda">Use um link direto para a imagem (PNG ou JPG). Este logo será exibido no topo das receitas e laudos.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card" aria-labelledby="sec-agenda-titulo">
+            <div class="card-header">
+              <h2 id="sec-agenda-titulo" class="secao-config-titulo">Preferências da agenda</h2>
+              <p class="secao-config-subtitulo">
+                Estes parâmetros serão usados pela agenda do PRONTIO para criar os horários padrão.
+              </p>
+            </div>
+
+            <div class="form-config-grid">
+              <div class="campo-controle">
+                <label for="agendaHoraInicioPadrao" class="campo-label">Horário inicial padrão</label>
+                <input type="time" id="agendaHoraInicioPadrao">
+                <div class="campo-ajuda">Ex.: 08:00</div>
+              </div>
+
+              <div class="campo-controle">
+                <label for="agendaHoraFimPadrao" class="campo-label">Horário final padrão</label>
+                <input type="time" id="agendaHoraFimPadrao">
+                <div class="campo-ajuda">Ex.: 18:00</div>
+              </div>
+
+              <div class="campo-controle">
+                <label for="agendaIntervaloMinutos" class="campo-label">Duração padrão da consulta (min)</label>
+                <input type="number" id="agendaIntervaloMinutos" min="5" step="5" placeholder="30">
+                <div class="campo-ajuda">Ex.: 20, 30, 40 minutos por consulta.</div>
+              </div>
+
+              <div class="campo-controle col-span-2">
+                <label class="campo-label">Dias da semana ativos</label>
+                <div class="grupo-radio-inline">
+                  <label><input type="checkbox" class="chk-dia-ativo" value="SEG"> Seg</label>
+                  <label><input type="checkbox" class="chk-dia-ativo" value="TER"> Ter</label>
+                  <label><input type="checkbox" class="chk-dia-ativo" value="QUA"> Qua</label>
+                  <label><input type="checkbox" class="chk-dia-ativo" value="QUI"> Qui</label>
+                  <label><input type="checkbox" class="chk-dia-ativo" value="SEX"> Sex</label>
+                  <label><input type="checkbox" class="chk-dia-ativo" value="SAB"> Sáb</label>
+                  <label><input type="checkbox" class="chk-dia-ativo" value="DOM"> Dom</label>
+                </div>
+                <div class="campo-ajuda">Usado futuramente para agenda semanal / bloqueio automático de dias não atendidos.</div>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="acoes-config">
+              <button type="submit" class="btn primario">Salvar configurações</button>
+              <button type="button" id="btnRecarregarConfig" class="btn secundario">Recarregar do servidor</button>
+              <span style="font-size: 11px; color:#666;">
+                Os dados são salvos diretamente na planilha de configurações do PRONTIO.
+              </span>
+            </div>
+          </section>
+        </form>
+      </section>
+    </main>
+  </div>
+
+  <div id="modalSobreSistema" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalSobreSistemaTitulo">
+    <div class="modal modal--lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalSobreSistemaTitulo">PRONTIO — Sobre o Sistema</h2>
+        <div class="modal-header-actions">
+          <button type="button" class="modal-close" aria-label="Fechar" data-modal-close="modalSobreSistema">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p><strong>PRONTIO — Sistema de Consultório Médico</strong><br>
+        Desenvolvido para uso pessoal do <strong>Dr. Marco Antônio Comper</strong>.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close="modalSobreSistema">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

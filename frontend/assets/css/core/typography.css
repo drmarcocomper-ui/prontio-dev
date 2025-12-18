@@ -1,0 +1,25 @@
+/* Tipografia e fundo padrão */
+body {
+  font-family: Arial, sans-serif;
+  background: var(--cor-fundo-pagina);
+  color: #333333;
+}
+
+/* Links padrões */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Utilitários tipográficos */
+.text-muted {
+  color: var(--cor-texto-suave);
+}
+
+.text-small {
+  font-size: 12px;
+}

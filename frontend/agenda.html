@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>PRONTIO - Agenda</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- CSS global -->
+  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- CSS de componentes de modal -->
+  <link rel="stylesheet" href="assets/css/components/modals.css">
+  <!-- CSS específico da agenda -->
+  <link rel="stylesheet" href="assets/css/pages/page-agenda.css">
+  <!-- CSS do Topbar -->
+  <link rel="stylesheet" href="assets/css/components/topbar.css">
+</head>
+
+<body
+  data-theme="light"
+  data-page-id="agenda"
+  data-subtitle="Controle diário e semanal dos atendimentos"
+  data-tag="Agenda"
+  data-context="Atendimentos"
+  data-has-prontuario="true"
+>
+  <div class="app-shell">
+    <!-- SIDEBAR / MENU LATERAL -->
+    <aside id="sidebar" class="sidebar" data-component="sidebar">
+      <div class="sidebar-header">
+        <button
+          type="button"
+          class="icon-button js-toggle-compact"
+          aria-label="Alternar modo compacto da barra lateral"
+          aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+            <path d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2z" fill="currentColor" />
+          </svg>
+        </button>
+
+        <div class="app-brand">
+          <div class="app-logo">PRONTIO</div>
+          <div class="app-version" id="appVersion">v1.0.3 - Dr. Marco Antônio Comper</div>
+        </div>
+      </div>
+
+      <!-- Navegação principal -->
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="Navegação principal">
+        <a href="index.html" class="nav-link" data-page-id="index">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 0-1 1h-5v-6H10v6H5a1 1 0 0 0-1-1v-9.5z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Início</span>
+        </a>
+
+        <a href="agenda.html" class="nav-link" data-page-id="agenda" aria-current="page">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 2a1 1 0 0 0-1 1v1H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 0 0-2 0v1H9V3A1 1 0 0 0 8 2zM5 9h14v9H5z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Agenda</span>
+        </a>
+
+        <a href="pacientes.html" class="nav-link" data-page-id="pacientes">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Pacientes</span>
+        </a>
+
+        <a href="prontuario.html" class="nav-link" data-page-id="prontuario" data-nav-section="prontuario">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5L14.5 3zM14 4.5 18.5 9H14z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Prontuário</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-group" data-nav-group="sistema">
+        <div class="nav-label">Sistema</div>
+
+        <a href="configuracoes.html#perfil" class="nav-link nav-link-sub" data-page-id="perfil">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.5 0-6 1.7-6 4v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1c0-2.3-2.5-4-6-4z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Perfil</span>
+        </a>
+
+        <a href="javascript:void(0)" class="nav-link nav-link-sub" data-page-id="sistema-sobre" data-modal-open="modalSobreSistema">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm0 4a1.25 1.25 0 1 1-1.25 1.25A1.25 1.25 0 0 1 12 6zm2 11h-4v-1.5h1V11H10V9.5h3a1 1 0 0 1 1 1v5h1z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Sobre</span>
+        </a>
+
+        <button type="button" class="nav-link nav-link-sub nav-link-action" data-nav-action="logout">
+          <span class="label">Sair</span>
+        </button>
+      </div>
+
+      <div class="sidebar-footer">
+        <small class="sidebar-user" id="sidebarUser"></small>
+        <span class="sidebar-year">
+          &copy; <span id="anoAtualSidebar"></span> PRONTIO
+        </span>
+      </div>
+    </aside>
+
+    <div class="sidebar-backdrop" data-sidebar-backdrop></div>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="main-area">
+      <!-- TOPBAR: montada pelo widget-topbar via main.js -->
+      <div id="topbarMount" data-partial="topbar"></div>
+
+      <!-- LAYOUT CENTRAL DA AGENDA -->
+      <section class="content content-agenda">
+        <div class="agenda-container">
+          <!-- CONTROLES DO DIA / DATA -->
+          <section class="card agenda-controls">
+            <div class="card-header card-header-tight">
+              <div>
+                <h2>Controles</h2>
+                <span class="card-subtitle">Navegação por dia/semana e ações</span>
+              </div>
+            </div>
+
+            <div class="card-body card-body-compact">
+              <div class="date-controls">
+                <button id="btn-dia-anterior" class="btn btn-secondary" type="button" aria-label="Dia anterior">&lt;</button>
+
+                <label for="input-data" class="date-label">
+                  Data:
+                  <input type="date" id="input-data" autocomplete="off" />
+                </label>
+
+                <button id="btn-dia-posterior" class="btn btn-secondary" type="button" aria-label="Próximo dia">&gt;</button>
+                <button id="btn-hoje" class="btn btn-outline" type="button">Hoje</button>
+              </div>
+
+              <div class="view-switch">
+                <button id="btn-visao-dia" class="btn btn-secondary btn-sm view-active" type="button">Dia</button>
+                <button id="btn-visao-semana" class="btn btn-outline btn-sm" type="button">Semana</button>
+              </div>
+
+              <div class="agenda-actions">
+                <button id="btn-bloquear-horario" class="btn btn-outline" type="button">Bloquear horário</button>
+                <button id="btn-novo-agendamento" class="btn btn-primary" type="button">Novo agendamento</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- FILTROS -->
+          <section class="card agenda-filtros">
+            <div class="card-header card-header-tight">
+              <div>
+                <h2>Filtros</h2>
+                <span class="card-subtitle">Refinar por paciente e status</span>
+              </div>
+            </div>
+
+            <div class="card-body card-body-compact">
+              <div class="filtros-row">
+                <div class="filtro-item">
+                  <label for="filtro-nome">Filtrar por paciente</label>
+                  <input type="text" id="filtro-nome" placeholder="Digite parte do nome do paciente..." autocomplete="off" />
+                </div>
+
+                <div class="filtro-item">
+                  <label for="filtro-status">Status</label>
+                  <select id="filtro-status">
+                    <option value="">Todos</option>
+                    <option value="agendado">Agendado</option>
+                    <option value="confirmado">Confirmado</option>
+                    <option value="em atendimento">Em atendimento</option>
+                    <option value="concluído">Concluído</option>
+                    <option value="faltou">Faltou</option>
+                    <option value="cancelado">Cancelado</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- RESUMO DO DIA -->
+          <section class="card agenda-resumo" id="agenda-resumo">
+            <div class="card-header card-header-tight">
+              <div>
+                <h2>Resumo do dia</h2>
+                <span class="card-subtitle">Indicadores rápidos</span>
+              </div>
+            </div>
+
+            <div class="card-body card-body-compact">
+              <div class="resumo-grid">
+                <div class="resumo-item">
+                  <span class="resumo-label">Total</span>
+                  <span class="resumo-value" id="resumo-total">0</span>
+                </div>
+                <div class="resumo-item">
+                  <span class="resumo-label">Confirmados</span>
+                  <span class="resumo-value resumo-confirmados" id="resumo-confirmados">0</span>
+                </div>
+                <div class="resumo-item">
+                  <span class="resumo-label">Faltas</span>
+                  <span class="resumo-value resumo-faltas" id="resumo-faltas">0</span>
+                </div>
+                <div class="resumo-item">
+                  <span class="resumo-label">Cancelados</span>
+                  <span class="resumo-value resumo-cancelados" id="resumo-cancelados">0</span>
+                </div>
+                <div class="resumo-item">
+                  <span class="resumo-label">Concluídos</span>
+                  <span class="resumo-value resumo-concluidos" id="resumo-concluidos">0</span>
+                </div>
+                <div class="resumo-item">
+                  <span class="resumo-label">Em atendimento</span>
+                  <span class="resumo-value resumo-em-atendimento" id="resumo-em-atendimento">0</span>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <!-- VISÃO DIA -->
+          <section class="card agenda-dia">
+            <div class="card-header card-header-tight">
+              <div>
+                <h2>Agenda do dia</h2>
+                <span class="card-subtitle">Horários e atendimentos</span>
+              </div>
+            </div>
+            <div class="card-body card-body-compact">
+              <div id="agenda-lista-horarios" class="agenda-lista-horarios"></div>
+            </div>
+          </section>
+
+          <!-- VISÃO SEMANA -->
+          <section class="card agenda-semana hidden" id="agenda-semana">
+            <div class="card-header card-header-tight">
+              <div>
+                <h2>Agenda da semana</h2>
+                <span class="card-subtitle">Visão semanal</span>
+              </div>
+            </div>
+            <div class="card-body card-body-compact">
+              <div id="agenda-semana-grid" class="agenda-semana-grid"></div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: Novo agendamento -->
+  <div id="modal-novo-agendamento" class="modal-overlay hidden" aria-hidden="true" data-modal="novo">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-novo-agendamento-titulo">
+      <div class="modal-header">
+        <h2 id="modal-novo-agendamento-titulo">Novo agendamento</h2>
+        <button type="button" class="icon-button modal-close" id="btn-fechar-modal" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-novo-agendamento">
+          <div id="novo-agendamento-mensagem" class="form-message"></div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="novo-hora-inicio">Hora início</label>
+              <input type="time" id="novo-hora-inicio" required />
+            </div>
+
+            <div class="form-group">
+              <label for="novo-duracao">Duração (min)</label>
+              <input type="number" id="novo-duracao" min="5" step="5" value="15" />
+            </div>
+
+            <div class="form-group form-group--full">
+              <label for="novo-nome-paciente">Paciente</label>
+              <div class="input-with-actions">
+                <input type="text" id="novo-nome-paciente" placeholder="Nome do paciente" autocomplete="off" />
+                <div class="input-actions">
+                  <button type="button" class="btn btn-sm btn-outline" id="btn-selecionar-paciente">Selecionar</button>
+                  <button type="button" class="btn btn-sm btn-ghost" id="btn-limpar-paciente">Limpar</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group form-group--full">
+              <label class="checkbox-row" for="novo-permite-encaixe">
+                <input type="checkbox" id="novo-permite-encaixe" />
+                <span>Permitir encaixe (pode sobrepor consultas)</span>
+              </label>
+              <small class="hint-text">Bloqueios de horário continuam impedindo agendamentos.</small>
+            </div>
+
+            <div class="form-group">
+              <label for="novo-telefone">Telefone</label>
+              <input type="tel" id="novo-telefone" placeholder="(99) 99999-9999" autocomplete="off" />
+            </div>
+
+            <div class="form-group">
+              <label for="novo-tipo">Tipo</label>
+              <input type="text" id="novo-tipo" placeholder="Consulta, retorno, etc." autocomplete="off" />
+            </div>
+
+            <div class="form-group form-group--full">
+              <label for="novo-motivo">Motivo</label>
+              <textarea id="novo-motivo" rows="2" placeholder="Motivo do agendamento"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="novo-origem">Origem</label>
+              <input type="text" id="novo-origem" placeholder="Indicação, convênio, etc." autocomplete="off" />
+            </div>
+
+            <div class="form-group">
+              <label for="novo-canal">Canal</label>
+              <input type="text" id="novo-canal" placeholder="Telefone, WhatsApp, etc." autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" id="btn-cancelar-modal">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-novo">Salvar agendamento</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Editar agendamento -->
+  <div id="modal-editar-agendamento" class="modal-overlay hidden" aria-hidden="true" data-modal="editar">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-editar-agendamento-titulo">
+      <div class="modal-header">
+        <h2 id="modal-editar-agendamento-titulo">Editar agendamento</h2>
+        <button type="button" class="icon-button modal-close" id="btn-fechar-modal-editar" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-editar-agendamento">
+          <input type="hidden" id="edit-id-agenda" />
+          <div id="editar-agendamento-mensagem" class="form-message"></div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="edit-data">Data</label>
+              <input type="date" id="edit-data" required />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-hora-inicio">Hora início</label>
+              <input type="time" id="edit-hora-inicio" required />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-duracao">Duração (min)</label>
+              <input type="number" id="edit-duracao" min="5" step="5" value="15" />
+            </div>
+
+            <div class="form-group form-group--full">
+              <label for="edit-nome-paciente">Paciente</label>
+              <div class="input-with-actions">
+                <input type="text" id="edit-nome-paciente" autocomplete="off" />
+                <div class="input-actions">
+                  <button type="button" class="btn btn-sm btn-outline" id="btn-edit-selecionar-paciente">Selecionar</button>
+                  <button type="button" class="btn btn-sm btn-ghost" id="btn-edit-limpar-paciente">Limpar</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group form-group--full">
+              <label class="checkbox-row" for="edit-permite-encaixe">
+                <input type="checkbox" id="edit-permite-encaixe" />
+                <span>Permitir encaixe (pode sobrepor consultas)</span>
+              </label>
+              <small class="hint-text">Bloqueios de horário continuam impedindo agendamentos.</small>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-tipo">Tipo</label>
+              <input type="text" id="edit-tipo" autocomplete="off" />
+            </div>
+
+            <div class="form-group form-group--full">
+              <label for="edit-motivo">Motivo</label>
+              <textarea id="edit-motivo" rows="2"></textarea>
+            </div>
+
+            <div class="form-group">
+              <label for="edit-origem">Origem</label>
+              <input type="text" id="edit-origem" autocomplete="off" />
+            </div>
+
+            <div class="form-group">
+              <label for="edit-canal">Canal</label>
+              <input type="text" id="edit-canal" autocomplete="off" />
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" id="btn-cancelar-editar">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-editar">Salvar alterações</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Bloqueio de horário -->
+  <div id="modal-bloqueio" class="modal-overlay hidden" aria-hidden="true" data-modal="bloqueio">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-bloqueio-titulo">
+      <div class="modal-header">
+        <h2 id="modal-bloqueio-titulo">Bloquear horário</h2>
+        <button type="button" class="icon-button modal-close" id="btn-fechar-modal-bloqueio" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <form id="form-bloqueio">
+          <div id="bloqueio-mensagem" class="form-message"></div>
+
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="bloq-hora-inicio">Hora início</label>
+              <input type="time" id="bloq-hora-inicio" required />
+            </div>
+
+            <div class="form-group">
+              <label for="bloq-duracao">Duração (min)</label>
+              <input type="number" id="bloq-duracao" min="5" step="5" value="60" />
+            </div>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline" id="btn-cancelar-bloqueio">Cancelar</button>
+            <button type="submit" class="btn btn-primary" id="btn-submit-bloqueio">Salvar bloqueio</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal: Seleção de pacientes -->
+  <div id="modal-pacientes" class="modal-overlay hidden" aria-hidden="true" data-modal="pacientes">
+    <div class="modal modal-large" role="dialog" aria-modal="true" aria-labelledby="modal-pacientes-titulo">
+      <div class="modal-header">
+        <h2 id="modal-pacientes-titulo">Selecionar paciente</h2>
+        <button type="button" class="icon-button modal-close" id="btn-fechar-modal-pacientes" aria-label="Fechar">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="busca-paciente-termo">Buscar paciente</label>
+          <input type="text" id="busca-paciente-termo" placeholder="Digite parte do nome, documento ou telefone..." autocomplete="off" />
+        </div>
+
+        <div id="pacientes-resultado-msg" class="form-message"></div>
+        <div id="lista-pacientes" class="pacientes-lista"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SOBRE -->
+  <div id="modalSobreSistema" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalSobreSistemaTitulo">
+    <div class="modal modal--lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalSobreSistemaTitulo">PRONTIO — Sobre o Sistema</h2>
+        <div class="modal-header-actions">
+          <button type="button" class="modal-close" aria-label="Fechar" data-modal-close="modalSobreSistema">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p><strong>PRONTIO — Sistema de Consultório Médico</strong><br>
+        Desenvolvido para uso pessoal do <strong>Dr. Marco Antônio Comper</strong>.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close="modalSobreSistema">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ÚNICO SCRIPT carregado no HTML (SEM type="module") -->
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

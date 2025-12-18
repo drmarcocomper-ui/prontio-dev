@@ -1,0 +1,266 @@
+/* ========================================= 
+   PRONTIO - CSS específico do Prontuário
+   Escopo: somenta na página data-page-id="prontuario"
+========================================= */
+
+/* Layout centralizado do conteúdo */
+
+body[data-page-id="prontuario"] .content-prontuario {
+  max-width: 1100px;
+  margin: 0 auto 3rem;
+}
+
+/* =========================================
+   BASE (usa tokens globais)
+========================================= */
+
+body[data-page-id="prontuario"] .card-prontuario {
+  border-radius: 14px;
+  border: 1px solid var(--cor-borda-suave, #e5e7eb);
+  background:
+    radial-gradient(circle at top left,
+      rgba(37, 99, 235, 0.04),
+      transparent 60%),
+    var(--cor-fundo-card, #ffffff);
+  box-shadow: var(--shadow-card, 0 10px 30px rgba(15, 23, 42, 0.08));
+  color: var(--cor-texto-principal, #111827);
+}
+
+body[data-page-id="prontuario"] .card-prontuario + .card-prontuario {
+  margin-top: 1.5rem;
+}
+
+body[data-page-id="prontuario"] .card-header-tight {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.35rem;
+}
+
+body[data-page-id="prontuario"] .card-header-tight h2 {
+  margin: 0;
+  font-size: 1.1rem;
+  color: var(--cor-texto-principal, #111827);
+}
+
+body[data-page-id="prontuario"] .card-header-tight .card-subtitle {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: var(--cor-texto-secundario, #4b5563);
+}
+
+body[data-page-id="prontuario"] .card-body-compact {
+  padding-top: 0.6rem;
+}
+
+/* Cabeçalho do paciente */
+
+body[data-page-id="prontuario"] .card-paciente .prontuario-paciente-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+
+body[data-page-id="prontuario"] .paciente-nome-linha .label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cor-texto-secundario, #4b5563);
+  margin-right: 0.5rem;
+}
+
+body[data-page-id="prontuario"] .paciente-nome {
+  font-size: 1.18rem;
+  font-weight: 600;
+  color: var(--cor-texto-principal, #111827);
+}
+
+body[data-page-id="prontuario"] .paciente-id-linha {
+  margin-top: 0.25rem;
+  color: var(--cor-texto-secundario, #4b5563);
+}
+
+body[data-page-id="prontuario"] .prontuario-atendimento-grid .campo-inline {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  margin-bottom: 0.25rem;
+}
+
+body[data-page-id="prontuario"] .campo-label {
+  color: var(--cor-texto-secundario, #4b5563);
+}
+
+body[data-page-id="prontuario"] .campo-valor {
+  font-weight: 500;
+  color: var(--cor-texto-principal, #111827);
+}
+
+body[data-page-id="prontuario"] .texto-suave {
+  color: var(--cor-texto-suave, #6b7280);
+}
+
+/* =========================================
+   BARRA DE AÇÕES CLÍNICAS
+========================================= */
+
+body[data-page-id="prontuario"] .prontuario-acoes-clinicas {
+  margin-top: 1.25rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+body[data-page-id="prontuario"] .btn-acao-clinica {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 999px;
+  border: 1px solid var(--cor-primaria);
+  background: var(--cor-fundo-card, #ffffff);
+  color: var(--cor-primaria);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    box-shadow 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.08s ease,
+    color 0.15s ease;
+  white-space: nowrap;
+}
+
+body[data-page-id="prontuario"] .btn-acao-principal {
+  background: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.35);
+}
+
+body[data-page-id="prontuario"] .btn-acao-clinica:hover {
+  background: rgba(37, 99, 235, 0.08);
+  border-color: var(--cor-primaria-escura, #1d4ed8);
+  transform: translateY(-1px);
+}
+
+body[data-page-id="prontuario"] .btn-acao-principal:hover {
+  background: var(--cor-primaria-escura, #1d4ed8);
+  border-color: var(--cor-primaria-escura, #1d4ed8);
+  box-shadow: 0 10px 26px rgba(37, 99, 235, 0.45);
+}
+
+body[data-page-id="prontuario"] .btn-acao-icone {
+  font-size: 1.1rem;
+}
+
+body[data-page-id="prontuario"] .btn-acao-texto {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.2;
+}
+
+body[data-page-id="prontuario"] .btn-acao-titulo {
+  font-size: 0.86rem;
+  font-weight: 600;
+}
+
+body[data-page-id="prontuario"] .btn-acao-subtitulo {
+  font-size: 0.72rem;
+  color: var(--cor-texto-secundario);
+}
+
+/* Formulário de evolução */
+
+body[data-page-id="prontuario"] #formEvolucao textarea {
+  resize: vertical;
+  min-height: 150px;
+  font-family: inherit;
+  line-height: 1.6;
+  font-size: 0.95rem;
+  color: var(--cor-texto-principal, #111827);
+  background: var(--cor-fundo-card, #ffffff);
+  border: 1px solid var(--cor-borda-suave, #e5e7eb);
+  border-radius: 10px;
+}
+
+body[data-page-id="prontuario"] #formEvolucao textarea::placeholder {
+  color: var(--cor-texto-suave, #6b7280);
+}
+
+body[data-page-id="prontuario"] .form-row-actions-inline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.6rem;
+}
+
+body[data-page-id="prontuario"] .form-row-actions-inline .btn {
+  min-width: 160px;
+}
+
+body[data-page-id="prontuario"] #mensagemEvolucao.mensagem {
+  margin-top: 0.75rem;
+}
+
+/* Timeline do histórico */
+
+body[data-page-id="prontuario"] .prontuario-timeline {
+  position: relative;
+  list-style: none;
+  margin: 1.5rem 0 0;
+  padding-left: 0;
+}
+
+body[data-page-id="prontuario"] .prontuario-timeline::before {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 0.5rem;
+  bottom: 0.5rem;
+  width: 2px;
+  background: linear-gradient(
+    to bottom,
+    rgba(148, 163, 184, 0.7),
+    rgba(148, 163, 184, 0.15)
+  );
+}
+
+/* =========================================
+   RESPONSIVO
+========================================= */
+
+@media (max-width: 768px) {
+  body[data-page-id="prontuario"] .content-prontuario {
+    padding-inline: 0.75rem;
+  }
+
+  body[data-page-id="prontuario"] .card-prontuario {
+    border-radius: 10px;
+  }
+
+  body[data-page-id="prontuario"] .card-header-tight {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  body[data-page-id="prontuario"] .prontuario-acoes-clinicas {
+    flex-direction: column;
+  }
+
+  body[data-page-id="prontuario"] .btn-acao-clinica {
+    width: 100%;
+    justify-content: flex-start;
+  }
+}
+
+/* OBS:
+   Removido o bloco do chat do page-prontuario.css para evitar conflito.
+   O chat do topo/janela passa a ser 100% controlado por:
+   assets/css/components/chat-topbar.css
+*/

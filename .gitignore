@@ -1,0 +1,23 @@
+﻿# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Node / frontend (se usar)
+node_modules/
+dist/
+build/
+.vite/
+
+# Env
+.env
+.env.* 
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# Apps Script / clasp (se usar)
+.clasp.json

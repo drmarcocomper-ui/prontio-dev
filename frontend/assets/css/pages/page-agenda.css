@@ -1,0 +1,1245 @@
+/* PRONTIO - Estilos da Agenda */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background-color: #f5f7fb;
+  color: #222;
+}
+
+/* =========================================================
+   TOPBAR (caso a agenda use topbar próprio/local)
+   ========================================================= */
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: #1b365d;
+  color: #fff;
+}
+
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.logo {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 0.9rem;
+}
+
+.topbar-title {
+  font-size: 1.1rem;
+  font-weight: 500;
+}
+
+.topbar-right {
+  font-size: 0.9rem;
+}
+
+/* =========================================================
+   CONTAINER PRINCIPAL
+   ========================================================= */
+
+.agenda-container {
+  padding: 1rem;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* =========================================================
+   CONTROLES
+   ========================================================= */
+
+.agenda-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) auto minmax(0, 1.2fr);
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+
+.date-controls {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.date-label {
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+#input-data {
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.9rem;
+}
+
+.agenda-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}
+
+/* Troca de visão */
+
+.view-switch {
+  display: flex;
+  justify-content: center;
+  gap: 0.35rem;
+}
+
+.view-switch .btn {
+  padding-inline: 0.7rem;
+}
+
+.view-switch .view-active {
+  background: #1e293b;
+  color: #ffffff;
+  border-color: #1e293b;
+}
+
+/* =========================================================
+   BOTÕES
+   ========================================================= */
+
+.btn {
+  border: none;
+  border-radius: 999px;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease, transform 0.05s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  white-space: nowrap;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.btn:active {
+  transform: translateY(1px);
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.btn-secondary {
+  background: #e2e8f0;
+  color: #1f2933;
+}
+
+.btn-secondary:hover {
+  background: #cbd5e1;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #1f2933;
+}
+
+.btn-outline:hover {
+  background: #e2e8f0;
+}
+
+/* Usado no HTML (Limpar paciente) */
+.btn-ghost {
+  background: transparent;
+  border: 1px solid transparent;
+  color: #475569;
+}
+
+.btn-ghost:hover {
+  background: #f1f5f9;
+  color: #0f172a;
+}
+
+/* Estados de foco (melhoria de acessibilidade/UX) */
+.btn:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.25);
+}
+
+/* =========================================================
+   FILTROS
+   ========================================================= */
+
+.agenda-filtros {
+  margin-bottom: 0.75rem;
+}
+
+.filtros-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.filtro-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  min-width: 220px;
+  max-width: 280px;
+}
+
+.filtro-item label {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.filtro-item input,
+.filtro-item select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.9rem;
+}
+
+/* =========================================================
+   RESUMO DO DIA
+   ========================================================= */
+
+.agenda-resumo {
+  margin-bottom: 1rem;
+}
+
+.resumo-card {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.resumo-card h2 {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.resumo-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.resumo-item {
+  background: #f8fafc;
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.resumo-label {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.resumo-value {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.resumo-confirmados {
+  color: #16a34a;
+}
+
+.resumo-faltas {
+  color: #b91c1c;
+}
+
+.resumo-cancelados {
+  color: #ea580c;
+}
+
+.resumo-concluidos {
+  color: #059669;
+}
+
+.resumo-em-atendimento {
+  color: #0ea5e9;
+}
+
+/* =========================================================
+   AGENDA DO DIA / SEMANA (cards base)
+   ========================================================= */
+
+.section-title {
+  font-size: 1rem;
+  margin: 0 0 0.5rem;
+}
+
+.agenda-dia,
+.agenda-semana {
+  background: #ffffff;
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+  margin-bottom: 1rem;
+}
+
+.hidden {
+  display: none;
+}
+
+/* =========================================================
+   VISÃO DIA
+   ========================================================= */
+
+.agenda-lista-horarios {
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  max-height: calc(100vh - 270px);
+  overflow-y: auto;
+  background: #f9fafb;
+}
+
+.agenda-slot {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr);
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.agenda-slot:last-child {
+  border-bottom: none;
+}
+
+.agenda-slot-hora {
+  padding: 0.5rem 0.5rem;
+  border-right: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+  color: #64748b;
+  background: #f1f5f9;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+.agenda-slot-conteudo {
+  padding: 0.4rem 0.5rem;
+}
+
+.agenda-slot-vazio {
+  font-size: 0.85rem;
+  color: #94a3b8;
+  font-style: italic;
+  padding: 0.15rem 0;
+}
+
+/* Ações rápidas no slot livre */
+.agenda-slot-actions {
+  display: flex;
+  gap: 0.35rem;
+  margin-top: 0.35rem;
+  flex-wrap: wrap;
+}
+
+.agenda-slot-action-btn {
+  font-size: 0.68rem;
+  padding: 0.12rem 0.45rem;
+}
+
+/* =========================================================
+   VISÃO SEMANA (layout antigo em cards) - mantido
+   ========================================================= */
+
+.agenda-semana-dias {
+  margin-top: 0.5rem;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.agenda-semana-dia-card {
+  background: #f9fafb;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  padding: 0.55rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.agenda-semana-dia-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.agenda-semana-dia-data {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #0f172a;
+}
+
+.agenda-semana-dia-resumo {
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+.agenda-semana-dia-lista {
+  border-radius: 8px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.agenda-semana-item {
+  padding: 0.3rem 0.45rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+}
+
+.agenda-semana-item:last-child {
+  border-bottom: none;
+}
+
+.agenda-semana-item-linha1 {
+  font-weight: 600;
+  color: #111827;
+}
+
+.agenda-semana-item-linha2 {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+/* =========================================================
+   CARTÕES (agendamento / bloqueio)
+   ========================================================= */
+
+.agendamento-card {
+  background: #ffffff;
+  border-radius: 8px;
+  padding: 0.35rem 0.45rem;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+  border-left: 3px solid #94a3b8;
+  margin-bottom: 0.25rem;
+  transition: background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.agendamento-card.agendamento-atualizando {
+  opacity: 0.7;
+  background-color: #e5e7eb;
+}
+
+/* Cartão de bloqueio */
+
+.bloqueio-card {
+  background: #e5e7eb;
+  border-left-color: #6b7280;
+}
+
+.bloqueio-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Linhas dentro do cartão */
+
+.agendamento-linha-principal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+  margin-bottom: 0.1rem;
+}
+
+.agendamento-nome {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.agendamento-tipo {
+  font-size: 0.75rem;
+  color: #64748b;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background-color: #eff6ff;
+}
+
+.agendamento-linha-secundaria {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  align-items: center;
+  margin-bottom: 0.1rem;
+}
+
+/* NOVO (compatibilidade com o JS novo): select de status */
+.agendamento-status-select {
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 0.12rem 0.55rem;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.agendamento-status-select:hover {
+  border-color: #94a3b8;
+}
+
+/* Mantido (caso algum trecho ainda use status como “pill”) */
+.agendamento-status {
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.agendamento-canal {
+  font-size: 0.75rem;
+  color: #64748b;
+}
+
+.agendamento-motivo {
+  font-size: 0.78rem;
+  color: #6b7280;
+}
+
+/* =========================================================
+   AÇÕES RÁPIDAS (botões pequenos no cartão)
+   ========================================================= */
+
+.agendamento-acoes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin-top: 0.25rem;
+}
+
+.btn-status {
+  border-radius: 999px;
+  border: none;
+  font-size: 0.7rem;
+  padding: 0.15rem 0.5rem;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, transform 0.05s;
+  background: #e5e7eb;
+  color: #374151;
+}
+
+.btn-status:active {
+  transform: translateY(1px);
+}
+
+.btn-status-atender {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btn-status-atender:hover {
+  background: #1d4ed8;
+}
+
+.btn-status-editar {
+  background: #e5e7eb;
+  color: #111827;
+}
+
+.btn-status-editar:hover {
+  background: #e0f2fe;
+}
+
+.btn-status-confirmar {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.btn-status-confirmar:hover {
+  background: #bbf7d0;
+}
+
+.btn-status-atendimento {
+  background: #e0f2fe;
+  color: #0369a1;
+}
+
+.btn-status-atendimento:hover {
+  background: #bae6fd;
+}
+
+.btn-status-faltou {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.btn-status-faltou:hover {
+  background: #fecaca;
+}
+
+.btn-status-cancelar {
+  background: #ffedd5;
+  color: #c2410c;
+}
+
+.btn-status-cancelar:hover {
+  background: #fed7aa;
+}
+
+.btn-status-concluido {
+  background: #e0f2f1;
+  color: #047857;
+}
+
+.btn-status-concluido:hover {
+  background: #ccfbf1;
+}
+
+.btn-status-remover-bloqueio {
+  background: #fecaca;
+  color: #991b1b;
+}
+
+.btn-status-remover-bloqueio:hover {
+  background: #fee2e2;
+}
+
+/* =========================================================
+   CORES POR STATUS (borda esquerda do card)
+   ========================================================= */
+
+.status-agendado {
+  border-left-color: #64748b;
+}
+
+.status-confirmado {
+  border-left-color: #16a34a;
+}
+
+.status-falta {
+  border-left-color: #b91c1c;
+}
+
+.status-cancelado {
+  border-left-color: #ea580c;
+}
+
+.status-encaixe {
+  border-left-color: #7c3aed;
+}
+
+.status-em-atendimento {
+  border-left-color: #0ea5e9;
+}
+
+.status-concluido {
+  border-left-color: #059669;
+}
+
+/* =========================================================
+   ESTADOS GERAIS
+   ========================================================= */
+
+.agenda-loading,
+.agenda-erro,
+.agenda-vazia {
+  padding: 0.75rem;
+  font-size: 0.9rem;
+}
+
+.agenda-loading {
+  color: #64748b;
+}
+
+.agenda-erro {
+  color: #b91c1c;
+}
+
+.agenda-vazia {
+  color: #94a3b8;
+  font-style: italic;
+}
+
+/* =========================================================
+   MODAL (genérico)
+   ========================================================= */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  transition: opacity 0.15s ease;
+}
+
+.modal-overlay.hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.modal-overlay.visible {
+  opacity: 1;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.3);
+  padding: 0.75rem 1rem 1rem;
+}
+
+/* compat: modal maior usado no HTML */
+.modal-large,
+.modal.modal-large,
+.modal--lg {
+  max-width: 720px;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.modal-header h2,
+.modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+/* compat: há projetos que usam modal-close-btn e outros usam .modal-close/.icon-button */
+.modal-close-btn,
+.modal-close {
+  border: none;
+  background: transparent;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  color: #64748b;
+}
+
+.modal-close-btn:hover,
+.modal-close:hover {
+  color: #0f172a;
+}
+
+.modal-body {
+  font-size: 0.9rem;
+}
+
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* =========================================================
+   MODAL PACIENTES (classes corrigidas)
+   ========================================================= */
+
+.pacientes-lista {
+  margin-top: 0.5rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f9fafb;
+}
+
+/* compat: versão antiga */
+.lista-pacientes {
+  margin-top: 0.5rem;
+  max-height: 50vh;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f9fafb;
+}
+
+.paciente-lista-item {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: #ffffff;
+  padding: 0.5rem 0.6rem;
+  border-bottom: 1px solid #e5e7eb;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.paciente-lista-item:last-child {
+  border-bottom: none;
+}
+
+.paciente-lista-item:hover {
+  background: #eff6ff;
+}
+
+.paciente-lista-nome {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.paciente-lista-detalhes {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+/* =========================================================
+   FORMULÁRIOS (compatibilidade com seu HTML atual)
+   ========================================================= */
+
+.form-message {
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+}
+
+.form-message.info {
+  color: #2563eb;
+}
+
+.form-message.sucesso {
+  color: #16a34a;
+}
+
+.form-message.erro {
+  color: #b91c1c;
+}
+
+.hint-text {
+  font-size: 0.75rem;
+  color: #6b7280;
+}
+
+/* ✅ NOVO: checkbox row (Encaixe) */
+.checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #0f172a;
+  user-select: none;
+}
+
+.checkbox-row input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+/* compat antigo */
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.55rem;
+}
+
+.form-row label {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.form-row input,
+.form-row textarea {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.form-row textarea {
+  resize: vertical;
+}
+
+.form-row input:focus,
+.form-row textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.3);
+}
+
+/* usado no HTML atual */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.form-group label {
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+.form-group input,
+.form-group textarea,
+.form-group select {
+  padding: 0.35rem 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.form-group textarea {
+  resize: vertical;
+}
+
+.form-group--full {
+  grid-column: 1 / -1;
+}
+
+/* ✅ ALTERADO: position: relative para ancorar o painel do typeahead */
+.input-with-actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+  position: relative;
+}
+
+.input-with-actions input {
+  flex: 1 1 auto;
+}
+
+.input-actions {
+  display: inline-flex;
+  gap: 0.35rem;
+  align-items: center;
+}
+
+.form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+/* LINHA DE SELEÇÃO DE PACIENTE */
+.paciente-select-row {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
+}
+
+/* =========================================================
+   TYPEAHEAD (autocomplete) - NOVO
+   ========================================================= */
+
+.typeahead-panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 50;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 12px 28px rgba(15, 23, 42, 0.16);
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+}
+
+.typeahead-panel.hidden {
+  display: none;
+}
+
+.typeahead-item {
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: #ffffff;
+  padding: 0.5rem 0.6rem;
+  cursor: pointer;
+  border-bottom: 1px solid #eef2f7;
+}
+
+.typeahead-item:last-child {
+  border-bottom: none;
+}
+
+.typeahead-item:hover,
+.typeahead-item.active {
+  background: #eff6ff;
+}
+
+.typeahead-item-nome {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.typeahead-item-detalhes {
+  margin-top: 0.1rem;
+  font-size: 0.78rem;
+  color: #64748b;
+}
+
+/* =========================================================
+   RESPONSIVIDADE
+   ========================================================= */
+
+@media (max-width: 900px) {
+  .agenda-controls {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1.2fr);
+    grid-auto-rows: auto;
+    grid-template-areas:
+      "date view"
+      "actions actions";
+  }
+
+  .date-controls {
+    grid-area: date;
+  }
+
+  .view-switch {
+    grid-area: view;
+    justify-content: flex-end;
+  }
+
+  .agenda-actions {
+    grid-area: actions;
+    justify-content: flex-start;
+  }
+
+  .agenda-semana-dias {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .agenda-container {
+    padding: 0.75rem;
+  }
+
+  .agenda-controls {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "date"
+      "view"
+      "actions";
+  }
+
+  .view-switch {
+    justify-content: flex-start;
+  }
+
+  .resumo-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .agenda-lista-horarios {
+    max-height: calc(100vh - 280px);
+  }
+
+  .agenda-semana-dias {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .input-with-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .input-actions {
+    justify-content: flex-end;
+  }
+}
+
+@media (max-width: 480px) {
+  .resumo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agenda-slot {
+    grid-template-columns: 60px minmax(0, 1fr);
+  }
+
+  .agendamento-acoes {
+    gap: 0.2rem;
+  }
+
+  .btn-status {
+    font-size: 0.65rem;
+    padding: 0.1rem 0.45rem;
+  }
+
+  .paciente-select-row {
+    flex-wrap: wrap;
+  }
+}
+
+/* =========================================================
+   VISÃO SEMANAL EM GRID (novo layout)
+   ========================================================= */
+
+.agenda-semana-grid {
+  margin-top: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  overflow: hidden;
+  background: #f9fafb;
+}
+
+/* Linha do grid semanal */
+.semana-row {
+  display: grid;
+  grid-template-columns: 70px repeat(6, minmax(0, 1fr)); /* hora + 6 dias */
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.semana-row:last-child {
+  border-bottom: none;
+}
+
+/* Célula genérica */
+.semana-cell {
+  border-right: 1px solid #e5e7eb;
+  padding: 0.25rem 0.35rem;
+  font-size: 0.78rem;
+}
+
+.semana-row .semana-cell:last-child {
+  border-right: none;
+}
+
+/* Cabeçalho da semana */
+.semana-header-row {
+  background: #e5e7eb;
+}
+
+.semana-header-cell {
+  text-align: center;
+}
+
+.semana-corner-cell {
+  background: #e5e7eb;
+}
+
+.semana-header-dia {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.semana-header-data {
+  font-size: 0.72rem;
+  color: #6b7280;
+}
+
+/* Coluna de horas */
+.semana-hora-cell {
+  background: #f1f5f9;
+  color: #6b7280;
+  font-size: 0.78rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+}
+
+/* Células de slots */
+.semana-slot-cell {
+  background: #ffffff;
+  min-height: 1.8rem;
+}
+
+/* Itens de agenda na célula semanal */
+.semana-agenda-item {
+  background: #eff6ff;
+  border-radius: 6px;
+  padding: 0.15rem 0.25rem;
+  margin-bottom: 0.15rem;
+  font-size: 0.72rem;
+  color: #1f2937;
+  cursor: pointer; /* clicável para abrir o dia */
+}
+
+.semana-agenda-item:last-child {
+  margin-bottom: 0;
+}
+
+.semana-agenda-item:hover {
+  background: #dbeafe;
+}
+
+.semana-bloqueio-item {
+  background: #e5e7eb;
+  color: #374151;
+  font-weight: 500;
+  cursor: default; /* bloqueio não abre prontuário */
+}
+
+/* Responsivo: semana em telas menores */
+@media (max-width: 900px) {
+  .semana-row {
+    grid-template-columns: 55px repeat(6, minmax(0, 1fr));
+  }
+
+  .semana-hora-cell {
+    font-size: 0.72rem;
+  }
+
+  .semana-header-data {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .agenda-semana-grid {
+    overflow-x: auto;
+  }
+
+  .semana-row {
+    min-width: 700px; /* permite scroll horizontal */
+  }
+}

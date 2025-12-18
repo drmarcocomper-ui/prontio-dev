@@ -1,0 +1,107 @@
+/* =====================================
+   PRONTIO - page-login.css
+   Tela de login (sem sidebar/topbar)
+===================================== */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--cor-fundo-pagina, #f4f6f8);
+  padding: 16px;
+}
+
+.login-card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--cor-fundo-card, #ffffff);
+  border-radius: var(--radius-card, 8px);
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
+  box-shadow: var(--shadow-card, 0 10px 25px rgba(15, 23, 42, 0.18));
+  padding: 20px 22px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-logo {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 6px;
+}
+
+.login-logo img {
+  max-height: 48px;
+  width: auto;
+}
+
+.login-title {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--cor-texto-principal, #111827);
+  text-align: center;
+}
+
+.login-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--cor-texto-secundario, #4b5563);
+  text-align: center;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.login-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.login-form label {
+  font-size: 13px;
+  color: var(--cor-texto-secundario, #4b5563);
+}
+
+.login-form input[type="text"],
+.login-form input[type="password"] {
+  border-radius: 6px;
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
+  padding: 8px 10px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.login-form input[type="text"]:focus,
+.login-form input[type="password"]:focus {
+  border-color: var(--cor-primaria, #0066cc);
+  box-shadow: 0 0 0 1px rgba(0, 102, 204, 0.4);
+}
+
+.login-actions {
+  margin-top: 6px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+#mensagemLogin {
+  margin-bottom: 4px;
+}
+
+.login-footer {
+  margin-top: 4px;
+  text-align: center;
+}
+
+/* Responsivo */
+@media (max-width: 480px) {
+  .login-card {
+    padding: 18px 16px 16px;
+  }
+}

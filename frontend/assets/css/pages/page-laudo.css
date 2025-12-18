@@ -1,0 +1,159 @@
+/* ===========================================
+   PRONTIO - CSS específico da página Laudo
+=========================================== */
+
+/* Subtítulo do topo com paciente */
+.topbar-paciente {
+  font-size: 13px;
+  color: #666;
+}
+
+/* Mensagem geral da tela de laudo (usa estilos globais de .mensagem) */
+#mensagemLaudo {
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+/* GRID do formulário (título + tipo) */
+.form-laudo-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Campos do formulário */
+.campo-form {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.campo-form label {
+  font-weight: bold;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #444;
+}
+
+.campo-form input,
+.campo-form select,
+.campo-form textarea {
+  padding: 6px 8px;
+  font-size: 14px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.campo-form textarea {
+  min-height: 120px;
+  resize: vertical;
+}
+
+/* Texto de ajuda abaixo dos campos */
+.campo-ajuda {
+  font-size: 11px;
+  color: #777;
+  margin-top: 2px;
+}
+
+/* Ações do formulário (botões de salvar, limpar...) */
+.acoes-form-laudo {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* GRID: Informações do paciente */
+.info-paciente-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 6px 18px;
+  font-size: 13px;
+}
+
+.info-paciente-label {
+  font-weight: bold;
+  color: #555;
+}
+
+.info-paciente-valor {
+  color: #111;
+}
+
+/* Tabela de laudos anteriores */
+.tabela-laudos-wrapper {
+  overflow-x: auto;
+}
+
+.tabela-laudos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 650px;
+}
+
+.tabela-laudos th,
+.tabela-laudos td {
+  border: 1px solid #dde3ea;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tabela-laudos thead {
+  background: #f1f4f8;
+}
+
+.tabela-laudos tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.col-laudo-data {
+  width: 140px;
+  white-space: nowrap;
+}
+
+.col-laudo-tipo {
+  width: 120px;
+  white-space: nowrap;
+}
+
+.col-laudo-acoes {
+  width: 150px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.acoes-laudo-lista {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.acoes-laudo-lista .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Preview do texto em laudos anteriores */
+.texto-laudo-preview {
+  max-height: 60px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Responsividade */
+@media (max-width: 800px) {
+  .info-paciente-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-laudo-grid {
+    grid-template-columns: 1fr;
+  }
+}

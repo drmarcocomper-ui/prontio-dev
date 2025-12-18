@@ -1,0 +1,76 @@
+/* ========================================= 
+   PRONTIO - Theme Default (Light)
+   Aplicado quando <body data-theme="light">
+========================================= */
+
+body[data-theme="light"] {
+  /* Fundo geral da aplicação */
+  --cor-fundo-app: #f3f4f6;
+  --cor-fundo-card: #ffffff;
+  --cor-fundo-card-alt: #f9fafb;
+
+  /* Bordas */
+  --cor-borda-suave: #e5e7eb;
+  --cor-borda-forte: #cbd5f5;
+
+  /* Texto */
+  --cor-texto-principal: #0f172a;
+  --cor-texto-secundario: #4b5563;
+  --cor-texto-suave: #6b7280;
+
+  /* Sombras */
+  --shadow-card: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-card-profundo: 0 18px 40px rgba(15, 23, 42, 0.12);
+
+  /* Aliases legacy */
+  --app-bg-body: var(--cor-fundo-app);
+  --app-bg-shell: #e5e7eb;
+  --app-bg-surface: var(--cor-fundo-card);
+  --app-bg-surface-alt: var(--cor-fundo-card-alt);
+
+  --app-text-primary: var(--cor-texto-principal);
+  --app-text-muted: var(--cor-texto-secundario);
+  --app-text-softer: var(--cor-texto-suave);
+
+  --app-border-subtle: var(--cor-borda-suave);
+  --app-border-strong: var(--cor-borda-forte);
+
+  --app-brand: var(--cor-primaria);
+  --app-brand-soft: var(--cor-primaria-clara);
+
+  /* Topbar tokens */
+  --topbar-icon-color: #4b5563;
+  --topbar-hover-bg: rgba(0, 0, 0, 0.06);
+
+  /* Fundo do body no tema claro */
+  background: linear-gradient(135deg, #f9fafb 0%, #e5e7eb 40%, #dde5ff 100%);
+  color: var(--cor-texto-principal);
+}
+
+body[data-theme="light"] .main-area {
+  background: transparent;
+}
+
+/* Harmonização topbar light */
+body[data-theme="light"] .topbar {
+  background: #ffffff;
+  color: var(--cor-texto-principal);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.06);
+}
+
+body[data-theme="light"] .topbar-title-main h1 {
+  color: var(--cor-texto-principal);
+}
+
+body[data-theme="light"] .topbar-subtitle {
+  color: var(--cor-texto-secundario);
+}
+
+body[data-theme="light"] .topbar-breadcrumb {
+  color: var(--cor-texto-secundario);
+}
+
+body[data-theme="light"] .topbar-meta-item {
+  color: var(--cor-texto-suave);
+}

@@ -1,0 +1,148 @@
+/* PRONTIO - Timeline visual para receitas no prontuário
+ *
+ * Aplica:
+ * - Linha vertical à esquerda da lista
+ * - Bolinhas para cada receita
+ * - Destaque de tipo (Comum / Especial) e status
+ */
+
+#secReceitasPaciente .card-body {
+  position: relative;
+}
+
+/* UL da lista de receitas: coluna vertical da linha do tempo */
+#secReceitasPaciente .lista-receitas {
+  position: relative;
+  margin: 0;
+  padding: 0 0 0 1.75rem; /* espaço para a linha e as bolinhas */
+  list-style: none;
+}
+
+/* Linha vertical */
+#secReceitasPaciente .lista-receitas::before {
+  content: "";
+  position: absolute;
+  left: 0.65rem;
+  top: 0.25rem;
+  bottom: 0.25rem;
+  width: 2px;
+  border-radius: 999px;
+  background: var(--border-subtle, #e0e0e0);
+}
+
+/* Cada item da timeline (li) */
+#secReceitasPaciente .receita-item-timeline {
+  position: relative;
+  padding: 0.5rem 0.75rem 0.75rem 0.75rem;
+  margin-bottom: 0.75rem;
+  border-radius: 0.75rem;
+  background: var(--surface-soft, #f9fafb);
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+  transition: background-color 0.15s ease, box-shadow 0.15s ease,
+    transform 0.05s ease, border-color 0.15s ease;
+}
+
+/* Deixar visualmente "clicável" */
+#secReceitasPaciente .receita-item-timeline.is-clickable {
+  cursor: pointer;
+}
+
+/* Bolinha da timeline */
+#secReceitasPaciente .receita-item-timeline::before {
+  content: "";
+  position: absolute;
+  left: -1.1rem;
+  top: 0.9rem;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--primary, #2563eb);
+  border: 2px solid #ffffff;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+}
+
+/* Hover para destacar o item atual */
+#secReceitasPaciente .receita-item-timeline.is-clickable:hover {
+  background: var(--surface-soft-hover, #f3f4f6);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+  transform: translateY(-1px);
+  border-color: var(--primary-soft, #bfdbfe);
+}
+
+/* Header da receita: data + chips */
+#secReceitasPaciente .receita-header {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+}
+
+/* Data da receita */
+#secReceitasPaciente .receita-data {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--text-muted, #6b7280);
+}
+
+/* "Chips" de tipo e status */
+#secReceitasPaciente .receita-tipo,
+#secReceitasPaciente .receita-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.05rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+/* Tipo (Comum / Especial) */
+#secReceitasPaciente .receita-tipo {
+  border: 1px solid var(--primary, #2563eb);
+  color: var(--primary, #2563eb);
+  background: rgba(37, 99, 235, 0.06);
+  text-transform: capitalize;
+}
+#secReceitasPaciente .receita-tipo::first-letter {
+  text-transform: uppercase;
+}
+
+/* Status (RASCUNHO / FINAL) */
+#secReceitasPaciente .receita-status {
+  border: 1px solid var(--border-subtle, #e5e7eb);
+  color: var(--text-muted, #6b7280);
+  background: #ffffff;
+}
+
+/* Resumo da prescrição (primeira linha dos medicamentos) */
+#secReceitasPaciente .receita-resumo {
+  margin-top: 0.15rem;
+  font-size: 0.78rem;
+  color: var(--text-default, #111827);
+}
+
+/* Linha de meta (ID da receita) */
+#secReceitasPaciente .receita-meta {
+  margin-top: 0.15rem;
+  font-size: 0.7rem;
+  color: var(--text-muted, #9ca3af);
+}
+
+/* Quando não houver receitas */
+#secReceitasPaciente #listaReceitasPacienteVazia {
+  font-size: 0.8rem;
+  color: var(--text-muted, #6b7280);
+}
+
+/* Pequeno ajuste em telas muito pequenas */
+@media (max-width: 640px) {
+  #secReceitasPaciente .lista-receitas {
+    padding-left: 1.5rem;
+  }
+
+  #secReceitasPaciente .receita-item-timeline::before {
+    left: -0.95rem;
+  }
+}

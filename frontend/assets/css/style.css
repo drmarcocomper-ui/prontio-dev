@@ -1,0 +1,89 @@
+/* ===========================================
+   PRONTIO - style.css (PONTO DE ENTRADA)
+   Arquivo único de entrada para TODOS os estilos.
+
+   Ele importa:
+   - fundamentos (reset, tokens, tipografia, layout)
+   - componentes reutilizáveis (botões, formulários, cards, tabelas, etc.)
+   - sistema (sidebar, topbar)
+   - CSS específico por página (pages/page-*.css)
+   - temas (theme-default, theme-dark)
+
+   OBS:
+   - Estilos de impressão ficam em /print/*.css
+     e normalmente são linkados com media="print" no HTML.
+=========================================== */
+
+/* ============ FUNDAMENTOS ============ */
+@import url("core/reset.css");
+@import url("core/tokens.css");
+@import url("core/typography.css");
+@import url("core/layout.css");
+
+/* ============ COMPONENTES REUTILIZÁVEIS ============ */
+@import url("components/buttons.css");
+@import url("components/forms.css");
+@import url("components/tables.css");
+@import url("components/cards.css");
+@import url("components/modals.css");
+@import url("components/sidebar.css");
+@import url("components/topbar.css");
+
+/* ============ PÁGINAS (CSS específico por tela) ============ */
+/* Home / Dashboard inicial */
+@import url("pages/page-index.css");
+
+/* Núcleo clínico */
+@import url("pages/page-pacientes.css");
+@import url("pages/page-agenda.css");
+@import url("pages/page-evolucao.css");
+@import url("pages/page-prontuario.css");
+
+/* Configurações e sistema */
+@import url("pages/page-configuracoes.css");
+@import url("pages/page-usuarios.css");
+@import url("pages/page-dashboard.css");
+@import url("pages/page-relatorios.css");
+
+/* Documentos clínicos */
+@import url("pages/page-receita.css");
+@import url("pages/page-exames.css");
+@import url("pages/page-laudo.css");
+@import url("pages/page-atestado.css");
+@import url("pages/page-comparecimento.css");
+@import url("pages/page-encaminhamento.css");
+@import url("pages/page-sadt.css");
+
+/* Expansão futura */
+@import url("pages/page-faturamento.css");
+@import url("pages/page-estoque.css");
+
+/* ============ TEMA ============ */
+/* Os dois temas são carregados aqui.
+   Quem decide qual “vale” é o atributo data-theme no <body>:
+
+   - body[data-theme="light"] → theme-default.css
+   - body[data-theme="dark"]  → theme-dark.css
+
+   O core/theme.js:
+   - lê/salva a preferência em localStorage
+   - alterna data-theme no body
+   - atualiza ícone sol/lua nos botões .js-toggle-theme
+*/
+@import url("theme/theme-default.css");
+@import url("theme/theme-dark.css");
+@import url("theme/theme-toggle.css");
+
+/*
+IMPORTANTE:
+- style.css continua sendo o PONTO ÚNICO DE ENTRADA.
+- As páginas HTML devem usar APENAS:
+
+  <link rel="stylesheet" href="assets/css/style.css">
+
+- Estilos de impressão NÃO são importados aqui:
+  - usar, por exemplo, em receita.html:
+
+    <link rel="stylesheet" href="assets/css/print/print-base.css" media="print">
+    <link rel="stylesheet" href="assets/css/print/print-receita.css" media="print">
+*/

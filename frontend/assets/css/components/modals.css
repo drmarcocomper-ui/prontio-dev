@@ -1,0 +1,165 @@
+/* =====================================
+   PRONTIO - MODAL (COMPONENT)
+   - Janela modal padrão
+   - Backdrop
+   - Cabeçalho / corpo / rodapé
+   - Usando apenas tokens globais
+===================================== */
+
+/* BACKDROP (fundo escurecido) */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.55);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+/* Classe para exibir o modal/backdrop */
+.modal-backdrop.is-open {
+  display: flex;
+}
+
+/* CAIXA DO MODAL */
+.modal {
+  background: var(--cor-fundo-card, #ffffff);
+  color: var(--cor-texto-principal, #111827);
+  border-radius: var(--radius-card, 12px);
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
+  box-shadow: var(--shadow-card-forte, 0 12px 30px rgba(15, 23, 42, 0.35));
+  max-width: 520px;
+  width: 100%;
+  margin: 0 16px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* VARIAÇÃO MENOR (para confirmações simples) */
+.modal--sm {
+  max-width: 380px;
+}
+
+/* VARIAÇÃO MAIOR (para formulários grandes) */
+.modal--lg {
+  max-width: 720px;
+}
+
+/* CABEÇALHO */
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--cor-borda-suave, #dde3ea);
+  background: var(--cor-fundo-card-alt, #f9fafb);
+}
+
+.modal-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--cor-texto-principal, #111827);
+}
+
+.modal-header-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* Botão simples de fechar (X) */
+.modal-close {
+  border: none;
+  background: transparent;
+  padding: 4px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--cor-texto-secundario, #4b5563);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    transform 0.1s ease;
+}
+
+.modal-close:hover {
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--cor-texto-principal, #111827);
+}
+
+.modal-close:active {
+  transform: scale(0.96);
+}
+
+/* CORPO */
+.modal-body {
+  padding: 14px 16px;
+  font-size: 14px;
+  color: var(--cor-texto-principal, #111827);
+  background: var(--cor-fundo-card, #ffffff);
+}
+
+/* RODAPÉ (botões de ação) */
+.modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--cor-borda-suave, #dde3ea);
+  background: var(--cor-fundo-card-alt, #f9fafb);
+}
+
+/* Modais de alerta – variações semânticas por contexto */
+
+/* PERIGO */
+.modal--danger .modal-header {
+  background: rgba(220, 38, 38, 0.08);
+  border-bottom-color: rgba(220, 38, 38, 0.5);
+}
+
+.modal--danger .modal-title {
+  color: var(--cor-perigo, #dc2626);
+}
+
+/* AVISO */
+.modal--warning .modal-header {
+  background: rgba(245, 158, 11, 0.1);
+  border-bottom-color: rgba(245, 158, 11, 0.6);
+}
+
+.modal--warning .modal-title {
+  color: var(--cor-aviso, #f59e0b);
+}
+
+/* SUCESSO */
+.modal--success .modal-header {
+  background: rgba(22, 163, 74, 0.08);
+  border-bottom-color: rgba(22, 163, 74, 0.5);
+}
+
+.modal--success .modal-title {
+  color: var(--cor-sucesso, #16a34a);
+}
+
+/* Responsividade */
+@media (max-width: 480px) {
+  .modal {
+    margin: 0 8px;
+  }
+
+  .modal-body {
+    padding: 12px 12px;
+  }
+
+  .modal-footer {
+    padding: 8px 12px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+  }
+}

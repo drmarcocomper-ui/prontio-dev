@@ -1,0 +1,162 @@
+/* =========================================================
+ * PRONTIO — Autocomplete da Receita (dropdown)
+ * =========================================================
+ * Objetivos:
+ * - Dropdown acima do painel (z-index correto)
+ * - Não ser cortado por overflow
+ * - Visual limpo e clínico
+ * - Funciona em light / dark
+ * ========================================================= */
+
+/* ===============================
+ * Tokens de tema
+ * =============================== */
+:root {
+  --rx-bg: #ffffff;
+  --rx-text: #111827;
+  --rx-muted: rgba(17, 24, 39, 0.65);
+  --rx-border: rgba(0, 0, 0, 0.12);
+  --rx-hover: rgba(37, 99, 235, 0.10);
+  --rx-focus: rgba(37, 99, 235, 0.30);
+  --rx-shadow: 0 12px 28px rgba(0,0,0,0.18);
+}
+
+body[data-theme="dark"] {
+  --rx-bg: #0b1220;
+  --rx-text: #e5e7eb;
+  --rx-muted: rgba(229, 231, 235, 0.65);
+  --rx-border: rgba(255, 255, 255, 0.12);
+  --rx-hover: rgba(37, 99, 235, 0.20);
+  --rx-focus: rgba(37, 99, 235, 0.55);
+  --rx-shadow: 0 18px 40px rgba(0,0,0,0.55);
+}
+
+/* ===============================
+ * Garantias de layout
+ * =============================== */
+
+/* O item vira âncora do dropdown */
+.receita-item-bloco {
+  position: relative;
+  overflow: visible !important;
+}
+
+/* Evita corte pelo painel */
+#receitaPanel,
+#receitaPanel .slide-panel,
+#receitaPanel .slide-panel-body,
+#receitaPanel .receita-itens-container {
+  overflow: visible !important;
+}
+
+/* ===============================
+ * Slot das sugestões
+ * =============================== */
+.receita-item-sugestoes {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  z-index: 99999;
+  margin: 0;
+}
+
+/* ===============================
+ * Lista de sugestões
+ * =============================== */
+.receita-sugestoes-lista {
+  width: 100%;
+  max-height: 240px;
+  overflow-y: auto;
+
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+
+  background: var(--rx-bg);
+  border: 1px solid var(--rx-border);
+  border-radius: 12px;
+  box-shadow: var(--rx-shadow);
+}
+
+/* Remove heranças estranhas */
+.receita-sugestoes-lista,
+.receita-sugestoes-lista * {
+  box-sizing: border-box;
+}
+
+/* Espaçamento entre itens */
+.receita-sugestoes-lista li + li {
+  margin-top: 4px;
+}
+
+/* ===============================
+ * Botão de sugestão
+ * =============================== */
+.receita-sugestoes-lista li button {
+  width: 100%;
+  display: block;
+  text-align: left;
+
+  padding: 10px 12px;
+  border-radius: 10px;
+
+  background: transparent;
+  color: var(--rx-text);
+  cursor: pointer;
+
+  font-size: 14px;
+  line-height: 1.25;
+
+  border: none;
+  transition: background-color 120ms ease;
+}
+
+.receita-sugestoes-lista li button:hover {
+  background: var(--rx-hover);
+}
+
+.receita-sugestoes-lista li button:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--rx-focus);
+}
+
+/* ===============================
+ * Conteúdo interno
+ * =============================== */
+.rx-sug-title {
+  font-weight: 600;
+}
+
+.rx-sug-sub {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--rx-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Destaque do texto buscado */
+.rx-hl {
+  background: rgba(37, 99, 235, 0.18);
+  border-radius: 6px;
+  padding: 0 4px;
+}
+
+/* ===============================
+ * Scroll discreto
+ * =============================== */
+.receita-sugestoes-lista::-webkit-scrollbar {
+  width: 10px;
+}
+
+.receita-sugestoes-lista::-webkit-scrollbar-thumb {
+  background: rgba(0,0,0,0.18);
+  border-radius: 8px;
+}
+
+body[data-theme="dark"]
+  .receita-sugestoes-lista::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.18);
+}

@@ -1,0 +1,111 @@
+/* ===========================================
+   PRONTIO - CSS específico da Lista de Atendimento (index)
+=========================================== */
+
+/* Texto de descrição abaixo do título */
+.lista-atendimento-header-text {
+  font-size: 13px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* Informação extra sobre atualização */
+.lista-atendimento-info {
+  font-size: 12px;
+  color: #777;
+  margin-top: 4px;
+}
+
+/* Wrapper da tabela */
+.tabela-atendimento-wrapper {
+  overflow-x: auto;
+}
+
+/* Se quiser herdar da tabela padrão, deixe:
+   <table class="tabela tabela-atendimento">
+*/
+.tabela-atendimento {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 650px;
+  background: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tabela-atendimento th,
+.tabela-atendimento td {
+  border: 1px solid #dde3ea;
+  padding: 6px 8px;
+  text-align: left;
+  font-size: 13px;
+}
+
+.tabela-atendimento thead {
+  background: #f1f4f8;
+}
+
+.tabela-atendimento tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+/* Células vazias */
+.linha-vazia {
+  text-align: center;
+  color: #777;
+  font-style: italic;
+}
+
+/* Colunas específicas */
+.col-data {
+  width: 90px;
+  white-space: nowrap;
+}
+
+.col-hora {
+  width: 70px;
+  white-space: nowrap;
+}
+
+.col-paciente {
+  min-width: 200px;
+}
+
+.col-tipo {
+  width: 120px;
+}
+
+.col-status {
+  width: 110px;
+}
+
+/* Badges de status */
+.badge-status {
+  display: inline-block;
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.badge-agendado {
+  background: #e3f2fd;
+  color: #0d47a1;
+}
+
+.badge-confirmado {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+.badge-cancelado,
+.badge-faltou {
+  background: #ffebee;
+  color: #c62828;
+}
+
+.badge-outro {
+  background: #eeeeee;
+  color: #555555;
+}

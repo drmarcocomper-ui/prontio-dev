@@ -1,0 +1,42 @@
+/* =====================================
+   PRONTIO - LAYOUT CORE
+   - Estrutura do app-shell
+   - Integração sidebar + main-area
+===================================== */
+
+/* Shell principal: sidebar + área principal */
+.app-shell {
+  display: flex;
+  min-height: 100vh;
+  background: var(--cor-fundo-app);
+}
+
+/* Área principal (topbar + conteúdo das páginas) */
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  /* Espaço para a sidebar fixa no desktop */
+  margin-left: 240px;
+  transition: margin-left 0.25s ease;
+}
+
+/* Quando sidebar está compacta (pílula) */
+body.sidebar-compact .main-area {
+  margin-left: 78px;
+}
+
+/* Conteúdo padrão das páginas dentro da área principal */
+.content {
+  padding: var(--sp-4);
+}
+
+/* MOBILE / TELAS MUITO PEQUENAS
+   - A sidebar vira overlay, portanto a main-area
+     não precisa mais de margin-left.
+*/
+@media (max-width: 768px) {
+  .main-area {
+    margin-left: 0;
+  }
+}

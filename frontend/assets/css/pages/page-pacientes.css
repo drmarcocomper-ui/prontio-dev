@@ -1,0 +1,260 @@
+/* ============================
+   PRONTIO - CSS específico: PACIENTES
+============================ */
+
+/* Utilitários locais */
+.oculto {
+  display: none !important;
+}
+
+.oculto-col {
+  display: none !important;
+}
+
+/* MENSAGEM DE STATUS
+   Escopada só pra página de Pacientes.
+   No HTML: <div id="mensagem" class="mensagem"></div>
+*/
+body[data-page-id="pacientes"] #mensagem {
+  margin-bottom: 12px;
+  font-size: 13px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: #f1f5f9;
+  border-left: 4px solid #90caf9;
+  color: #333;
+}
+
+/* FORMULÁRIO */
+.form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-gap: 12px 16px;
+}
+
+.campo label {
+  font-weight: bold;
+  display: block;
+  margin-bottom: 4px;
+}
+
+.campo input,
+.campo textarea,
+.campo select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 14px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+
+.campo input:focus,
+.campo textarea:focus,
+.campo select:focus {
+  outline: none;
+  border-color: #0066cc;
+  box-shadow: 0 0 0 1px rgba(0, 102, 204, 0.2);
+}
+
+.campo-full {
+  grid-column: 1 / 3;
+}
+
+.botoes-form {
+  margin-top: 4px;
+  display: flex;
+  gap: 8px;
+}
+
+.form-dica {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+/* CONTROLES ACIMA DA TABELA */
+.linha-controles {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.bloco-filtro {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+}
+
+.bloco-filtro input[type="text"] {
+  width: 260px;
+  padding: 6px 8px;
+}
+
+.check-ativo {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.bloco-ordenacao {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+}
+
+.bloco-ordenacao select {
+  padding: 4px 6px;
+  font-size: 13px;
+}
+
+.bloco-colunas {
+  display: flex;
+}
+
+/* PAINEL DE COLUNAS */
+.painel-colunas {
+  margin-top: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f9fafb;
+  border: 1px solid #d0d7e2;
+}
+
+.painel-colunas-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.btn-fechar {
+  border: none;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.painel-colunas-info {
+  margin: 6px 0 8px;
+  font-size: 12px;
+  color: #666;
+}
+
+.painel-colunas-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 4px 10px;
+  font-size: 13px;
+}
+
+.painel-colunas-grid label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sempre-visivel {
+  font-style: italic;
+}
+
+/* TEXTO SELECIONADO + AÇÕES */
+.selecionado-info {
+  margin-top: 12px;
+  font-weight: bold;
+  font-size: 13px;
+}
+
+.acoes-header-lista {
+  display: flex;
+  gap: 8px;
+}
+
+.acoes-lista {
+  margin-top: 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* TABELA DE PACIENTES
+   Escopamos .tabela para não afetar outras páginas
+*/
+.tabela-wrapper {
+  margin-top: 15px;
+  overflow-x: auto;
+}
+
+body[data-page-id="pacientes"] .tabela {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+body[data-page-id="pacientes"] .tabela th,
+body[data-page-id="pacientes"] .tabela td {
+  border: 1px solid #ccc;
+  padding: 6px 8px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+body[data-page-id="pacientes"] .tabela thead {
+  background: #f2f5f9;
+}
+
+body[data-page-id="pacientes"] .tabela tbody tr {
+  cursor: pointer;
+}
+
+body[data-page-id="pacientes"] .tabela tbody tr:hover {
+  background: #eef6ff;
+}
+
+body[data-page-id="pacientes"] tr.linha-selecionada {
+  background: #cde7ff !important;
+}
+
+body[data-page-id="pacientes"] tr.linha-inativa {
+  background: #eee;
+  color: #777;
+}
+
+.ajuda-tabela {
+  margin-top: 10px;
+  font-size: 12px;
+  color: #666;
+}
+
+/* BOTÕES – animação de hover apenas na página de Pacientes */
+body[data-page-id="pacientes"] .btn {
+  transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.1s ease;
+}
+
+body[data-page-id="pacientes"] .btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+}
+
+/* RESPONSIVO */
+@media (max-width: 900px) {
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .campo-full {
+    grid-column: 1 / 2;
+  }
+
+  .linha-controles {
+    align-items: flex-start;
+  }
+}

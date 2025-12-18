@@ -1,0 +1,165 @@
+/* =====================================
+   PRONTIO - SLIDE PANEL (receitas, etc.)
+   - Painel lateral deslizante
+   - Visual alinhado com o prontuário
+   - Usa tokens + temas (light/dark)
+===================================== */
+
+/* BACKDROP (fundo escurecido atrás do painel) */
+.slide-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45); /* overlay translúcido */
+  display: none;                       /* controlado via JS (display:block) */
+  z-index: 40;
+}
+
+/* Painel aberto (classe auxiliar, se quiser usar) */
+.slide-panel-backdrop.is-open {
+  display: block;
+}
+
+/* PAINEL LATERAL */
+.slide-panel {
+  position: absolute;
+  top: 0;
+  right: 0;
+
+  /* Mais largo e confortável */
+  width: min(560px, 100%);
+  max-width: 100%;
+
+  height: 100%;
+  background: var(--cor-fundo-card);       /* fundo de card, claro */
+  color: var(--cor-texto-principal);
+  box-shadow: -12px 0 30px rgba(15, 23, 42, 0.25);
+
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER DO PAINEL */
+.slide-panel-header {
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--cor-borda-suave);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+}
+
+.slide-panel-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--cor-texto-principal);
+}
+
+/* Botão de fechar (X) */
+.slide-panel-close {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--cor-texto-secundario);
+}
+
+.slide-panel-close:hover {
+  color: var(--cor-texto-principal);
+}
+
+/* CORPO DO PAINEL (FORMULÁRIO) */
+.slide-panel-body {
+  padding: var(--sp-4);
+  overflow-y: auto;
+  flex: 1;
+  background: var(--cor-fundo-card);  /* mantém mesmo fundo do card */
+}
+
+/* FORM DE RECEITA (usa forms.css + buttons.css) */
+.form-receita-panel .form-row {
+  margin-bottom: var(--sp-3);
+}
+
+/* Container geral dos itens de medicamento */
+#receitaItensContainer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  margin-top: var(--sp-2);
+}
+
+/* Cada item de medicamento vira um “card” claro */
+#receitaItensContainer > * {
+  background: var(--cor-fundo-card, #ffffff);
+  border: 1px solid var(--cor-borda-suave, #e5e7eb);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card, 0 10px 30px rgba(15,23,42,0.08));
+  padding: var(--sp-3);
+  color: var(--cor-texto-principal, #111827);
+}
+
+/* Remove qualquer fundo escuro residual em wrappers internos */
+#receitaItensContainer > * *,
+#receitaItensContainer > *::before,
+#receitaItensContainer > *::after {
+  background-color: transparent;
+}
+
+/* Label de seção (ex: "Medicamentos") */
+.form-receita-panel .form-row > label {
+  font-weight: 500;
+}
+
+/* Rodapé de ações (Cancelar / Salvar / Imprimir) */
+.form-receita-panel .form-row-actions {
+  margin-top: var(--sp-3);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--sp-2);
+}
+
+/* Botões do painel (aproveitam .btn, .btn-secondary etc.) */
+.form-receita-panel .btn {
+  min-width: 140px;
+}
+
+/* ==============================
+   TEMA ESCURO (opcional)
+   Mantém coerência com restante
+============================== */
+
+body[data-theme="dark"] .slide-panel {
+  background: #020617;
+  color: #e5e7eb;
+  box-shadow: -14px 0 34px rgba(0, 0, 0, 0.85);
+}
+
+body[data-theme="dark"] .slide-panel-header {
+  border-bottom-color: #1f2937;
+}
+
+body[data-theme="dark"] .slide-panel-body {
+  background: #020617;
+}
+
+/* Inputs e textareas já são tratados pelo forms.css
+   com tokens, então não precisamos sobrescrever aqui. */
+
+/* ==============================
+   RESPONSIVO
+============================== */
+
+@media (max-width: 640px) {
+  .slide-panel {
+    width: 100%;   /* painel ocupa toda a largura no celular */
+    max-width: 100%;
+  }
+
+  .slide-panel-header,
+  .slide-panel-body {
+    padding-inline: var(--sp-3);
+  }
+}

@@ -1,0 +1,94 @@
+/* =====================================
+   PRONTIO - page-usuarios.css
+   Estilos específicos da página Usuários
+===================================== */
+
+/* Ajuste geral da página de usuários (se precisar algo específico) */
+body[data-page="usuarios"] .content {
+  max-width: 960px;
+}
+
+/* Espaçamento entre cards */
+.mt-2 {
+  margin-top: var(--sp-3, 12px);
+}
+
+.mt-3 {
+  margin-top: var(--sp-4, 16px);
+}
+
+/* Mensagens da página de usuários */
+#mensagemUsuarios {
+  margin-bottom: 10px;
+}
+
+/* Formulário de novo usuário */
+#formNovoUsuario {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Linhas de formulário (duas colunas) */
+#formNovoUsuario .form-row {
+  display: grid;
+  grid-template-columns: 1.2fr 1fr;
+  gap: 12px;
+}
+
+#formNovoUsuario .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+#formNovoUsuario label {
+  font-size: 13px;
+  color: var(--cor-texto-secundario, #4b5563);
+}
+
+#formNovoUsuario input,
+#formNovoUsuario select {
+  border-radius: 6px;
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
+  padding: 7px 9px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+#formNovoUsuario input:focus,
+#formNovoUsuario select:focus {
+  border-color: var(--cor-primaria, #0066cc);
+  box-shadow: 0 0 0 1px rgba(0, 102, 204, 0.35);
+}
+
+#formNovoUsuario .form-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+/* Tabela de usuários */
+#usuarios-tbody td {
+  font-size: 13px;
+}
+
+/* Status "Ativo/Inativo" pode ser refinado aqui no futuro */
+#usuarios-tbody td:last-child {
+  white-space: nowrap;
+}
+
+/* Responsivo */
+@media (max-width: 768px) {
+  body[data-page="usuarios"] .content {
+    max-width: 100%;
+  }
+
+  #formNovoUsuario .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  #formNovoUsuario .form-actions {
+    justify-content: flex-start;
+  }
+}

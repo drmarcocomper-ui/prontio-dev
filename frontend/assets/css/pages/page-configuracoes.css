@@ -1,0 +1,119 @@
+/* ===========================================
+   PRONTIO - CSS específico da página Configurações
+=========================================== */
+
+/* Grid do formulário de configurações */
+.form-config-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px 20px;
+}
+
+.form-config-grid .col-span-2 {
+  grid-column: span 2;
+}
+
+/* Labels dos campos
+   Usa a .campo-label genérica de components.css.
+   Se precisar de algo MUITO específico, escopamos aqui:
+*/
+.form-config-grid .campo-label {
+  /* Ex.: font-weight: 600; */
+}
+
+/* Inputs, textarea e select
+   Escopados para a grid de configurações
+*/
+.form-config-grid .campo-controle input,
+.form-config-grid .campo-controle textarea,
+.form-config-grid .campo-controle select {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 14px;
+  border-radius: 4px;
+  border: 1px solid #dde3ea; /* antes: var(--cor-borda-suave) */
+  box-sizing: border-box;
+}
+
+.form-config-grid .campo-controle input:focus,
+.form-config-grid .campo-controle textarea:focus,
+.form-config-grid .campo-controle select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+}
+
+/* Texto de ajuda abaixo dos campos */
+.campo-ajuda {
+  font-size: 11px;
+  color: #6b7280; /* antes: var(--cor-texto-suave) */
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+/* Títulos de seções */
+.secao-config-titulo {
+  margin-top: 0;
+  margin-bottom: 4px;
+  font-size: 16px;
+}
+
+/* Subtítulos das seções */
+.secao-config-subtitulo {
+  margin: 0;
+  font-size: 12px;
+  color: #6b7280; /* antes: var(--cor-texto-suave) */
+}
+
+/* Área de ações (botões principais) */
+.acoes-config {
+  margin-top: 8px;
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+/* Grupo de checkboxes / radios em linha */
+.grupo-radio-inline {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 13px;
+}
+
+.grupo-radio-inline label {
+  font-weight: normal;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.grupo-radio-inline input[type="checkbox"],
+.grupo-radio-inline input[type="radio"] {
+  transform: scale(0.95);
+}
+
+/* Ajuste de espaçamento de header de card APENAS na página Configurações */
+body[data-page-id="configuracoes"] .card-header {
+  margin-bottom: 10px;
+}
+
+/* Responsividade */
+@media (max-width: 800px) {
+  .form-config-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-config-grid .col-span-2 {
+    grid-column: span 1;
+  }
+
+  body[data-page-id="configuracoes"] .topbar-title-main h1 {
+    font-size: 18px;
+  }
+
+  body[data-page-id="configuracoes"] #topbar-subtitle {
+    font-size: 12px;
+  }
+}

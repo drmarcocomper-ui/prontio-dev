@@ -1,0 +1,181 @@
+/* ===========================================
+   PRONTIO - CSS específico da página Exames
+=========================================== */
+
+/* Subtítulo do topo com paciente */
+.topbar-paciente {
+  font-size: 13px;
+  color: #666;
+}
+
+/* Mensagem geral da tela (usa .mensagem de components.css para visual) */
+#mensagemExames {
+  margin-bottom: 16px;
+  font-size: 13px;
+}
+
+/* Abas SADT / Particular */
+.aba-exames-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.aba-btn {
+  padding: 6px 12px;
+  font-size: 13px;
+  border-radius: 16px;
+  border: 1px solid #ccc;
+  background: #f5f5f5;
+  cursor: pointer;
+}
+
+.aba-btn.ativa {
+  background: #0d47a1;
+  color: #fff;
+  border-color: #0d47a1;
+  font-weight: bold;
+}
+
+/* Ocultar conteúdo de abas
+   (escopado à página de exames para não afetar outros usos de .hidden)
+*/
+body[data-page-id="exames"] .hidden {
+  display: none !important;
+}
+
+/* Grid do formulário da aba SADT */
+body[data-page-id="exames"] .form-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+/* Campos de formulário */
+.campo-form {
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 10px;
+}
+
+.campo-form label {
+  font-weight: bold;
+  margin-bottom: 4px;
+  font-size: 13px;
+  color: #444;
+}
+
+.campo-form input,
+.campo-form select,
+.campo-form textarea {
+  padding: 6px 8px;
+  font-size: 14px;
+  border-radius: 4px;
+  border: 1px solid #ccc;
+  font-family: inherit;
+}
+
+.campo-form textarea {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* Texto de ajuda dos campos */
+.campo-ajuda {
+  font-size: 11px;
+  color: #777;
+  margin-top: 2px;
+}
+
+/* Ações de formulário (botões Gerar…) */
+.acoes-form {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* Paciente atual (grid) */
+.info-paciente-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 6px 18px;
+  font-size: 13px;
+}
+
+.info-paciente-label {
+  font-weight: bold;
+  color: #555;
+}
+
+.info-paciente-valor {
+  color: #111;
+}
+
+/* Particular - tabela de exames do catálogo */
+.tabela-exames-wrapper {
+  border: 1px solid #dde3ea;
+  border-radius: 6px;
+  overflow: hidden;
+  max-height: 260px;
+  overflow-y: auto;
+  background: #fafafa;
+  margin-top: 8px;
+}
+
+.tabela-exames {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tabela-exames th,
+.tabela-exames td {
+  border-bottom: 1px solid #e0e0e0;
+  padding: 4px 6px;
+  text-align: left;
+}
+
+.tabela-exames thead {
+  background: #e9f2ff;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.col-exame-check {
+  width: 40px;
+  text-align: center;
+}
+
+.col-exame-grupo {
+  width: 120px;
+}
+
+/* Filtro da lista de exames */
+.filtro-exames {
+  margin-bottom: 8px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.filtro-exames input {
+  flex: 1;
+  min-width: 160px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+/* Responsividade */
+@media (max-width: 800px) {
+  body[data-page-id="exames"] .form-grid-2 {
+    grid-template-columns: 1fr;
+  }
+
+  .info-paciente-grid {
+    grid-template-columns: 1fr;
+  }
+}

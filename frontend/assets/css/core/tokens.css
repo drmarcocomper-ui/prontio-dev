@@ -1,0 +1,130 @@
+/* =========================================
+   PRONTIO - TOKENS GLOBAIS
+   Fonte ÚNICA de verdade para:
+   - cores da marca
+   - tipografia
+   - espaçamentos
+   - bordas
+   - sombras
+   Todos os componentes devem usar SOMENTE estes tokens.
+========================================= */
+
+:root {
+  /* ==============================
+     IDENTIDADE VISUAL (MARCA)
+  =============================== */
+
+  /* Azul padrão PRONTIO */
+  --brand-hue: 221;        /* 221 = azul / 142 = verde / 276 = roxo, etc. */
+  --brand-sat: 83%;
+  --brand-light: 56%;
+
+  /* Cor primária derivada do HSL da marca */
+  --cor-primaria: hsl(var(--brand-hue), var(--brand-sat), var(--brand-light));
+  --cor-primaria-escura: hsl(var(--brand-hue), var(--brand-sat), calc(var(--brand-light) - 14%));
+  --cor-primaria-clara: hsl(var(--brand-hue), calc(var(--brand-sat) - 10%), calc(var(--brand-light) + 16%));
+
+  /* Cores semânticas auxiliares */
+  --cor-sucesso: #16a34a;
+  --cor-aviso: #f59e0b;
+  --cor-perigo: #dc2626;
+
+  /* ==============================
+     TIPOGRAFIA
+  =============================== */
+
+  --font-base: system-ui, -apple-system, BlinkMacSystemFont, "Inter", sans-serif;
+  --font-size-base: 14px;
+  --font-line-height: 1.5;
+
+  /* ==============================
+     ESPAÇAMENTO
+  =============================== */
+
+  --sp-0: 0;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --sp-8: 32px;
+
+  /* ==============================
+     BORDAS & RAIO
+  =============================== */
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-card: 14px;
+  --radius-pill: 999px;
+
+  /* ==============================
+     ÍCONES
+  =============================== */
+
+  --icon-size-sm: 14px;
+  --icon-size-md: 18px;
+  --icon-size-lg: 22px;
+
+  /* ==============================
+     TOKENS "APP" (defaults)
+     OBS: temas (light/dark) sobrescrevem.
+  =============================== */
+
+  --app-brand: var(--cor-primaria);
+  --app-brand-soft: rgba(37, 99, 235, 0.12);
+
+  --app-text-primary: #0f172a;
+  --app-text-muted: #6b7280;
+  --app-text-softer: #9ca3af;
+
+  --app-bg-body: #f3f4f6;
+  --app-bg-shell: #e5e7eb;
+  --app-bg-surface: #ffffff;
+  --app-bg-surface-alt: #f9fafb;
+
+  --app-border-subtle: #e5e7eb;
+  --app-border-strong: #cbd5f5;
+
+  /* ==============================
+     TOKENS "COR" (camada principal usada pelos componentes)
+     Componentes e páginas devem preferir --cor-*.
+  =============================== */
+
+  --cor-fundo-app: var(--app-bg-body);
+  --cor-fundo-card: var(--app-bg-surface);
+  --cor-fundo-card-alt: var(--app-bg-surface-alt);
+
+  --cor-borda-suave: var(--app-border-subtle);
+  --cor-borda-forte: var(--app-border-strong);
+
+  --cor-texto-principal: var(--app-text-primary);
+  --cor-texto-secundario: var(--app-text-muted);
+  --cor-texto-suave: var(--app-text-softer);
+
+  /* ==============================
+     SOMBRAS
+  =============================== */
+
+  --shadow-card: 0 10px 30px rgba(15, 23, 42, 0.08);
+  --shadow-card-profundo: 0 18px 40px rgba(15, 23, 42, 0.12);
+
+  /* ==============================
+     MISC / UI
+  =============================== */
+
+  --focus-ring-color: hsl(var(--brand-hue), 90%, 60%);
+
+  /* Ícones da topbar e hover: temas sobrescrevem */
+  --topbar-icon-color: #4b5563;
+  --topbar-hover-bg: rgba(0, 0, 0, 0.06);
+}
+
+/* Tipografia base */
+body {
+  font-family: var(--font-base);
+  font-size: var(--font-size-base);
+  line-height: var(--font-line-height);
+}

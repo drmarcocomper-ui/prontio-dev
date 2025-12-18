@@ -1,0 +1,1793 @@
+// assets/js/pages/page-agenda.js
+/**
+ * PRONTIO - Página de Agenda (front)
+ *
+ * Inclui:
+ * - Typeahead (autocomplete) de pacientes em Novo/Editar
+ * - Vínculo por ID sempre que selecionar resultado
+ * - Pré-validar conflito antes de salvar (Criar/Atualizar/Bloquear)
+ * - Encaixe explícito no modal (checkbox): novo-permite-encaixe / edit-permite-encaixe
+ *
+ * Padrão PRONTIO (api.js):
+ * - window.callApiData => retorna SOMENTE data e lança erro se success=false
+ */
+
+(function (global, document) {
+  const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
+
+  const callApiData =
+    (PRONTIO.api && PRONTIO.api.callApiData) ||
+    global.callApiData ||
+    function () {
+      console.error(
+        "[PRONTIO.agenda] callApiData não está definido. Verifique carregamento de assets/js/api.js."
+      );
+      return Promise.reject(
+        new Error("API não inicializada (callApiData indefinido).")
+      );
+    };
+
+  function initAgendaPage() {
+    const body = document.body;
+    const pageId = body.dataset.pageId || body.getAttribute("data-page") || null;
+    if (pageId !== "agenda") return;
+
+    function get(id) {
+      const el = document.getElementById(id);
+      if (!el) console.warn(`Agenda: elemento #${id} não encontrado no DOM.`);
+      return el;
+    }
+
+    // =====================
+    // Elementos principais
+    // =====================
+    const inputData = get("input-data");
+    if (!inputData) return;
+
+    const btnHoje = get("btn-hoje");
+    const btnDiaAnterior = get("btn-dia-anterior");
+    const btnDiaPosterior = get("btn-dia-posterior");
+
+    const listaHorariosEl = get("agenda-lista-horarios");
+
+    const resumoTotalEl = get("resumo-total");
+    const resumoConfirmadosEl = get("resumo-confirmados");
+    const resumoFaltasEl = get("resumo-faltas");
+    const resumoCanceladosEl = get("resumo-cancelados");
+    const resumoConcluidosEl = get("resumo-concluidos");
+    const resumoEmAtendimentoEl = get("resumo-em-atendimento");
+
+    const btnNovoAgendamento = get("btn-novo-agendamento");
+    const btnBloquearHorario = get("btn-bloquear-horario");
+
+    const secDia = document.querySelector(".agenda-dia");
+    const secSemana = document.getElementById("agenda-semana");
+    const semanaGridEl = get("agenda-semana-grid");
+    const btnVisaoDia = get("btn-visao-dia");
+    const btnVisaoSemana = get("btn-visao-semana");
+
+    const inputFiltroNome = get("filtro-nome");
+    const selectFiltroStatus = get("filtro-status");
+
+    let modoVisao =
+      localStorage.getItem("prontio.agenda.modoVisao") === "semana"
+        ? "semana"
+        : "dia";
+
+    let agendamentosOriginaisDia = [];
+    let horaFocoDia = null;
+
+    // =====================
+    // Modais - Novo
+    // =====================
+    const modalOverlay = get("modal-novo-agendamento");
+    const btnFecharModal = get("btn-fechar-modal");
+    const btnCancelarModal = get("btn-cancelar-modal");
+    const formNovoAgendamento = get("form-novo-agendamento");
+    const mensagemNovoAgendamento = get("novo-agendamento-mensagem");
+
+    const inputHoraInicio = get("novo-hora-inicio");
+    const inputDuracao = get("novo-duracao");
+    const inputNomePaciente = get("novo-nome-paciente");
+    const inputTelefone = get("novo-telefone");
+    const inputTipo = get("novo-tipo");
+    const inputMotivo = get("novo-motivo");
+    const inputOrigem = get("novo-origem");
+    const inputCanal = get("novo-canal");
+    const chkNovoPermiteEncaixe = get("novo-permite-encaixe");
+
+    const btnSelecionarPaciente = get("btn-selecionar-paciente");
+    const btnLimparPaciente = get("btn-limpar-paciente");
+
+    const btnSubmitNovo = get("btn-submit-novo");
+
+    // =====================
+    // Modais - Editar
+    // =====================
+    const modalEdit = get("modal-editar-agendamento");
+    const btnFecharModalEditar = get("btn-fechar-modal-editar");
+    const btnCancelarEditar = get("btn-cancelar-editar");
+    const formEditarAgendamento = get("form-editar-agendamento");
+    const msgEditarAgendamento = get("editar-agendamento-mensagem");
+
+    const inputEditIdAgenda = get("edit-id-agenda");
+    const inputEditData = get("edit-data");
+    const inputEditHoraInicio = get("edit-hora-inicio");
+    const inputEditDuracao = get("edit-duracao");
+    const inputEditNomePaciente = get("edit-nome-paciente");
+    const inputEditTipo = get("edit-tipo");
+    const inputEditMotivo = get("edit-motivo");
+    const inputEditOrigem = get("edit-origem");
+    const inputEditCanal = get("edit-canal");
+    const chkEditPermiteEncaixe = get("edit-permite-encaixe");
+
+    const btnEditSelecionarPaciente = get("btn-edit-selecionar-paciente");
+    const btnEditLimparPaciente = get("btn-edit-limpar-paciente");
+
+    const btnSubmitEditar = get("btn-submit-editar");
+
+    let agendamentoEmEdicao = null;
+
+    // =====================
+    // Modais - Bloqueio
+    // =====================
+    const modalBloqueio = get("modal-bloqueio");
+    const btnFecharModalBloqueio = get("btn-fechar-modal-bloqueio");
+    const btnCancelarBloqueio = get("btn-cancelar-bloqueio");
+    const formBloqueio = get("form-bloqueio");
+    const mensagemBloqueio = get("bloqueio-mensagem");
+    const inputBloqHoraInicio = get("bloq-hora-inicio");
+    const inputBloqDuracao = get("bloq-duracao");
+
+    const btnSubmitBloqueio = get("btn-submit-bloqueio");
+
+    // =====================
+    // Modal - Pacientes (fallback)
+    // =====================
+    const modalPacientes = get("modal-pacientes");
+    const inputBuscaPaciente = get("busca-paciente-termo");
+    const listaPacientesEl = get("lista-pacientes");
+    const msgPacientesEl = get("pacientes-resultado-msg");
+    const btnFecharModalPacientes = get("btn-fechar-modal-pacientes");
+
+    // =====================
+    // Estado seleção paciente
+    // =====================
+    let pacienteSelecionado = null; // {ID_Paciente,nome,documento,telefone,data_nascimento?}
+    let pacienteSelecionadoEditar = null;
+    let contextoSelecaoPaciente = "novo";
+    let buscaPacienteTimeout = null;
+
+    // =====================
+    // Config Agenda (backend)
+    // =====================
+    let agendaConfig = {
+      hora_inicio_padrao: "08:00",
+      hora_fim_padrao: "18:00",
+      duracao_grade_minutos: 15
+    };
+    let agendaConfigCarregada = false;
+
+    // =====================
+    // Controle de concorrência
+    // =====================
+    const inFlight = {
+      statusById: new Set(),
+      removerBloqById: new Set()
+    };
+
+    // =====================
+    // Helpers gerais
+    // =====================
+    function stripAccents(s) {
+      return String(s || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "");
+    }
+
+    function safeDisable(el, disabled) {
+      if (!el) return;
+      el.disabled = !!disabled;
+      el.setAttribute("aria-disabled", disabled ? "true" : "false");
+    }
+
+    function setFormMsg(el, text, kind) {
+      if (!el) return;
+      el.textContent = text || "";
+      el.className = "form-message" + (kind ? " " + kind : "");
+    }
+
+    // =====================
+    // Helpers modais
+    // =====================
+    let ultimoFocusAntesModal = null;
+
+    function isModalVisible(modalEl) {
+      return !!modalEl && !modalEl.classList.contains("hidden");
+    }
+
+    function openModal(modalEl, focusEl) {
+      if (!modalEl) return;
+      ultimoFocusAntesModal = document.activeElement;
+
+      modalEl.classList.remove("hidden");
+      modalEl.classList.add("visible");
+      modalEl.setAttribute("aria-hidden", "false");
+
+      setTimeout(() => {
+        if (focusEl && typeof focusEl.focus === "function") focusEl.focus();
+      }, 0);
+    }
+
+    function closeModal(modalEl) {
+      if (!modalEl) return;
+
+      modalEl.classList.remove("visible");
+      modalEl.classList.add("hidden");
+      modalEl.setAttribute("aria-hidden", "true");
+
+      setTimeout(() => {
+        if (ultimoFocusAntesModal && typeof ultimoFocusAntesModal.focus === "function") {
+          ultimoFocusAntesModal.focus();
+        }
+        ultimoFocusAntesModal = null;
+      }, 0);
+    }
+
+    // ==============
+    // Helpers de hora
+    // ==============
+    function timeToMinutes(hhmm) {
+      if (!hhmm) return null;
+      const parts = String(hhmm).split(":");
+      const h = parseInt(parts[0], 10);
+      const m = parseInt(parts[1], 10);
+      if (Number.isNaN(h) || Number.isNaN(m)) return null;
+      return h * 60 + m;
+    }
+
+    function minutesToTime(mins) {
+      const h = Math.floor(mins / 60);
+      const m = mins % 60;
+      const hh = String(h).padStart(2, "0");
+      const mm = String(m).padStart(2, "0");
+      return `${hh}:${mm}`;
+    }
+
+    function normalizeHora(value) {
+      if (!value) return null;
+      if (value instanceof Date) {
+        return minutesToTime(value.getHours() * 60 + value.getMinutes());
+      }
+      const s = String(value).trim();
+      const m = s.match(/^(\d{1,2}):(\d{2})/);
+      if (!m) return null;
+      return `${String(parseInt(m[1], 10)).padStart(2, "0")}:${m[2]}`;
+    }
+
+    function formatDateToInput(date) {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+
+    function parseInputDate(value) {
+      const [year, month, day] = value.split("-").map(Number);
+      return new Date(year, month - 1, day);
+    }
+
+    function setToday() {
+      inputData.value = formatDateToInput(new Date());
+    }
+
+    function formatDataBonita(dataStr) {
+      if (!dataStr) return "";
+      const [y, m, d] = dataStr.split("-");
+      return `${d}/${m}`;
+    }
+
+    function getDiaSemanaLabel(dataStr) {
+      const dias = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+      const [y, m, d] = dataStr.split("-").map(Number);
+      const dt = new Date(y, m - 1, d);
+      return dias[dt.getDay()];
+    }
+
+    async function carregarAgendaConfigSeNecessario() {
+      if (agendaConfigCarregada) return;
+
+      try {
+        const data = await callApiData({ action: "AgendaConfig_Obter", payload: {} });
+        if (data) {
+          agendaConfig.hora_inicio_padrao = data.hora_inicio_padrao || agendaConfig.hora_inicio_padrao;
+          agendaConfig.hora_fim_padrao = data.hora_fim_padrao || agendaConfig.hora_fim_padrao;
+          agendaConfig.duracao_grade_minutos = data.duracao_grade_minutos || agendaConfig.duracao_grade_minutos;
+        }
+      } catch (error) {
+        console.warn("Agenda: erro ao carregar AgendaConfig_Obter, usando defaults.", error);
+      } finally {
+        agendaConfigCarregada = true;
+      }
+    }
+
+    // =========================================================
+    // PRÉ-VALIDAÇÃO DE CONFLITO (ANTES DE SALVAR)
+    // =========================================================
+    async function preValidarConflito_(params) {
+      const payload = {
+        data: params.data,
+        hora_inicio: params.hora_inicio,
+        duracao_minutos: params.duracao_minutos,
+        ignoreIdAgenda: params.ignoreIdAgenda || ""
+      };
+
+      try {
+        const r = await callApiData({ action: "Agenda_ValidarConflito", payload });
+
+        if (!r || r.ok !== true) {
+          return {
+            ok: false,
+            erro: (r && r.erro) ? String(r.erro) : "Conflito de horário.",
+            conflitos: (r && r.conflitos) ? r.conflitos : [],
+            intervalo: (r && r.intervalo) ? r.intervalo : null
+          };
+        }
+
+        return r;
+      } catch (e) {
+        console.warn("Pré-validação conflito indisponível (fallback):", e);
+        return { ok: true, conflitos: [], intervalo: null, erro: "" };
+      }
+    }
+
+    function describeConflitos_(r) {
+      if (!r) return "Conflito de horário.";
+      const conflitos = Array.isArray(r.conflitos) ? r.conflitos : [];
+      if (!conflitos.length) return (r.erro || "Conflito de horário.");
+
+      const top = conflitos.slice(0, 2).map((c) => {
+        const tipo = c.bloqueio ? "Bloqueio" : "Consulta";
+        const hi = c.hora_inicio || "?";
+        const hf = c.hora_fim || "?";
+        return `${tipo} ${hi}–${hf}`;
+      });
+
+      const extra = conflitos.length > 2 ? ` (+${conflitos.length - 2})` : "";
+      return `Conflito no horário. ${top.join(" | ")}${extra}`;
+    }
+
+    function hasBloqueioInConflitos_(r) {
+      const conflitos = Array.isArray(r && r.conflitos) ? r.conflitos : [];
+      return conflitos.some((c) => c && c.bloqueio === true);
+    }
+
+    // ===========================
+    // Typeahead de pacientes
+    // ===========================
+    function normalizePatientObj_(p) {
+      if (!p) return null;
+      return {
+        ID_Paciente: String(p.ID_Paciente || p.id || p.ID || p.id_paciente || ""),
+        nome: String(p.nome || ""),
+        documento: String(p.documento || ""),
+        telefone: String(p.telefone || ""),
+        data_nascimento: String(p.data_nascimento || "")
+      };
+    }
+
+    async function apiBuscarPacientesSimples_(termo, limite) {
+      const t = String(termo || "").trim();
+      if (!t || t.length < 2) return [];
+      const data = await callApiData({
+        action: "Pacientes_BuscarSimples",
+        payload: { termo: t, limite: limite || 12 }
+      });
+      const arr = data && data.pacientes ? data.pacientes : [];
+      return arr.map(normalizePatientObj_).filter(Boolean);
+    }
+
+    function setPacienteSelecionadoNoCampo_(inputEl, p) {
+      if (!inputEl) return;
+      if (!p) {
+        delete inputEl.dataset.pacienteId;
+        delete inputEl.dataset.pacienteNome;
+        return;
+      }
+      inputEl.dataset.pacienteId = p.ID_Paciente || "";
+      inputEl.dataset.pacienteNome = p.nome || "";
+    }
+
+    function clearPacienteSeTextoNaoBate_(inputEl, getSelectedFn, clearSelectedFn) {
+      if (!inputEl) return;
+      const sel = getSelectedFn();
+      if (!sel) return;
+
+      const typed = String(inputEl.value || "").trim();
+      const selNome = String(sel.nome || "").trim();
+
+      if (!typed) {
+        clearSelectedFn();
+        setPacienteSelecionadoNoCampo_(inputEl, null);
+        return;
+      }
+
+      if (typed !== selNome) {
+        clearSelectedFn();
+        setPacienteSelecionadoNoCampo_(inputEl, null);
+      }
+    }
+
+    function attachPatientTypeahead_(opts) {
+      const inputEl = opts.inputEl;
+      if (!inputEl) return;
+
+      const getSelected = opts.getSelected;
+      const setSelected = opts.setSelected;
+      const onSelected = opts.onSelected || function () {};
+      const onManualTyping = opts.onManualTyping || function () {};
+
+      let panel = document.createElement("div");
+      panel.className = "typeahead-panel hidden";
+      panel.setAttribute("role", "listbox");
+
+      let items = [];
+      let activeIndex = -1;
+      let debounceTimer = null;
+      let lastQuery = "";
+
+      function ensurePanelMounted_() {
+        if (panel.parentNode) return;
+        const parent = inputEl.parentElement;
+        if (parent) parent.style.position = parent.style.position || "relative";
+        (parent || inputEl.parentNode).appendChild(panel);
+      }
+
+      function hidePanel_() {
+        panel.classList.add("hidden");
+        panel.innerHTML = "";
+        items = [];
+        activeIndex = -1;
+      }
+
+      function showPanel_() {
+        panel.classList.remove("hidden");
+      }
+
+      function render_() {
+        if (!items.length) {
+          hidePanel_();
+          return;
+        }
+
+        panel.innerHTML = "";
+        items.forEach((p, idx) => {
+          const btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "typeahead-item";
+          btn.setAttribute("role", "option");
+          btn.dataset.index = String(idx);
+          if (idx === activeIndex) btn.classList.add("active");
+
+          const line1 = document.createElement("div");
+          line1.className = "typeahead-item-nome";
+          line1.textContent = p.nome || "(sem nome)";
+
+          const line2 = document.createElement("div");
+          line2.className = "typeahead-item-detalhes";
+          const parts = [];
+          if (p.documento) parts.push(p.documento);
+          if (p.telefone) parts.push(p.telefone);
+          if (p.data_nascimento) parts.push("Nasc.: " + p.data_nascimento);
+          line2.textContent = parts.join(" • ");
+
+          btn.appendChild(line1);
+          if (line2.textContent) btn.appendChild(line2);
+
+          btn.addEventListener("mousedown", (e) => e.preventDefault());
+
+          btn.addEventListener("click", () => {
+            setSelected(p);
+            setPacienteSelecionadoNoCampo_(inputEl, p);
+            inputEl.value = p.nome || "";
+            hidePanel_();
+            onSelected(p);
+          });
+
+          panel.appendChild(btn);
+        });
+
+        showPanel_();
+      }
+
+      async function fetchAndRender_(q) {
+        const query = String(q || "").trim();
+        if (query.length < 2) {
+          hidePanel_();
+          return;
+        }
+
+        lastQuery = query;
+        try {
+          const results = await apiBuscarPacientesSimples_(query, 12);
+          if (String(inputEl.value || "").trim() !== lastQuery) return;
+
+          items = results || [];
+          activeIndex = items.length ? 0 : -1;
+          render_();
+        } catch (err) {
+          hidePanel_();
+          console.warn("Typeahead pacientes: erro ao buscar", err);
+        }
+      }
+
+      inputEl.addEventListener("input", () => {
+        clearPacienteSeTextoNaoBate_(inputEl, getSelected, () => setSelected(null));
+        onManualTyping();
+
+        const q = String(inputEl.value || "").trim();
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => fetchAndRender_(q), 220);
+      });
+
+      inputEl.addEventListener("focus", () => {
+        ensurePanelMounted_();
+        const q = String(inputEl.value || "").trim();
+        if (q.length >= 2) {
+          if (debounceTimer) clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => fetchAndRender_(q), 10);
+        }
+      });
+
+      inputEl.addEventListener("blur", () => setTimeout(() => hidePanel_(), 180));
+
+      inputEl.addEventListener("keydown", (e) => {
+        if (panel.classList.contains("hidden")) return;
+
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          if (!items.length) return;
+          activeIndex = Math.min(activeIndex + 1, items.length - 1);
+          render_();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          if (!items.length) return;
+          activeIndex = Math.max(activeIndex - 1, 0);
+          render_();
+        } else if (e.key === "Enter") {
+          if (activeIndex >= 0 && items[activeIndex]) {
+            e.preventDefault();
+            const p = items[activeIndex];
+            setSelected(p);
+            setPacienteSelecionadoNoCampo_(inputEl, p);
+            inputEl.value = p.nome || "";
+            hidePanel_();
+            onSelected(p);
+          }
+        } else if (e.key === "Escape") {
+          hidePanel_();
+        }
+      });
+
+      ensurePanelMounted_();
+    }
+
+    // ===========================
+    // Visão Dia / Semana
+    // ===========================
+    function setVisao(modo) {
+      if (modo !== "dia" && modo !== "semana") return;
+
+      modoVisao = modo;
+      try {
+        localStorage.setItem("prontio.agenda.modoVisao", modoVisao);
+      } catch (e) {}
+
+      if (modo === "dia") {
+        secDia && secDia.classList.remove("hidden");
+        secSemana && secSemana.classList.add("hidden");
+        btnVisaoDia && btnVisaoDia.classList.add("view-active");
+        btnVisaoSemana && btnVisaoSemana.classList.remove("view-active");
+        carregarAgendaDia();
+      } else {
+        secDia && secDia.classList.add("hidden");
+        secSemana && secSemana.classList.remove("hidden");
+        btnVisaoDia && btnVisaoDia.classList.remove("view-active");
+        btnVisaoSemana && btnVisaoSemana.classList.add("view-active");
+        carregarAgendaSemana();
+      }
+    }
+
+    // ===========================
+    // Dia - render/estado
+    // ===========================
+    function limparListaHorarios() {
+      if (listaHorariosEl) listaHorariosEl.innerHTML = "";
+    }
+
+    function mostrarEstadoCarregando() {
+      if (!listaHorariosEl) return;
+      listaHorariosEl.classList.add("loading");
+      listaHorariosEl.innerHTML = '<div class="agenda-loading">Carregando agenda...</div>';
+    }
+
+    function removerEstadoCarregando() {
+      if (!listaHorariosEl) return;
+      listaHorariosEl.classList.remove("loading");
+    }
+
+    function mostrarErro(mensagem) {
+      if (!listaHorariosEl) return;
+      listaHorariosEl.innerHTML = `<div class="agenda-erro">${mensagem}</div>`;
+    }
+
+    function atualizarResumoDia(resumo) {
+      if (resumoTotalEl) resumoTotalEl.textContent = resumo?.total ?? 0;
+      if (resumoConfirmadosEl) resumoConfirmadosEl.textContent = resumo?.confirmados ?? 0;
+      if (resumoFaltasEl) resumoFaltasEl.textContent = resumo?.faltas ?? 0;
+      if (resumoCanceladosEl) resumoCanceladosEl.textContent = resumo?.cancelados ?? 0;
+      if (resumoConcluidosEl) resumoConcluidosEl.textContent = resumo?.concluidos ?? 0;
+      if (resumoEmAtendimentoEl) resumoEmAtendimentoEl.textContent = resumo?.em_atendimento ?? 0;
+    }
+
+    async function carregarAgendaDia() {
+      const dataStr = inputData.value;
+      if (!dataStr) return;
+
+      await carregarAgendaConfigSeNecessario();
+
+      limparListaHorarios();
+      mostrarEstadoCarregando();
+
+      try {
+        const data = await callApiData({
+          action: "Agenda_ListarDia",
+          payload: { data: dataStr }
+        });
+
+        atualizarResumoDia(data.resumo);
+
+        agendamentosOriginaisDia = [];
+        (data.horarios || []).forEach((slot) => {
+          (slot.agendamentos || []).forEach((ag) => {
+            agendamentosOriginaisDia.push(ag);
+          });
+        });
+
+        aplicarFiltrosDia();
+      } catch (error) {
+        console.error(error);
+        mostrarErro(
+          "Não foi possível carregar a agenda do dia: " +
+            (error && error.message ? error.message : String(error))
+        );
+      } finally {
+        removerEstadoCarregando();
+      }
+    }
+
+    function aplicarFiltrosDia() {
+      const termo = stripAccents(inputFiltroNome?.value || "").toLowerCase().trim();
+      const statusFiltro = stripAccents(selectFiltroStatus?.value || "").toLowerCase().trim();
+
+      const inicioMin = timeToMinutes(agendaConfig.hora_inicio_padrao) ?? 8 * 60;
+      const fimMin = timeToMinutes(agendaConfig.hora_fim_padrao) ?? 18 * 60;
+      const passo = parseInt(String(agendaConfig.duracao_grade_minutos || 15), 10) || 15;
+
+      const map = new Map();
+      (agendamentosOriginaisDia || []).forEach((ag) => {
+        const hora = normalizeHora(ag.hora_inicio);
+        if (!hora) return;
+
+        if (termo) {
+          const nome = stripAccents(String(ag.nome_paciente || "")).toLowerCase();
+          if (!nome.includes(termo)) return;
+        }
+        if (statusFiltro) {
+          const s = stripAccents(String(ag.status || "")).toLowerCase();
+          if (!s.includes(statusFiltro)) return;
+        }
+
+        if (!map.has(hora)) map.set(hora, []);
+        map.get(hora).push(ag);
+      });
+
+      const slots = [];
+      for (let t = inicioMin; t <= fimMin; t += passo) {
+        const hora = minutesToTime(t);
+        const ags = map.get(hora) || [];
+        slots.push({ hora, agendamentos: ags });
+      }
+
+      desenharHorarios(slots);
+    }
+
+    function desenharHorarios(horarios) {
+      limparListaHorarios();
+      if (!listaHorariosEl) return;
+
+      if (!horarios || !horarios.length) {
+        listaHorariosEl.innerHTML =
+          '<div class="agenda-vazia">Nenhum horário para exibir.</div>';
+        return;
+      }
+
+      let slotParaFoco = null;
+
+      horarios.forEach((slot) => {
+        const { hora, agendamentos } = slot;
+
+        const slotEl = document.createElement("div");
+        slotEl.className = "agenda-slot";
+
+        const horaEl = document.createElement("div");
+        horaEl.className = "agenda-slot-hora";
+        horaEl.textContent = hora;
+
+        const conteudoEl = document.createElement("div");
+        conteudoEl.className = "agenda-slot-conteudo";
+
+        if (!agendamentos || agendamentos.length === 0) {
+          const vazioEl = document.createElement("div");
+          vazioEl.className = "agenda-slot-vazio";
+          vazioEl.textContent = "Horário livre";
+          conteudoEl.appendChild(vazioEl);
+
+          const actionsEl = document.createElement("div");
+          actionsEl.className = "agenda-slot-actions";
+
+          const btnNovo = document.createElement("button");
+          btnNovo.type = "button";
+          btnNovo.className = "btn-status btn-status-atender agenda-slot-action-btn";
+          btnNovo.textContent = "Novo";
+          btnNovo.addEventListener("click", () => abrirModalNovoAgendamento(hora));
+
+          const btnBloq = document.createElement("button");
+          btnBloq.type = "button";
+          btnBloq.className = "btn-status btn-status-cancelar agenda-slot-action-btn";
+          btnBloq.textContent = "Bloquear";
+          btnBloq.addEventListener("click", () => abrirModalBloqueio(hora));
+
+          actionsEl.appendChild(btnNovo);
+          actionsEl.appendChild(btnBloq);
+          conteudoEl.appendChild(actionsEl);
+
+          slotEl.addEventListener("dblclick", () => abrirModalNovoAgendamento(hora));
+        } else {
+          agendamentos.forEach((ag) => {
+            const agEl = ag.bloqueio ? criarCartaoBloqueio(ag) : criarCartaoAgendamento(ag);
+            conteudoEl.appendChild(agEl);
+          });
+        }
+
+        slotEl.appendChild(horaEl);
+        slotEl.appendChild(conteudoEl);
+        listaHorariosEl.appendChild(slotEl);
+
+        if (horaFocoDia && hora === horaFocoDia && !slotParaFoco) {
+          slotParaFoco = slotEl;
+        }
+      });
+
+      if (slotParaFoco) {
+        slotParaFoco.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+      horaFocoDia = null;
+    }
+
+    // ===========================
+    // Semana
+    // ===========================
+    async function carregarAgendaSemana() {
+      const dataStr = inputData.value;
+      if (!dataStr) return;
+
+      if (semanaGridEl) semanaGridEl.innerHTML = '<div class="agenda-loading">Carregando semana...</div>';
+
+      try {
+        await carregarAgendaConfigSeNecessario();
+
+        const data = await callApiData({
+          action: "Agenda_ListarSemana",
+          payload: { data_referencia: dataStr }
+        });
+
+        desenharSemanaGrid(data.dias || []);
+      } catch (error) {
+        console.error(error);
+        if (semanaGridEl) {
+          semanaGridEl.innerHTML =
+            '<div class="agenda-erro">Não foi possível carregar a semana: ' +
+            (error && error.message ? error.message : String(error)) +
+            "</div>";
+        }
+      }
+    }
+
+    function desenharSemanaGrid(dias) {
+      if (!semanaGridEl) return;
+      semanaGridEl.innerHTML = "";
+
+      if (!dias.length) {
+        semanaGridEl.innerHTML = '<div class="agenda-vazia">Nenhum agendamento para esta semana.</div>';
+        return;
+      }
+
+      const diasOrdenados = [...dias].sort((a, b) => a.data.localeCompare(b.data));
+      const diaAgMap = {};
+      const horasSet = new Set();
+
+      diasOrdenados.forEach((dia) => {
+        const ags = [];
+        (dia.horarios || []).forEach((slot) => {
+          const horaSlot = normalizeHora(slot.hora);
+          (slot.agendamentos || []).forEach((ag) => {
+            const horaAg = normalizeHora(ag.hora_inicio || horaSlot);
+            ags.push({ ...ag, __hora_norm: horaAg });
+            if (horaAg) horasSet.add(horaAg);
+          });
+        });
+        diaAgMap[dia.data] = ags;
+      });
+
+      const horas = Array.from(horasSet).sort((a, b) => {
+        const [ha, ma] = a.split(":").map(Number);
+        const [hb, mb] = b.split(":").map(Number);
+        return ha * 60 + ma - (hb * 60 + mb);
+      });
+
+      if (!horas.length) {
+        semanaGridEl.innerHTML = '<div class="agenda-vazia">Nenhum agendamento para esta semana.</div>';
+        return;
+      }
+
+      const headerRow = document.createElement("div");
+      headerRow.className = "semana-row semana-header-row";
+
+      const corner = document.createElement("div");
+      corner.className = "semana-cell semana-corner-cell";
+      corner.textContent = "";
+      headerRow.appendChild(corner);
+
+      diasOrdenados.forEach((dia) => {
+        const cell = document.createElement("div");
+        cell.className = "semana-cell semana-header-cell";
+        cell.innerHTML = `
+          <div class="semana-header-dia">${getDiaSemanaLabel(dia.data)}</div>
+          <div class="semana-header-data">${formatDataBonita(dia.data)}</div>
+        `;
+        headerRow.appendChild(cell);
+      });
+
+      semanaGridEl.appendChild(headerRow);
+
+      horas.forEach((hora) => {
+        const row = document.createElement("div");
+        row.className = "semana-row";
+
+        const horaCell = document.createElement("div");
+        horaCell.className = "semana-cell semana-hora-cell";
+        horaCell.textContent = hora;
+        row.appendChild(horaCell);
+
+        diasOrdenados.forEach((dia) => {
+          const cell = document.createElement("div");
+          cell.className = "semana-cell semana-slot-cell";
+
+          const agsDia = diaAgMap[dia.data] || [];
+          const agsNoHorario = agsDia.filter((ag) => ag.__hora_norm === hora);
+
+          if (agsNoHorario.length) {
+            agsNoHorario.forEach((ag) => {
+              const item = document.createElement("div");
+              item.classList.add("semana-agenda-item");
+
+              if (ag.bloqueio) {
+                item.classList.add("semana-bloqueio-item");
+                item.textContent = "Bloqueado";
+              } else {
+                const nome = ag.nome_paciente || "(sem nome)";
+                const status = ag.status || "";
+                const tipo = ag.tipo || "";
+                const partes = [nome];
+                if (tipo) partes.push(tipo);
+                if (status) partes.push(status);
+                item.textContent = partes.join(" • ");
+
+                item.addEventListener("click", () => {
+                  horaFocoDia = hora;
+                  inputData.value = dia.data;
+                  setVisao("dia");
+                });
+              }
+
+              cell.appendChild(item);
+            });
+          }
+
+          row.appendChild(cell);
+        });
+
+        semanaGridEl.appendChild(row);
+      });
+    }
+
+    // ===========================
+    // Status em select box
+    // ===========================
+    const STATUS_OPTIONS = [
+      "Agendado",
+      "Confirmado",
+      "Em atendimento",
+      "Concluído",
+      "Faltou",
+      "Cancelado"
+    ];
+
+    function normalizeStatusLabel_(s) {
+      const v = stripAccents(String(s || "")).trim().toLowerCase();
+      if (!v) return "Agendado";
+      if (v.includes("confirm")) return "Confirmado";
+      if (v.includes("atend")) return "Em atendimento";
+      if (v.includes("concl")) return "Concluído";
+      if (v.includes("falt")) return "Faltou";
+      if (v.includes("cancel")) return "Cancelado";
+      if (v.includes("agend")) return "Agendado";
+      return "Agendado";
+    }
+
+    function getStatusClass(status) {
+      if (!status) return "status-agendado";
+      const s = stripAccents(String(status)).toLowerCase();
+      if (s.includes("confirm")) return "status-confirmado";
+      if (s.includes("falta")) return "status-falta";
+      if (s.includes("cancel")) return "status-cancelado";
+      if (s.includes("encaixe")) return "status-encaixe";
+      if (s.includes("atendimento")) return "status-em-atendimento";
+      if (s.includes("conclu")) return "status-concluido";
+      return "status-agendado";
+    }
+
+    function criarCartaoAgendamento(ag) {
+      const card = document.createElement("div");
+      card.className = "agendamento-card";
+      card.classList.add(getStatusClass(ag.status));
+
+      const linhaPrincipal = document.createElement("div");
+      linhaPrincipal.className = "agendamento-linha-principal";
+
+      const nomeWrap = document.createElement("div");
+      nomeWrap.className = "agendamento-nome-wrap";
+
+      const nome = document.createElement("span");
+      nome.className = "agendamento-nome";
+      nome.textContent = ag.nome_paciente || "(sem nome)";
+      nomeWrap.appendChild(nome);
+
+      const tipo = document.createElement("span");
+      tipo.className = "agendamento-tipo";
+      tipo.textContent = ag.tipo || "";
+
+      linhaPrincipal.appendChild(nomeWrap);
+      if (tipo.textContent) linhaPrincipal.appendChild(tipo);
+
+      const linhaSecundaria = document.createElement("div");
+      linhaSecundaria.className = "agendamento-linha-secundaria";
+
+      const statusSelect = document.createElement("select");
+      statusSelect.className = "agendamento-status-select";
+
+      STATUS_OPTIONS.forEach((opt) => {
+        const o = document.createElement("option");
+        o.value = opt;
+        o.textContent = opt;
+        statusSelect.appendChild(o);
+      });
+
+      statusSelect.value = normalizeStatusLabel_(ag.status);
+
+      statusSelect.addEventListener("change", async () => {
+        const novoStatus = statusSelect.value;
+        await mudarStatusAgendamento(ag.ID_Agenda, novoStatus, card);
+      });
+
+      const canal = document.createElement("span");
+      canal.className = "agendamento-canal";
+      canal.textContent = ag.canal || "";
+
+      linhaSecundaria.appendChild(statusSelect);
+      if (canal.textContent) linhaSecundaria.appendChild(canal);
+
+      const motivo = document.createElement("div");
+      motivo.className = "agendamento-motivo";
+      motivo.textContent = ag.motivo || "";
+
+      card.appendChild(linhaPrincipal);
+      card.appendChild(linhaSecundaria);
+      if (motivo.textContent) card.appendChild(motivo);
+
+      const acoes = document.createElement("div");
+      acoes.className = "agendamento-acoes";
+
+      const btnAtender = document.createElement("button");
+      btnAtender.type = "button";
+      btnAtender.className = "btn-status btn-status-atender";
+      btnAtender.textContent = "Atender";
+      btnAtender.addEventListener("click", () => abrirProntuario(ag));
+
+      const btnEditar = document.createElement("button");
+      btnEditar.type = "button";
+      btnEditar.className = "btn-status btn-status-editar";
+      btnEditar.textContent = "Editar";
+      btnEditar.addEventListener("click", () => abrirModalEditarAgendamento(ag));
+
+      acoes.appendChild(btnAtender);
+      acoes.appendChild(btnEditar);
+      card.appendChild(acoes);
+
+      return card;
+    }
+
+    function criarCartaoBloqueio(ag) {
+      const card = document.createElement("div");
+      card.className = "agendamento-card bloqueio-card";
+
+      const linhaPrincipal = document.createElement("div");
+      linhaPrincipal.className = "agendamento-linha-principal";
+
+      const label = document.createElement("span");
+      label.className = "bloqueio-label";
+      label.textContent = "Horário bloqueado";
+
+      linhaPrincipal.appendChild(label);
+      card.appendChild(linhaPrincipal);
+
+      const info = document.createElement("div");
+      info.className = "agendamento-motivo";
+      info.textContent = `Das ${ag.hora_inicio} às ${ag.hora_fim}`;
+      card.appendChild(info);
+
+      const acoes = document.createElement("div");
+      acoes.className = "agendamento-acoes";
+
+      const btnRemover = document.createElement("button");
+      btnRemover.type = "button";
+      btnRemover.className = "btn-status btn-status-remover-bloqueio";
+      btnRemover.textContent = "Remover bloqueio";
+      btnRemover.addEventListener("click", () => removerBloqueio(ag.ID_Agenda, card));
+
+      acoes.appendChild(btnRemover);
+      card.appendChild(acoes);
+
+      return card;
+    }
+
+    // ===========================
+    // Prontuário
+    // ===========================
+    function abrirProntuario(ag) {
+      if (!ag.ID_Paciente) {
+        alert(
+          "Este agendamento não está vinculado a um paciente cadastrado.\n\n" +
+            "Selecione um paciente no agendamento para vincular ao prontuário."
+        );
+        return;
+      }
+
+      const infoPaciente = {
+        ID_Paciente: ag.ID_Paciente,
+        nome: ag.nome_paciente || "",
+        documento: ag.documento_paciente || "",
+        telefone: ag.telefone_paciente || ""
+      };
+
+      try {
+        localStorage.setItem("prontio.pacienteSelecionado", JSON.stringify(infoPaciente));
+      } catch (e) {}
+
+      const contextoProntuario = {
+        ID_Paciente: ag.ID_Paciente,
+        nome_paciente: ag.nome_paciente || "",
+        documento_paciente: ag.documento_paciente || "",
+        telefone_paciente: ag.telefone_paciente || "",
+        ID_Agenda: ag.ID_Agenda || "",
+        data: ag.data || "",
+        hora_inicio: ag.hora_inicio || "",
+        status: ag.status || "",
+        tipo: ag.tipo || ""
+      };
+
+      try {
+        localStorage.setItem("prontio.prontuarioContexto", JSON.stringify(contextoProntuario));
+      } catch (e) {}
+
+      const params = new URLSearchParams();
+      params.set("idPaciente", ag.ID_Paciente);
+      if (ag.ID_Agenda) params.set("idAgenda", ag.ID_Agenda);
+
+      window.location.href = "prontuario.html?" + params.toString();
+    }
+
+    // ===========================
+    // Ações (API)
+    // ===========================
+    async function mudarStatusAgendamento(ID_Agenda, novoStatus, cardEl) {
+      if (!ID_Agenda) return;
+      if (inFlight.statusById.has(ID_Agenda)) return;
+
+      inFlight.statusById.add(ID_Agenda);
+      if (cardEl) cardEl.classList.add("agendamento-atualizando");
+
+      try {
+        await callApiData({
+          action: "Agenda_MudarStatus",
+          payload: { ID_Agenda, novo_status: novoStatus }
+        });
+
+        if (modoVisao === "dia") await carregarAgendaDia();
+        else await carregarAgendaSemana();
+      } catch (error) {
+        console.error(error);
+        alert(
+          "Erro ao mudar status do agendamento: " +
+            (error && error.message ? error.message : String(error))
+        );
+        if (cardEl) cardEl.classList.remove("agendamento-atualizando");
+      } finally {
+        inFlight.statusById.delete(ID_Agenda);
+      }
+    }
+
+    async function removerBloqueio(ID_Agenda, cardEl) {
+      if (!ID_Agenda) return;
+      if (inFlight.removerBloqById.has(ID_Agenda)) return;
+
+      const confirma = confirm("Deseja realmente remover este bloqueio de horário?");
+      if (!confirma) return;
+
+      inFlight.removerBloqById.add(ID_Agenda);
+      if (cardEl) cardEl.classList.add("agendamento-atualizando");
+
+      try {
+        await callApiData({ action: "Agenda_RemoverBloqueio", payload: { ID_Agenda } });
+        if (modoVisao === "dia") await carregarAgendaDia();
+        else await carregarAgendaSemana();
+      } catch (error) {
+        console.error(error);
+        alert(
+          "Erro ao remover bloqueio: " +
+            (error && error.message ? error.message : String(error))
+        );
+        if (cardEl) cardEl.classList.remove("agendamento-atualizando");
+      } finally {
+        inFlight.removerBloqById.delete(ID_Agenda);
+      }
+    }
+
+    // ===========================
+    // Pacientes (fallback modal)
+    // ===========================
+    function abrirModalPacientes() {
+      if (inputBuscaPaciente) inputBuscaPaciente.value = "";
+      if (msgPacientesEl) {
+        msgPacientesEl.textContent = "Digite para buscar pacientes.";
+        msgPacientesEl.className = "form-message info";
+      }
+      if (listaPacientesEl) listaPacientesEl.innerHTML = "";
+      openModal(modalPacientes, inputBuscaPaciente);
+    }
+
+    function fecharModalPacientes() {
+      closeModal(modalPacientes);
+      if (inputBuscaPaciente) inputBuscaPaciente.value = "";
+      if (listaPacientesEl) listaPacientesEl.innerHTML = "";
+      if (msgPacientesEl) msgPacientesEl.textContent = "";
+    }
+
+    function aplicarPacienteSelecionado(p) {
+      if (contextoSelecaoPaciente === "novo") {
+        pacienteSelecionado = p;
+        if (inputNomePaciente) inputNomePaciente.value = p ? p.nome : "";
+        if (p && p.telefone && inputTelefone && !inputTelefone.value) inputTelefone.value = p.telefone;
+        setPacienteSelecionadoNoCampo_(inputNomePaciente, p);
+      } else {
+        pacienteSelecionadoEditar = p;
+        if (inputEditNomePaciente) inputEditNomePaciente.value = p ? p.nome : "";
+        setPacienteSelecionadoNoCampo_(inputEditNomePaciente, p);
+      }
+    }
+
+    function limparPacienteSelecionado() {
+      pacienteSelecionado = null;
+      if (inputNomePaciente) inputNomePaciente.value = "";
+      setPacienteSelecionadoNoCampo_(inputNomePaciente, null);
+    }
+
+    function limparPacienteSelecionadoEditar() {
+      pacienteSelecionadoEditar = null;
+      if (inputEditNomePaciente) {
+        inputEditNomePaciente.value = agendamentoEmEdicao ? agendamentoEmEdicao.nome_paciente || "" : "";
+      }
+      setPacienteSelecionadoNoCampo_(inputEditNomePaciente, null);
+    }
+
+    async function buscarPacientes(termo) {
+      const t = String(termo || "").trim();
+      if (!t || t.length < 2) {
+        if (msgPacientesEl) {
+          msgPacientesEl.textContent = "Digite pelo menos 2 caracteres para buscar.";
+          msgPacientesEl.className = "form-message info";
+        }
+        if (listaPacientesEl) listaPacientesEl.innerHTML = "";
+        return;
+      }
+
+      if (msgPacientesEl) {
+        msgPacientesEl.textContent = "Buscando pacientes...";
+        msgPacientesEl.className = "form-message info";
+      }
+      if (listaPacientesEl) listaPacientesEl.innerHTML = "";
+
+      try {
+        const data = await callApiData({
+          action: "Pacientes_BuscarSimples",
+          payload: { termo: t, limite: 30 }
+        });
+
+        const pacientes = data && data.pacientes ? data.pacientes : [];
+
+        if (!pacientes.length) {
+          if (msgPacientesEl) {
+            msgPacientesEl.textContent = "Nenhum paciente encontrado para este termo.";
+            msgPacientesEl.className = "form-message info";
+          }
+          if (listaPacientesEl) listaPacientesEl.innerHTML = "";
+          return;
+        }
+
+        if (msgPacientesEl) {
+          msgPacientesEl.textContent = "";
+          msgPacientesEl.className = "form-message";
+        }
+
+        if (!listaPacientesEl) return;
+
+        listaPacientesEl.innerHTML = "";
+        pacientes.forEach((raw) => {
+          const p = normalizePatientObj_(raw);
+          const item = document.createElement("button");
+          item.type = "button";
+          item.className = "paciente-lista-item";
+
+          const linha1 = document.createElement("div");
+          linha1.className = "paciente-lista-nome";
+          linha1.textContent = p.nome || "(sem nome)";
+
+          const linha2 = document.createElement("div");
+          linha2.className = "paciente-lista-detalhes";
+          const partes = [];
+          if (p.documento) partes.push(p.documento);
+          if (p.telefone) partes.push(p.telefone);
+          if (p.data_nascimento) partes.push("Nasc.: " + p.data_nascimento);
+          linha2.textContent = partes.join(" • ");
+
+          item.appendChild(linha1);
+          item.appendChild(linha2);
+
+          item.addEventListener("click", () => {
+            aplicarPacienteSelecionado(p);
+            fecharModalPacientes();
+          });
+
+          listaPacientesEl.appendChild(item);
+        });
+      } catch (error) {
+        console.error(error);
+        if (msgPacientesEl) {
+          msgPacientesEl.textContent =
+            "Erro ao buscar pacientes: " +
+            (error && error.message ? error.message : String(error));
+          msgPacientesEl.className = "form-message erro";
+        }
+        if (listaPacientesEl) listaPacientesEl.innerHTML = "";
+      }
+    }
+
+    // ===========================
+    // Modal: Novo
+    // ===========================
+    function abrirModalNovoAgendamento(horaPreSelecionada) {
+      if (horaPreSelecionada && inputHoraInicio) inputHoraInicio.value = horaPreSelecionada;
+      else if (inputHoraInicio && !inputHoraInicio.value) inputHoraInicio.value = "14:00";
+
+      setFormMsg(mensagemNovoAgendamento, "", "");
+      contextoSelecaoPaciente = "novo";
+      safeDisable(btnSubmitNovo, false);
+
+      if (chkNovoPermiteEncaixe) chkNovoPermiteEncaixe.checked = false;
+
+      openModal(modalOverlay, inputHoraInicio || inputNomePaciente);
+    }
+
+    function fecharModalNovoAgendamento() {
+      closeModal(modalOverlay);
+      if (formNovoAgendamento) formNovoAgendamento.reset();
+      if (inputDuracao) inputDuracao.value = 15;
+      setFormMsg(mensagemNovoAgendamento, "", "");
+      limparPacienteSelecionado();
+      safeDisable(btnSubmitNovo, false);
+    }
+
+    async function salvarNovoAgendamento(event) {
+      event.preventDefault();
+      safeDisable(btnSubmitNovo, true);
+
+      const dataStr = inputData.value;
+      const horaStr = inputHoraInicio?.value;
+      const duracao = parseInt(inputDuracao?.value || "0", 10);
+
+      if (!dataStr || !horaStr || !duracao) {
+        setFormMsg(mensagemNovoAgendamento, "Preencha data, hora inicial e duração.", "erro");
+        safeDisable(btnSubmitNovo, false);
+        return;
+      }
+
+      const permiteEncaixeUI = chkNovoPermiteEncaixe ? chkNovoPermiteEncaixe.checked === true : false;
+
+      setFormMsg(mensagemNovoAgendamento, "Validando horário...", "info");
+      const v = await preValidarConflito_({
+        data: dataStr,
+        hora_inicio: horaStr,
+        duracao_minutos: duracao,
+        ignoreIdAgenda: ""
+      });
+
+      if (!v.ok) {
+        const msg = describeConflitos_(v);
+
+        if (hasBloqueioInConflitos_(v)) {
+          setFormMsg(mensagemNovoAgendamento, msg, "erro");
+          safeDisable(btnSubmitNovo, false);
+          return;
+        }
+
+        if (!permiteEncaixeUI) {
+          setFormMsg(
+            mensagemNovoAgendamento,
+            msg + " Marque “Permitir encaixe” para salvar mesmo com conflito de consultas.",
+            "erro"
+          );
+          safeDisable(btnSubmitNovo, false);
+          return;
+        }
+      }
+
+      const nomeLivre = (inputNomePaciente?.value || "").trim();
+      const vinculado = pacienteSelecionado && pacienteSelecionado.ID_Paciente;
+
+      if (!vinculado && nomeLivre) {
+        setFormMsg(
+          mensagemNovoAgendamento,
+          "Aviso: paciente digitado sem seleção. O agendamento será salvo sem vínculo ao cadastro.",
+          "info"
+        );
+      }
+
+      const payload = {
+        data: dataStr,
+        hora_inicio: horaStr,
+        duracao_minutos: duracao,
+        ID_Paciente: vinculado ? pacienteSelecionado.ID_Paciente : "",
+        nome_paciente: vinculado ? pacienteSelecionado.nome : nomeLivre,
+        documento_paciente: vinculado ? pacienteSelecionado.documento : "",
+        telefone_paciente: vinculado ? pacienteSelecionado.telefone : (inputTelefone?.value || ""),
+        tipo: inputTipo?.value || "",
+        motivo: inputMotivo?.value || "",
+        origem: inputOrigem?.value || "",
+        canal: inputCanal?.value || "",
+        ID_Sala: "",
+        profissional: "",
+        permite_encaixe: permiteEncaixeUI
+      };
+
+      setTimeout(() => setFormMsg(mensagemNovoAgendamento, "Salvando...", "info"), 120);
+
+      try {
+        await callApiData({ action: "Agenda_Criar", payload });
+        setFormMsg(mensagemNovoAgendamento, "Agendamento criado com sucesso!", "sucesso");
+        await carregarAgendaDia();
+        setTimeout(() => fecharModalNovoAgendamento(), 650);
+      } catch (error) {
+        console.error(error);
+        setFormMsg(
+          mensagemNovoAgendamento,
+          "Erro ao salvar agendamento: " + (error && error.message ? error.message : String(error)),
+          "erro"
+        );
+        safeDisable(btnSubmitNovo, false);
+      }
+    }
+
+    // ===========================
+    // Modal: Editar
+    // ===========================
+    function abrirModalEditarAgendamento(ag) {
+      agendamentoEmEdicao = ag;
+
+      pacienteSelecionadoEditar = null;
+      if (ag && ag.ID_Paciente) {
+        pacienteSelecionadoEditar = {
+          ID_Paciente: ag.ID_Paciente,
+          nome: ag.nome_paciente || "",
+          documento: ag.documento_paciente || "",
+          telefone: ag.telefone_paciente || ""
+        };
+      }
+
+      contextoSelecaoPaciente = "editar";
+
+      if (inputEditIdAgenda) inputEditIdAgenda.value = ag.ID_Agenda || "";
+      if (inputEditData) inputEditData.value = ag.data || inputData.value || "";
+      if (inputEditHoraInicio) inputEditHoraInicio.value = ag.hora_inicio || "";
+      if (inputEditDuracao) inputEditDuracao.value = ag.duracao_minutos || 15;
+
+      if (inputEditNomePaciente) inputEditNomePaciente.value = ag.nome_paciente || "";
+      setPacienteSelecionadoNoCampo_(inputEditNomePaciente, pacienteSelecionadoEditar);
+
+      if (inputEditTipo) inputEditTipo.value = ag.tipo || "";
+      if (inputEditMotivo) inputEditMotivo.value = ag.motivo || "";
+      if (inputEditOrigem) inputEditOrigem.value = ag.origem || "";
+      if (inputEditCanal) inputEditCanal.value = ag.canal || "";
+
+      if (chkEditPermiteEncaixe) chkEditPermiteEncaixe.checked = ag && ag.permite_encaixe === true;
+
+      setFormMsg(msgEditarAgendamento, "", "");
+      safeDisable(btnSubmitEditar, false);
+      openModal(modalEdit, inputEditHoraInicio || inputEditNomePaciente);
+    }
+
+    function fecharModalEditarAgendamento() {
+      closeModal(modalEdit);
+      if (formEditarAgendamento) formEditarAgendamento.reset();
+      agendamentoEmEdicao = null;
+      pacienteSelecionadoEditar = null;
+      setFormMsg(msgEditarAgendamento, "", "");
+      safeDisable(btnSubmitEditar, false);
+      setPacienteSelecionadoNoCampo_(inputEditNomePaciente, null);
+    }
+
+    async function salvarEdicaoAgendamento(event) {
+      event.preventDefault();
+      safeDisable(btnSubmitEditar, true);
+
+      const idAgenda = inputEditIdAgenda?.value || "";
+      if (!idAgenda) {
+        setFormMsg(msgEditarAgendamento, "Agendamento inválido para edição.", "erro");
+        safeDisable(btnSubmitEditar, false);
+        return;
+      }
+
+      const dataStr = inputEditData?.value;
+      const horaStr = inputEditHoraInicio?.value;
+      const duracao = parseInt(inputEditDuracao?.value || "0", 10);
+
+      if (!dataStr || !horaStr || !duracao) {
+        setFormMsg(msgEditarAgendamento, "Preencha data, hora inicial e duração.", "erro");
+        safeDisable(btnSubmitEditar, false);
+        return;
+      }
+
+      const permiteEncaixeUI = chkEditPermiteEncaixe ? chkEditPermiteEncaixe.checked === true : false;
+
+      setFormMsg(msgEditarAgendamento, "Validando horário...", "info");
+      const v = await preValidarConflito_({
+        data: dataStr,
+        hora_inicio: horaStr,
+        duracao_minutos: duracao,
+        ignoreIdAgenda: idAgenda
+      });
+
+      if (!v.ok) {
+        const msg = describeConflitos_(v);
+
+        if (hasBloqueioInConflitos_(v)) {
+          setFormMsg(msgEditarAgendamento, msg, "erro");
+          safeDisable(btnSubmitEditar, false);
+          return;
+        }
+
+        if (!permiteEncaixeUI) {
+          setFormMsg(
+            msgEditarAgendamento,
+            msg + " Marque “Permitir encaixe” para salvar mesmo com conflito de consultas.",
+            "erro"
+          );
+          safeDisable(btnSubmitEditar, false);
+          return;
+        }
+      }
+
+      const nomeLivre = (inputEditNomePaciente?.value || "").trim();
+      const vinculado = pacienteSelecionadoEditar && pacienteSelecionadoEditar.ID_Paciente;
+
+      if (!vinculado && nomeLivre) {
+        setFormMsg(
+          msgEditarAgendamento,
+          "Aviso: paciente editado sem seleção. O vínculo ao cadastro será removido.",
+          "info"
+        );
+      }
+
+      const payload = {
+        ID_Agenda: idAgenda,
+        data: dataStr,
+        hora_inicio: horaStr,
+        duracao_minutos: duracao,
+        tipo: inputEditTipo?.value || "",
+        motivo: inputEditMotivo?.value || "",
+        origem: inputEditOrigem?.value || "",
+        canal: inputEditCanal?.value || "",
+        permite_encaixe: permiteEncaixeUI
+      };
+
+      if (vinculado) {
+        payload.ID_Paciente = pacienteSelecionadoEditar.ID_Paciente || "";
+        payload.nome_paciente = pacienteSelecionadoEditar.nome || "";
+        payload.documento_paciente = pacienteSelecionadoEditar.documento || "";
+        payload.telefone_paciente = pacienteSelecionadoEditar.telefone || "";
+      } else {
+        payload.ID_Paciente = "";
+        payload.nome_paciente = nomeLivre || (agendamentoEmEdicao?.nome_paciente || "");
+        payload.documento_paciente = "";
+        payload.telefone_paciente = "";
+      }
+
+      setTimeout(() => setFormMsg(msgEditarAgendamento, "Salvando alterações...", "info"), 120);
+
+      try {
+        await callApiData({ action: "Agenda_Atualizar", payload });
+
+        setFormMsg(msgEditarAgendamento, "Agendamento atualizado com sucesso!", "sucesso");
+
+        if (modoVisao === "dia") await carregarAgendaDia();
+        else await carregarAgendaSemana();
+
+        setTimeout(() => fecharModalEditarAgendamento(), 650);
+      } catch (error) {
+        console.error(error);
+        setFormMsg(
+          msgEditarAgendamento,
+          "Erro ao atualizar agendamento: " + (error && error.message ? error.message : String(error)),
+          "erro"
+        );
+        safeDisable(btnSubmitEditar, false);
+      }
+    }
+
+    // ===========================
+    // Modal: Bloqueio
+    // ===========================
+    function abrirModalBloqueio(horaPreSelecionada) {
+      if (horaPreSelecionada && inputBloqHoraInicio) inputBloqHoraInicio.value = horaPreSelecionada;
+      else if (inputBloqHoraInicio && !inputBloqHoraInicio.value) inputBloqHoraInicio.value = "12:00";
+
+      setFormMsg(mensagemBloqueio, "", "");
+      safeDisable(btnSubmitBloqueio, false);
+
+      openModal(modalBloqueio, inputBloqHoraInicio);
+    }
+
+    function fecharModalBloqueio() {
+      closeModal(modalBloqueio);
+      if (formBloqueio) formBloqueio.reset();
+      if (inputBloqDuracao) inputBloqDuracao.value = 60;
+      setFormMsg(mensagemBloqueio, "", "");
+      safeDisable(btnSubmitBloqueio, false);
+    }
+
+    async function salvarBloqueio(event) {
+      event.preventDefault();
+      safeDisable(btnSubmitBloqueio, true);
+
+      const dataStr = inputData.value;
+      const horaStr = inputBloqHoraInicio?.value;
+      const duracao = parseInt(inputBloqDuracao?.value || "0", 10);
+
+      if (!dataStr || !horaStr || !duracao) {
+        setFormMsg(mensagemBloqueio, "Preencha hora inicial e duração.", "erro");
+        safeDisable(btnSubmitBloqueio, false);
+        return;
+      }
+
+      setFormMsg(mensagemBloqueio, "Validando horário...", "info");
+      const v = await preValidarConflito_({
+        data: dataStr,
+        hora_inicio: horaStr,
+        duracao_minutos: duracao,
+        ignoreIdAgenda: ""
+      });
+
+      if (!v.ok) {
+        const msg = describeConflitos_(v);
+        setFormMsg(mensagemBloqueio, msg, "erro");
+        safeDisable(btnSubmitBloqueio, false);
+        return;
+      }
+
+      const payload = { data: dataStr, hora_inicio: horaStr, duracao_minutos: duracao };
+
+      setFormMsg(mensagemBloqueio, "Salvando bloqueio...", "info");
+
+      try {
+        await callApiData({ action: "Agenda_BloquearHorario", payload });
+
+        setFormMsg(mensagemBloqueio, "Horário bloqueado com sucesso!", "sucesso");
+
+        if (modoVisao === "dia") await carregarAgendaDia();
+        else await carregarAgendaSemana();
+
+        setTimeout(() => fecharModalBloqueio(), 650);
+      } catch (error) {
+        console.error(error);
+        setFormMsg(
+          mensagemBloqueio,
+          "Erro ao salvar bloqueio: " + (error && error.message ? error.message : String(error)),
+          "erro"
+        );
+        safeDisable(btnSubmitBloqueio, false);
+      }
+    }
+
+    // ===========================
+    // Inicializa typeahead nos inputs de paciente
+    // ===========================
+    attachPatientTypeahead_({
+      inputEl: inputNomePaciente,
+      getSelected: () => pacienteSelecionado,
+      setSelected: (p) => (pacienteSelecionado = p),
+      onSelected: (p) => {
+        if (p && p.telefone && inputTelefone && !String(inputTelefone.value || "").trim()) {
+          inputTelefone.value = p.telefone;
+        }
+      },
+      onManualTyping: () => {}
+    });
+
+    attachPatientTypeahead_({
+      inputEl: inputEditNomePaciente,
+      getSelected: () => pacienteSelecionadoEditar,
+      setSelected: (p) => (pacienteSelecionadoEditar = p),
+      onSelected: () => {},
+      onManualTyping: () => {}
+    });
+
+    // ===========================
+    // Listeners gerais
+    // ===========================
+    inputData.addEventListener("change", () =>
+      modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana()
+    );
+
+    btnHoje &&
+      btnHoje.addEventListener("click", () => {
+        setToday();
+        modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
+      });
+
+    btnDiaAnterior &&
+      btnDiaAnterior.addEventListener("click", () => {
+        if (!inputData.value) return;
+        const d = parseInputDate(inputData.value);
+        if (modoVisao === "semana") d.setDate(d.getDate() - 7);
+        else d.setDate(d.getDate() - 1);
+        inputData.value = formatDateToInput(d);
+        modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
+      });
+
+    btnDiaPosterior &&
+      btnDiaPosterior.addEventListener("click", () => {
+        if (!inputData.value) return;
+        const d = parseInputDate(inputData.value);
+        if (modoVisao === "semana") d.setDate(d.getDate() + 7);
+        else d.setDate(d.getDate() + 1);
+        inputData.value = formatDateToInput(d);
+        modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
+      });
+
+    btnVisaoDia && btnVisaoDia.addEventListener("click", () => setVisao("dia"));
+    btnVisaoSemana && btnVisaoSemana.addEventListener("click", () => setVisao("semana"));
+
+    inputFiltroNome &&
+      inputFiltroNome.addEventListener("input", () => {
+        if (modoVisao === "dia") aplicarFiltrosDia();
+      });
+
+    selectFiltroStatus &&
+      selectFiltroStatus.addEventListener("change", () => {
+        if (modoVisao === "dia") aplicarFiltrosDia();
+      });
+
+    btnNovoAgendamento && btnNovoAgendamento.addEventListener("click", () => abrirModalNovoAgendamento());
+    btnBloquearHorario && btnBloquearHorario.addEventListener("click", () => abrirModalBloqueio());
+
+    // Modal Novo
+    btnFecharModal && btnFecharModal.addEventListener("click", () => fecharModalNovoAgendamento());
+    btnCancelarModal && btnCancelarModal.addEventListener("click", () => fecharModalNovoAgendamento());
+    modalOverlay &&
+      modalOverlay.addEventListener("click", (event) => {
+        if (event.target === modalOverlay) fecharModalNovoAgendamento();
+      });
+    formNovoAgendamento && formNovoAgendamento.addEventListener("submit", salvarNovoAgendamento);
+
+    // Modal Editar
+    btnFecharModalEditar && btnFecharModalEditar.addEventListener("click", () => fecharModalEditarAgendamento());
+    btnCancelarEditar && btnCancelarEditar.addEventListener("click", () => fecharModalEditarAgendamento());
+    modalEdit &&
+      modalEdit.addEventListener("click", (event) => {
+        if (event.target === modalEdit) fecharModalEditarAgendamento();
+      });
+    formEditarAgendamento && formEditarAgendamento.addEventListener("submit", salvarEdicaoAgendamento);
+
+    // Modal Bloqueio
+    btnFecharModalBloqueio && btnFecharModalBloqueio.addEventListener("click", () => fecharModalBloqueio());
+    btnCancelarBloqueio && btnCancelarBloqueio.addEventListener("click", () => fecharModalBloqueio());
+    modalBloqueio &&
+      modalBloqueio.addEventListener("click", (event) => {
+        if (event.target === modalBloqueio) fecharModalBloqueio();
+      });
+    formBloqueio && formBloqueio.addEventListener("submit", salvarBloqueio);
+
+    // Modal Pacientes (fallback)
+    btnSelecionarPaciente &&
+      btnSelecionarPaciente.addEventListener("click", () => {
+        contextoSelecaoPaciente = "novo";
+        abrirModalPacientes();
+      });
+
+    btnLimparPaciente && btnLimparPaciente.addEventListener("click", () => limparPacienteSelecionado());
+
+    btnEditSelecionarPaciente &&
+      btnEditSelecionarPaciente.addEventListener("click", () => {
+        contextoSelecaoPaciente = "editar";
+        abrirModalPacientes();
+      });
+
+    btnEditLimparPaciente && btnEditLimparPaciente.addEventListener("click", () => limparPacienteSelecionadoEditar());
+
+    btnFecharModalPacientes && btnFecharModalPacientes.addEventListener("click", () => fecharModalPacientes());
+    modalPacientes &&
+      modalPacientes.addEventListener("click", (event) => {
+        if (event.target === modalPacientes) fecharModalPacientes();
+      });
+
+    inputBuscaPaciente &&
+      inputBuscaPaciente.addEventListener("input", () => {
+        const termo = inputBuscaPaciente.value;
+        if (buscaPacienteTimeout) clearTimeout(buscaPacienteTimeout);
+        buscaPacienteTimeout = setTimeout(() => buscarPacientes(termo), 300);
+      });
+
+    // ESC fecha qualquer modal aberto
+    document.addEventListener("keydown", (e) => {
+      if (e.key !== "Escape") return;
+
+      if (isModalVisible(modalPacientes)) return fecharModalPacientes();
+      if (isModalVisible(modalBloqueio)) return fecharModalBloqueio();
+      if (isModalVisible(modalEdit)) return fecharModalEditarAgendamento();
+      if (isModalVisible(modalOverlay)) return fecharModalNovoAgendamento();
+    });
+
+    // =====================
+    // Inicialização
+    // =====================
+    setToday();
+    setVisao(modoVisao);
+  }
+
+  if (typeof PRONTIO.registerPage === "function") {
+    PRONTIO.registerPage("agenda", initAgendaPage);
+  } else {
+    PRONTIO.pages = PRONTIO.pages || {};
+    PRONTIO.pages.agenda = { init: initAgendaPage };
+  }
+})(window, document);

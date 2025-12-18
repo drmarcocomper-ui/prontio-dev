@@ -1,0 +1,344 @@
+/* ===========================================
+   PRONTIO - CSS específico da página Receita
+=========================================== */
+
+/* Dados do paciente no topo da página */
+.info-paciente-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(160px, 1fr));
+  gap: 6px 18px;
+  font-size: 13px;
+}
+
+.info-paciente-label {
+  font-weight: bold;
+  color: #555;
+}
+
+.info-paciente-valor {
+  color: #111;
+}
+
+/* Formulário da nova receita */
+.form-receita-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+
+.campo-label {
+  font-weight: bold;
+  font-size: 13px;
+  margin-bottom: 4px;
+  display: block;
+  color: #444;
+}
+
+.campo-controle textarea,
+.campo-controle input {
+  width: 100%;
+  padding: 6px 8px;
+  font-size: 14px;
+  box-sizing: border-box;
+}
+
+/* Texto de ajuda abaixo dos campos */
+.campo-ajuda {
+  font-size: 11px;
+  color: #777;
+  margin-top: 2px;
+}
+
+/* Ações do formulário de receita */
+.acoes-receita-form {
+  margin-top: 10px;
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Lista de receitas anteriores */
+.tabela-receita-wrapper {
+  overflow-x: auto;
+}
+
+.tabela-receitas {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 700px;
+  background: #ffffff;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.tabela-receitas th,
+.tabela-receitas td {
+  border: 1px solid #dde3ea;
+  padding: 6px 8px;
+  text-align: left;
+  vertical-align: top;
+  font-size: 13px;
+}
+
+.tabela-receitas thead {
+  background: #f1f4f8;
+}
+
+.tabela-receitas tbody tr:nth-child(even) {
+  background: #fafbfc;
+}
+
+.col-data-receita {
+  width: 140px;
+  white-space: nowrap;
+}
+
+.col-acoes-receita {
+  width: 150px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.acoes-receita-lista {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.acoes-receita-lista .btn {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+/* Preview de texto nas receitas antigas */
+.texto-medicamentos-preview {
+  white-space: pre-wrap;
+}
+
+.texto-obs-preview {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: #444;
+}
+
+/* Bloco de sugestões de medicamentos (tabela antiga, se usada em outra tela) */
+.medicamentos-card {
+  margin-top: 10px;
+  border-top: 1px solid #dde3ea;
+  padding-top: 12px;
+}
+
+.medicamentos-grid {
+  display: grid;
+  grid-template-columns: minmax(200px, 1fr);
+  gap: 8px;
+}
+
+.tabela-medicamentos-wrapper {
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid #dde3ea;
+  border-radius: 6px;
+  background: #fafafa;
+}
+
+.tabela-medicamentos {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.tabela-medicamentos th,
+.tabela-medicamentos td {
+  border-bottom: 1px solid #e0e0e0;
+  padding: 4px 6px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.tabela-medicamentos thead {
+  background: #e9f2ff;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.col-med-acoes {
+  width: 80px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* Filtro de medicamentos (telas antigas) */
+.filtro-medicamento {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.filtro-medicamento input {
+  flex: 1;
+  min-width: 160px;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+
+/* Responsividade básica */
+@media (max-width: 800px) {
+  .info-paciente-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* =========================================
+   LAYOUT DO PAINEL DE RECEITA NO PRONTUÁRIO
+   ========================================= */
+
+/* Container dos itens de medicamento dentro do painel */
+.receita-itens-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* Cada "cartão" de medicamento */
+.receita-item-bloco {
+  border-radius: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.96);
+  padding: 10px 12px 8px;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.6);
+}
+
+/* Cabeçalho do item: título + botão remover */
+.receita-item-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+/* Grid interno dos campos do medicamento */
+.receita-item-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px 10px;
+}
+
+/* Em telas maiores, organiza em colunas */
+@media (min-width: 720px) {
+  .receita-item-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .receita-item-grid .form-row:nth-child(1) {
+    grid-column: 1 / -1; /* Medicamento ocupa a linha inteira */
+  }
+
+  .receita-item-grid .form-row:nth-child(5) {
+    grid-column: 1 / -1; /* Observação também ocupa linha inteira */
+  }
+}
+
+/* =======================================
+   ÍCONE DE PESQUISA NO CAMPO MEDICAMENTO
+   ======================================= */
+
+.receita-medicamento-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.receita-medicamento-wrapper input {
+  width: 100%;
+  padding-right: 28px; /* espaço para o ícone */
+}
+
+.receita-icon-busca {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  cursor: pointer;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, transform 0.08s ease;
+}
+
+.receita-icon-busca:hover {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.05);
+}
+
+/* ============================================
+   AUTOCOMPLETE DE MEDICAMENTOS (painel receita)
+   ============================================ */
+
+/* Container de sugestões logo abaixo de cada item de medicamento */
+.receita-item-sugestoes {
+  margin-top: 4px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+/* Lista visual das sugestões */
+.receita-sugestoes-lista {
+  list-style: none;
+  margin: 0;
+  padding: 4px;
+  border-radius: 6px;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.8);
+}
+
+/* Cada sugestão individual */
+.receita-sugestao-item {
+  margin: 0;
+  padding: 0;
+}
+
+/* Botão que representa a sugestão */
+.receita-sugestao-item .btn {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: left;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 4px;
+  color: #e5e7eb;
+  background: transparent;
+  border: none;
+}
+
+/* Texto principal da sugestão (nome do medicamento) */
+.receita-sugestao-item .btn strong {
+  font-size: 12px;
+  font-weight: 600;
+  color: #f9fafb;
+}
+
+/* Detalhes (posologia, via, quantidade) */
+.receita-sugestao-item .btn span.texto-menor {
+  display: inline-block;
+  margin-left: 4px;
+  color: #9ca3af;
+}
+
+/* Hover / foco da sugestão */
+.receita-sugestao-item .btn:hover,
+.receita-sugestao-item .btn:focus-visible {
+  background: rgba(59, 130, 246, 0.18);
+  outline: none;
+}
+
+/* Em telas menores, limitar um pouco a altura das sugestões */
+@media (max-width: 640px) {
+  .receita-item-sugestoes {
+    max-height: 120px;
+  }
+}

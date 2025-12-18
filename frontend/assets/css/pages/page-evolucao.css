@@ -1,0 +1,308 @@
+/* =========================================
+   PRONTIO - Página de Evolução Clínica
+   Estilo: A + D (iOS premium + timeline)
+   ========================================= */
+
+/* 🔵 Container principal mais "app" */
+.content {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding-top: 1.5rem;
+  padding-bottom: 4rem;
+}
+
+/* =========================================
+   🎴 Cards com glassmorphism premium
+   ========================================= */
+
+.card-paciente,
+.card-evolucao,
+.card-historico {
+  background:
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.18), transparent 55%),
+    rgba(15, 23, 42, 0.96);
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  box-shadow: 0 35px 90px rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(26px) saturate(140%);
+  padding: 1.5rem 1.7rem;
+}
+
+/* cabeçalho sutil (usado em Paciente e Histórico) */
+.card-header-sutil {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.35);
+  padding-bottom: 0.55rem;
+  margin-bottom: 0.3rem;
+}
+
+.card-header-sutil h2 {
+  font-size: 1.05rem;
+  letter-spacing: 0.02em;
+  font-weight: 600;
+}
+
+/* =========================================
+   🧍 Paciente selecionado
+   ========================================= */
+
+.card-paciente {
+  margin-bottom: 1.8rem;
+}
+
+/* Nome do paciente */
+.paciente-nome {
+  margin: 0.6rem 0 0.3rem;
+  font-size: 1rem;
+  color: #f3f4f6;
+}
+
+/* Linha com telefone / plano / idade / CPF / observação */
+.paciente-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2.2rem;
+  margin: 0.5rem 0 0.4rem;
+  padding-top: 0.6rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.paciente-info-row p {
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* Label pequena */
+.paciente-info-label {
+  display: block;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: var(--app-text-softer, #6b7280);
+  margin-bottom: 0.1rem;
+}
+
+/* Valor em destaque */
+.paciente-info-row p span:last-child {
+  font-size: 0.9rem;
+  color: #e5e7eb;
+  font-weight: 500;
+}
+
+/* =========================================
+   🎛 Ações clínicas (Nova evolução / receita / docs)
+   ========================================= */
+
+.card-header-evolucao {
+  align-items: center;
+  gap: 1rem;
+}
+
+.evolucao-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+/* Botão compacto (para caber no header) */
+.btn-xs {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+/* Botão ghost premium (Nova receita / Documentos) */
+.btn.ghost {
+  background: rgba(255, 255, 255, 0.02);
+  border-color: rgba(148, 163, 184, 0.28);
+  color: var(--app-text-primary, #e5e7eb);
+}
+
+.btn.ghost:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* =========================================
+   📝 Formulário de evolução
+   ========================================= */
+
+/* começa fechado; é mostrado/ocultado via JS */
+#formEvolucao.oculto {
+  display: none !important;
+}
+
+.campo-form-evolucao textarea {
+  min-height: 180px;
+  resize: vertical;
+  border-radius: 14px;
+  padding: 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+}
+
+.acoes-form-evolucao {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+/* =========================================
+   🕒 Histórico de evoluções - Timeline
+   ========================================= */
+
+.evolucoes-timeline-wrapper {
+  margin-top: 0.75rem;
+}
+
+/* Esconde o cabeçalho tradicional da tabela */
+.tabela-evolucoes thead {
+  display: none;
+}
+
+.tabela-evolucoes {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+/* Corpo da tabela vira timeline vertical */
+.tabela-evolucoes tbody {
+  display: flex;
+  flex-direction: column;
+  gap: 1.35rem;
+  position: relative;
+  margin-left: 0.25rem;
+  padding-left: 0.35rem;
+}
+
+/* Linha vertical */
+.tabela-evolucoes tbody::before {
+  content: "";
+  position: absolute;
+  left: 10px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: rgba(59, 130, 246, 0.45);
+}
+
+/* Cada linha vira um card da timeline */
+.tabela-evolucoes tbody tr {
+  position: relative;
+  margin-left: 1.75rem;
+  padding: 0.7rem 1rem 0.75rem;
+  border-radius: 16px;
+  background: rgba(17, 24, 39, 0.75);
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(20px);
+}
+
+/* Ponto luminoso na timeline */
+.tabela-evolucoes tbody tr::before {
+  content: "";
+  position: absolute;
+  left: -26px;
+  top: 18px;
+  width: 14px;
+  height: 14px;
+  border-radius: 999px;
+  background: radial-gradient(
+    circle at 30% 30%,
+    #eff6ff 0,
+    #3b82f6 55%,
+    #1d4ed8 100%
+  );
+  box-shadow:
+    0 0 0 5px rgba(37, 99, 235, 0.45),
+    0 0 22px rgba(37, 99, 235, 0.8);
+}
+
+/* Células empilhadas verticalmente */
+.tabela-evolucoes tbody td {
+  display: block;
+  border: none;
+  padding: 0.15rem 0;
+  font-size: 0.88rem;
+  color: var(--app-text-primary, #e5e7eb);
+}
+
+/* 1ª célula: Data (label pequena) */
+.tabela-evolucoes tbody tr td:nth-child(1) {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--app-text-softer, #9ca3af);
+}
+
+/* 2ª célula: Tipo (chip) */
+.tabela-evolucoes tbody tr td:nth-child(2) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 0.1rem;
+  padding: 0.15rem 0.55rem;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.18);
+  color: #bfdbfe;
+  font-size: 0.75rem;
+}
+
+/* 3ª célula: Profissional */
+.tabela-evolucoes tbody tr td:nth-child(3) {
+  margin-top: 0.15rem;
+  font-size: 0.8rem;
+  color: var(--app-text-muted, #9ca3af);
+}
+
+/* 4ª célula: Texto da evolução (resumo principal) */
+.tabela-evolucoes tbody tr td:nth-child(4) {
+  margin-top: 0.3rem;
+  font-size: 0.95rem;
+  line-height: 1.55;
+  color: #f3f4f6;
+}
+
+/* Última célula: ações */
+.tabela-evolucoes tbody tr td:last-child {
+  margin-top: 0.7rem;
+  text-align: right;
+}
+
+/* Mensagem abaixo do histórico */
+.evolucoes-msg {
+  margin-top: 0.75rem;
+  font-size: 0.78rem;
+  color: var(--app-text-softer, #6b7280);
+}
+
+/* Quando não há evoluções, mostra placeholder elegante */
+.evolucoes-msg:empty::after {
+  content: "Nenhuma evolução registrada ainda.";
+  display: block;
+  text-align: center;
+  padding: 1rem;
+  font-size: 0.9rem;
+  opacity: 0.5;
+}
+
+/* =========================================
+   📱 Responsivo
+   ========================================= */
+
+@media (max-width: 768px) {
+  .paciente-info-row {
+    gap: 0.9rem;
+  }
+
+  .tabela-evolucoes tbody tr {
+    margin-left: 1.4rem;
+    padding: 0.6rem 0.75rem 0.65rem;
+  }
+
+  .tabela-evolucoes tbody tr::before {
+    left: -22px;
+  }
+
+  .evolucao-actions {
+    justify-content: flex-end;
+  }
+}

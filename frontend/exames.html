@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>PRONTIO - Exames</title>
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <link rel="stylesheet" href="assets/css/style.css">
+</head>
+
+<body
+  data-page-id="exames"
+  data-subtitle="Solicitação de exames (SADT / particular)"
+  data-tag="Exames"
+  data-context="Exames"
+  data-has-prontuario="true"
+>
+  <div class="app-shell">
+    <!-- SIDEBAR / MENU LATERAL (versão minimalista) -->
+    <aside id="sidebar" class="sidebar" data-component="sidebar">
+      <div class="sidebar-header">
+        <!-- Botão: modo compacto (desktop) / abrir drawer (mobile) -->
+        <button
+          type="button"
+          class="icon-button js-toggle-compact"
+          aria-label="Alternar modo compacto da barra lateral"
+          aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+            <path
+              d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2z"
+              fill="currentColor" />
+          </svg>
+        </button>
+
+        <div class="app-brand">
+          <div class="app-logo">PRONTIO</div>
+          <div class="app-version" id="appVersion">v1.0.3</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="Navegação principal">
+        <!-- INÍCIO -->
+        <a href="index.html" class="nav-link" data-page-id="index">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+              <path
+                d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"
+                fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Início</span>
+        </a>
+
+        <!-- AGENDA -->
+        <a href="agenda.html" class="nav-link" data-page-id="agenda">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+              <path
+                d="M7 2a1 1 0 0 0-1 1v1H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 0 0-2 0v1H9V3A1 1 0 0 0 8 2zM5 9h14v9H5z"
+                fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Agenda</span>
+        </a>
+
+        <!-- PACIENTES -->
+        <a href="pacientes.html" class="nav-link" data-page-id="pacientes">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+              <path
+                d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z"
+                fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Pacientes</span>
+        </a>
+
+        <!-- PRONTUÁRIO (DINÂMICO — controlado por data-has-prontuario no <body>) -->
+        <a
+          href="prontuario.html"
+          class="nav-link"
+          data-page-id="prontuario"
+          data-nav-section="prontuario">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+              <path
+                d="M7 3a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5L14.5 3zM14 4.5 18.5 9H14z"
+                fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Prontuário</span>
+        </a>
+
+        <!-- PERFIL -->
+        <a
+          href="configuracoes.html#perfil"
+          class="nav-link"
+          data-page-id="perfil">
+          <span class="icon">
+            <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+              <path
+                d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.5 0-6 1.7-6 4v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1c0-2.3-2.5-4-6-4z"
+                fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Perfil</span>
+        </a>
+
+        <!-- SISTEMA (ÚNICA SEÇÃO COM SUBITENS) -->
+        <div class="sidebar-group" data-nav-group="sistema">
+          <div class="nav-label">Sistema</div>
+
+          <button
+            type="button"
+            class="nav-link nav-link-sub"
+            data-page-id="sistema-tema"
+            data-nav-target="tema">
+            <span class="icon">
+              <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 3a1 1 0 0 1 1 1v1.1a7.002 7.002 0 0 1 3.9 3.9H18a1 1 0 1 1 0 2h-1.1a7.002 7.002 0 0 1-3.9 3.9V20a1 1 0 1 1-2 0v-1.1a7.002 7.002 0 0 1-3.9-3.9H6a1 1 0 0 1 0-2h1.1a7.002 7.002 0 0 1 3.9-3.9V4a1 1 0 0 1 1-1z"
+                  fill="currentColor" />
+              </svg>
+            </span>
+            <span class="label">Tema</span>
+          </button>
+
+          <button
+            type="button"
+            class="nav-link nav-link-sub"
+            data-page-id="sistema-sobre"
+            data-nav-target="sobre">
+            <span class="icon">
+              <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm0 4a1.25 1.25 0 1 1-1.25 1.25A1.25 1.25 0 0 1 12 6zm2 11h-4v-1.5h1V11H10V9.5h3a1 1 0 0 1 1 1v5h1z"
+                  fill="currentColor" />
+              </svg>
+            </span>
+            <span class="label">Sobre / Versão</span>
+          </button>
+
+          <button
+            type="button"
+            class="nav-link nav-link-sub nav-link-action"
+            data-nav-action="logout">
+            <span class="icon">
+              <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M10 4a1 1 0 0 1 1-1h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1h-8a1 1 0 0 1-1-1v-3h2v2h6V5h-6v2h-2z"
+                  fill="currentColor" />
+                <path
+                  d="M11 13H4v-2h7V8l4 4-4 4z"
+                  fill="currentColor" />
+              </svg>
+            </span>
+            <span class="label">Sair</span>
+          </button>
+        </div>
+      </nav>
+
+      <div class="sidebar-footer">
+        <small class="sidebar-user" id="sidebarUser"></small>
+        <span class="sidebar-year">
+          &copy; <span id="anoAtualSidebar"></span> PRONTIO
+        </span>
+      </div>
+    </aside>
+
+    <!-- BACKDROP MOBILE -->
+    <div class="sidebar-backdrop" data-sidebar-backdrop></div>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="main-area">
+      <!-- TOPO PADRÃO (como nas outras páginas) -->
+      <header class="topbar" data-component="topbar">
+        <div class="topbar-col-left">
+          <div class="topbar-left-header">
+            <button
+              type="button"
+              class="icon-button topbar-menu-button js-toggle-sidebar"
+              aria-label="Abrir menu de navegação">
+              <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+                <path
+                  d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z"
+                  fill="currentColor" />
+              </svg>
+            </button>
+
+            <div id="topbar-breadcrumb" class="topbar-breadcrumb"></div>
+          </div>
+
+          <div class="topbar-title-main">
+            <h1 id="topbar-title-text"></h1>
+            <span id="topbar-tag" class="topbar-tag"></span>
+          </div>
+
+          <p id="topbar-subtitle" class="topbar-subtitle"></p>
+        </div>
+
+        <div class="topbar-col-right">
+          <!-- Ações adicionais (botões, filtros, etc.) -->
+          <div id="topbar-extra" class="topbar-extra"></div>
+
+          <div class="topbar-meta">
+            <span id="topbar-meta-date" class="topbar-meta-item"></span>
+            <span id="topbar-meta-context" class="topbar-meta-item"></span>
+          </div>
+
+          <!-- Botão tema (controle global de tema) -->
+          <button
+            id="btn-theme-toggle"
+            class="theme-toggle-btn js-toggle-theme"
+            title="Alternar tema"
+            aria-pressed="false">
+
+            <!-- Ícone de tema CLARO (sol) -->
+            <svg class="icon-svg js-theme-icon-sun" viewBox="0 0 24 24">
+              <path
+                d="M12 4V2m0 20v-2m8-8h2M2 12h2m14.95-6.95l1.414-1.414M4.636 19.364l1.414-1.414M4.636 4.636L3.222 3.222M19.364 19.364l1.414 1.414"
+                stroke="currentColor"
+                fill="none" />
+            </svg>
+
+            <!-- Ícone de tema ESCURO (lua) -->
+            <svg class="icon-svg js-theme-icon-moon" viewBox="0 0 24 24" style="display:none">
+              <path
+                d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+                stroke="currentColor"
+                fill="none" />
+            </svg>
+
+          </button>
+        </div>
+      </header>
+
+      <!-- CONTEÚDO -->
+      <section class="content">
+        <!-- MENSAGEM GLOBAL -->
+        <div id="mensagemExames" class="mensagem" style="display:none;"></div>
+
+        <!-- CARD: PACIENTE ATUAL -->
+        <section class="card">
+          <div class="card-header">
+            <h2>Paciente atual</h2>
+          </div>
+
+          <div class="info-paciente-grid">
+            <div>
+              <span class="info-paciente-label">ID do paciente:</span><br>
+              <span class="info-paciente-valor" id="exPacienteId">-</span>
+            </div>
+            <div>
+              <span class="info-paciente-label">Nome completo:</span><br>
+              <span class="info-paciente-valor" id="exPacienteNome">-</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- CARD: ABAS SADT / PARTICULAR -->
+        <section class="card">
+          <div class="card-header">
+            <h2>Solicitação de exames</h2>
+          </div>
+
+          <div class="aba-exames-tabs">
+            <button type="button" id="tabSadt" class="aba-btn ativa">
+              Plano de saúde (SADT)
+            </button>
+            <button type="button" id="tabParticular" class="aba-btn">
+              Particular (lista de exames)
+            </button>
+          </div>
+
+          <!-- ABA SADT -->
+          <div id="abaSadt">
+            <div class="form-grid-2">
+              <div class="campo-form">
+                <label for="sadtPlano">Convênio / Plano de saúde</label>
+                <input type="text" id="sadtPlano" placeholder="Ex.: Unimed, Bradesco, Amil">
+              </div>
+
+              <div class="campo-form">
+                <label for="sadtCarteira">Número da carteirinha</label>
+                <input type="text" id="sadtCarteira">
+              </div>
+
+              <div class="campo-form">
+                <label for="sadtNumeroGuia">Número da guia (se houver)</label>
+                <input type="text" id="sadtNumeroGuia">
+                <div class="campo-ajuda">
+                  Use se seu convênio usar campo de número de guia SADT.
+                </div>
+              </div>
+
+              <div class="campo-form">
+                <label for="sadtCid">CID principal</label>
+                <input type="text" id="sadtCid" placeholder="Ex.: M54.5">
+              </div>
+            </div>
+
+            <div class="campo-form">
+              <label for="sadtIndicaoClinica">Indicação clínica / Justificativa</label>
+              <textarea id="sadtIndicaoClinica" placeholder="Justifique clinicamente os exames solicitados."></textarea>
+            </div>
+
+            <div class="campo-form">
+              <label for="sadtExamesTexto">Exames solicitados (texto livre)</label>
+              <textarea id="sadtExamesTexto" placeholder="Descreva aqui os exames no formato exigido pelo convênio."></textarea>
+            </div>
+
+            <div class="campo-form">
+              <label for="sadtObservacoes">Observações adicionais</label>
+              <textarea id="sadtObservacoes"></textarea>
+            </div>
+
+            <div class="acoes-form">
+              <button type="button" id="btnGerarSadt" class="btn primario">
+                Gerar guia SADT (PDF)
+              </button>
+            </div>
+          </div>
+
+          <!-- ABA PARTICULAR -->
+          <div id="abaParticular" class="hidden">
+            <div class="campo-form">
+              <label>Exames disponíveis (catálogo)</label>
+              <div class="campo-ajuda">
+                Marque os exames que deseja solicitar para este paciente. Esta lista vem da aba
+                <strong>Exames</strong> na planilha.
+              </div>
+            </div>
+
+            <div class="filtro-exames">
+              <input
+                type="text"
+                id="filtroExames"
+                placeholder="Filtrar por nome ou grupo..."
+              >
+              <button type="button" id="btnRecarregarExames" class="btn secundario">
+                Recarregar catálogo
+              </button>
+            </div>
+
+            <div class="tabela-exames-wrapper">
+              <table class="tabela-exames">
+                <thead>
+                  <tr>
+                    <th class="col-exame-check">Sel.</th>
+                    <th>Exame</th>
+                    <th class="col-exame-grupo">Grupo</th>
+                    <th>Descrição</th>
+                  </tr>
+                </thead>
+                <tbody id="tabelaExamesBody">
+                  <!-- via JS -->
+                </tbody>
+              </table>
+            </div>
+
+            <div class="campo-form" style="margin-top: 10px;">
+              <label for="partExamesTextoLivre">Exames adicionais (texto livre)</label>
+              <textarea id="partExamesTextoLivre" placeholder="Use este campo para exames que não estejam no catálogo."></textarea>
+            </div>
+
+            <div class="campo-form">
+              <label for="partObservacoes">Observações / orientações ao paciente ou serviço</label>
+              <textarea id="partObservacoes"></textarea>
+            </div>
+
+            <div class="acoes-form">
+              <button type="button" id="btnGerarParticular" class="btn primario">
+                Gerar pedido particular (PDF)
+              </button>
+            </div>
+          </div>
+        </section>
+      </section>
+    </main>
+  </div>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

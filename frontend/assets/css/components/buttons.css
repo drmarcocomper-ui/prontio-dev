@@ -1,0 +1,202 @@
+/* =====================================
+   PRONTIO - BUTTONS (Design System)
+   - Botões centrados no sistema de tokens
+   - Pílula, modernos, médicos
+   - Variações: primário, secundário, outline,
+                ghost, sucesso, aviso, perigo
+   - Respeita tema claro/escuro automaticamente
+===================================== */
+
+/* BASE DO BOTÃO */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+
+  padding: 8px 16px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+
+  font-size: var(--font-size-base);
+  font-weight: 500;
+  line-height: 1.2;
+
+  cursor: pointer;
+  background-color: var(--cor-primaria);
+  color: #fff;
+
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    transform 0.08s ease;
+}
+
+/* Hover padrão */
+.btn:hover {
+  background-color: var(--cor-primaria-escura);
+  border-color: var(--cor-primaria-escura);
+  transform: translateY(-1px);
+}
+
+/* Active */
+.btn:active {
+  transform: translateY(0);
+  box-shadow: none;
+}
+
+/* Foco Acessível */
+.btn:focus-visible {
+  outline: 2px solid var(--focus-ring-color);
+  outline-offset: 3px;
+}
+
+/* Desabilitado */
+.btn[disabled],
+.btn.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+  transform: none;
+  box-shadow: none;
+}
+
+
+/* =====================================
+   VARIAÇÕES DE COR (SEMÂNTICAS)
+===================================== */
+
+/* PRIMÁRIO (AÇÃO PRINCIPAL) */
+.btn-primary {
+  background-color: var(--cor-primaria);
+  border-color: var(--cor-primaria);
+  color: #ffffff;
+}
+.btn-primary:hover {
+  background-color: var(--cor-primaria-escura);
+  border-color: var(--cor-primaria-escura);
+}
+
+/* SECUNDÁRIO (FUNDO BRANCO, BORDA AZUL – padrão PRONTIO) */
+.btn-secondary {
+  background-color: #ffffff;
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+}
+.btn-secondary:hover {
+  background-color: var(--cor-primaria-clara);
+  border-color: var(--cor-primaria-escura);
+  color: var(--cor-primaria-escura);
+}
+
+/* OUTLINE (borda + texto na cor primária) */
+.btn-outline {
+  background-color: transparent;
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
+}
+.btn-outline:hover {
+  background-color: var(--cor-primaria-clara);
+}
+
+/* GHOST (quase invisível — ideal para tabelas, cards, listas) */
+.btn-ghost {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--cor-texto-secundario);
+}
+.btn-ghost:hover {
+  background-color: var(--cor-fundo-card-alt);
+  color: var(--cor-texto-principal);
+}
+
+/* SUCESSO */
+.btn-success {
+  background-color: var(--cor-sucesso);
+  border-color: var(--cor-sucesso);
+  color: #ffffff;
+}
+.btn-success:hover {
+  background-color: #0c7c3a;
+}
+
+/* AVISO */
+.btn-warning {
+  background-color: var(--cor-aviso);
+  border-color: var(--cor-aviso);
+  color: #1f2937;
+}
+.btn-warning:hover {
+  background-color: #d48a00;
+}
+
+/* PERIGO */
+.btn-danger {
+  background-color: var(--cor-perigo);
+  border-color: var(--cor-perigo);
+  color: #ffffff;
+}
+.btn-danger:hover {
+  background-color: #b91c1c;
+}
+
+
+/* =====================================
+   VARIAÇÕES DE TAMANHO
+===================================== */
+
+.btn-sm {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+
+.btn-lg {
+  padding: 12px 22px;
+  font-size: 16px;
+}
+
+
+/* =====================================
+   BOTÕES ICÔNICOS
+===================================== */
+
+.btn-icon {
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon-sm {
+  width: 26px;
+  height: 26px;
+}
+
+.btn-icon-lg {
+  width: 44px;
+  height: 44px;
+}
+
+.btn > .icon,
+.btn > svg {
+  width: var(--icon-size-md);
+  height: var(--icon-size-md);
+}
+
+
+/* =====================================
+   GRUPOS DE BOTÕES
+===================================== */
+
+.btn-group {
+  display: inline-flex;
+  gap: var(--sp-2);
+}
+
+.btn-group .btn {
+  border-radius: var(--radius-pill);
+}

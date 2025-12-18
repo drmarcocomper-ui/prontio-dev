@@ -1,0 +1,6 @@
+@media print {
+  .laudo-secao {
+    font-size: 12pt;
+    margin-bottom: 20px;
+  }
+}

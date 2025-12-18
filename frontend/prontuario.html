@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>PRONTIO - Prontuário</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- CSS global -->
+  <link rel="stylesheet" href="assets/css/style.css">
+  <!-- CSS de componentes de modal -->
+  <link rel="stylesheet" href="assets/css/components/modals.css">
+  <!-- CSS específico do prontuário -->
+  <link rel="stylesheet" href="assets/css/pages/page-prontuario.css">
+  <!-- Painel deslizante lateral (receita) -->
+  <link rel="stylesheet" href="assets/css/components/slide-panel.css">
+  <!-- Timeline visual para receitas -->
+  <link rel="stylesheet" href="assets/css/components/receitas-timeline.css">
+  <!-- CSS do Topbar -->
+  <link rel="stylesheet" href="assets/css/components/topbar.css">
+
+  <!-- ✅ Autocomplete da Receita (visual polido) -->
+  <link rel="stylesheet" href="assets/css/components/receita-autocomplete.css">
+</head>
+
+<body
+  data-theme="light"
+  data-page-id="prontuario"
+  data-subtitle="Registro clínico e evoluções do paciente"
+  data-tag="Prontuário"
+  data-context="Prontuário"
+  data-has-prontuario="true"
+  data-has-chat="true"
+>
+  <div class="app-shell">
+    <!-- SIDEBAR / MENU LATERAL -->
+    <aside id="sidebar" class="sidebar" data-component="sidebar">
+      <div class="sidebar-header">
+        <button
+          type="button"
+          class="icon-button js-toggle-compact"
+          aria-label="Alternar modo compacto da barra lateral"
+          aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+            <path d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2z" fill="currentColor" />
+          </svg>
+        </button>
+
+        <div class="app-brand">
+          <div class="app-logo">PRONTIO</div>
+          <div class="app-version" id="appVersion">v1.0.3 - Dr. Marco Antônio Comper</div>
+        </div>
+      </div>
+
+      <!-- Navegação principal -->
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="Navegação principal">
+        <a href="index.html" class="nav-link" data-page-id="index">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 0-1 1h-5v-6H10v6H5a1 1 0 0 0-1-1v-9.5z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Início</span>
+        </a>
+
+        <a href="agenda.html" class="nav-link" data-page-id="agenda">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 2a1 1 0 0 0-1 1v1H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 0 0-2 0v1H9V3A1 1 0 0 0 8 2zM5 9h14v9H5z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Agenda</span>
+        </a>
+
+        <a href="pacientes.html" class="nav-link" data-page-id="pacientes">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Pacientes</span>
+        </a>
+
+        <a href="prontuario.html" class="nav-link" data-page-id="prontuario" data-nav-section="prontuario">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M7 3a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5L14.5 3zM14 4.5 18.5 9H14z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Prontuário</span>
+        </a>
+      </nav>
+
+      <div class="sidebar-group" data-nav-group="sistema">
+        <div class="nav-label">Sistema</div>
+
+        <a href="configuracoes.html#perfil" class="nav-link nav-link-sub" data-page-id="perfil">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.5 0-6 1.7-6 4v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1c0-2.3-2.5-4-6-4z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Perfil</span>
+        </a>
+
+        <a href="javascript:void(0)" class="nav-link nav-link-sub" data-page-id="sistema-sobre" data-modal-open="modalSobreSistema">
+          <span class="icon">
+            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm0 4a1.25 1.25 0 1 1-1.25 1.25A1.25 1.25 0 0 1 12 6zm2 11h-4v-1.5h1V11H10V9.5h3a1 1 0 0 1 1 1v5h1z" fill="currentColor" />
+            </svg>
+          </span>
+          <span class="label">Sobre</span>
+        </a>
+
+        <button type="button" class="nav-link nav-link-sub nav-link-action" data-nav-action="logout">
+          <span class="label">Sair</span>
+        </button>
+      </div>
+
+      <div class="sidebar-footer">
+        <small class="sidebar-user" id="sidebarUser"></small>
+        <span class="sidebar-year">
+          &copy; <span id="anoAtualSidebar"></span> PRONTIO
+        </span>
+      </div>
+    </aside>
+
+    <div class="sidebar-backdrop" data-sidebar-backdrop></div>
+
+    <!-- ÁREA PRINCIPAL -->
+    <main class="main-area">
+      <!-- TOPBAR: montada pelo widget-topbar via main.js -->
+      <div id="topbarMount" data-partial="topbar"></div>
+
+      <!-- LAYOUT CENTRAL DO PRONTUÁRIO -->
+      <section class="content content-prontuario">
+
+        <!-- CARD: IDENTIFICAÇÃO DO PACIENTE -->
+        <section class="card card-prontuario card-paciente">
+          <div class="card-header card-header-tight">
+            <h2>Paciente e atendimento</h2>
+            <span class="card-subtitle">Identificação e contexto clínico atual</span>
+          </div>
+          <div class="card-body card-body-compact">
+            <div class="prontuario-paciente-header">
+              <div class="prontuario-paciente-info">
+                <div class="paciente-nome-linha">
+                  <span class="label">Paciente</span>
+                  <span id="prontuario-paciente-nome" class="paciente-nome">Paciente</span>
+                </div>
+                <div class="paciente-id-linha">
+                  <span class="texto-menor">
+                    ID Paciente:
+                    <span id="prontuario-paciente-id">—</span>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div class="grid-2 mt-md prontuario-atendimento-grid">
+              <div>
+                <div class="campo-inline">
+                  <span class="campo-label">Data da consulta</span>
+                  <span id="info-agenda-data" class="campo-valor">—</span>
+                </div>
+                <div class="campo-inline">
+                  <span class="campo-label">Hora</span>
+                  <span id="info-agenda-hora" class="campo-valor">—</span>
+                </div>
+              </div>
+              <div>
+                <div class="campo-inline">
+                  <span class="campo-label">Status</span>
+                  <span id="info-agenda-status" class="campo-valor">—</span>
+                </div>
+                <div class="campo-inline">
+                  <span class="campo-label">ID Agenda</span>
+                  <span id="info-agenda-id" class="campo-valor">—</span>
+                </div>
+              </div>
+            </div>
+
+            <p class="msg-menor mt-sm texto-suave">
+              Quando o prontuário é aberto a partir da <strong>Agenda</strong>, estes dados
+              são preenchidos automaticamente usando o ID_Agenda e o ID_Paciente.
+            </p>
+          </div>
+        </section>
+
+        <!-- BARRA DE AÇÕES CLÍNICAS -->
+        <section class="prontuario-acoes-clinicas" aria-label="Ações clínicas do prontuário">
+          <button type="button" id="btnAcaoNovaEvolucao" class="btn btn-acao-clinica btn-acao-principal">
+            <span class="btn-acao-icone" aria-hidden="true">📝</span>
+            <span class="btn-acao-texto">
+              <span class="btn-acao-titulo">Nova evolução</span>
+              <span class="btn-acao-subtitulo">Registrar atendimento atual</span>
+            </span>
+          </button>
+
+          <button type="button" id="btnAcaoReceita" class="btn btn-acao-clinica">
+            <span class="btn-acao-icone" aria-hidden="true">💊</span>
+            <span class="btn-acao-texto">
+              <span class="btn-acao-titulo">Receita</span>
+              <span class="btn-acao-subtitulo">Prescrever medicação</span>
+            </span>
+          </button>
+
+          <button type="button" id="btnAcaoExames" class="btn btn-acao-clinica">
+            <span class="btn-acao-icone" aria-hidden="true">🧪</span>
+            <span class="btn-acao-texto">
+              <span class="btn-acao-titulo">Exames</span>
+              <span class="btn-acao-subtitulo">Solicitar exames</span>
+            </span>
+          </button>
+
+          <button type="button" id="btnAcaoDocumentos" class="btn btn-acao-clinica">
+            <span class="btn-acao-icone" aria-hidden="true">📄</span>
+            <span class="btn-acao-texto">
+              <span class="btn-acao-titulo">Documentos</span>
+              <span class="btn-acao-subtitulo">Atestados, laudos e mais</span>
+            </span>
+          </button>
+        </section>
+
+        <!-- CARD: NOVA EVOLUÇÃO (RETRAÍDO) -->
+        <section class="card card-prontuario card-nova-evolucao" id="cardNovaEvolucao" style="display:none;">
+          <div class="card-header card-header-tight">
+            <div>
+              <h2>Nova evolução clínica</h2>
+              <span class="card-subtitle">
+                Registre a evolução mais recente deste paciente. Você pode usar a última evolução como modelo.
+              </span>
+            </div>
+          </div>
+          <div class="card-body">
+            <form id="formEvolucao" class="form-vertical">
+              <div class="form-row">
+                <label for="textoEvolucao">Registro clínico</label>
+                <textarea
+                  id="textoEvolucao"
+                  rows="7"
+                  required
+                  placeholder="Descreva o motivo da consulta, exame físico, hipóteses diagnósticas e condutas."></textarea>
+              </div>
+              <div class="form-row form-row-actions form-row-actions-inline">
+                <button type="submit" class="btn btn-primary">Salvar evolução</button>
+              </div>
+            </form>
+            <div id="mensagemEvolucao" class="mensagem is-hidden"></div>
+          </div>
+        </section>
+
+        <!-- HISTÓRICO -->
+        <section class="card card-prontuario" id="secHistoricoPaciente">
+          <div class="card-header card-header-tight">
+            <div>
+              <h2>Linha do tempo do prontuário</h2>
+              <span class="card-subtitle">Eventos clínicos deste paciente em ordem cronológica (mais recente no topo).</span>
+            </div>
+            <button id="btnCarregarHistoricoPaciente" class="btn btn-secondary btn-sm">Carregar histórico completo</button>
+          </div>
+          <div class="card-body card-body-compact">
+            <p class="msg-menor" id="listaEvolucoesPacienteVazia">Carregando última evolução clínica...</p>
+            <ul id="listaEvolucoesPaciente" class="lista-evolucoes prontuario-timeline mt-md"></ul>
+          </div>
+        </section>
+
+        <!-- RECEITAS -->
+        <section class="card card-prontuario" id="secReceitasPaciente">
+          <div class="card-header card-header-tight">
+            <div>
+              <h2>Receitas do paciente</h2>
+              <span class="card-subtitle">Receitas médicas já emitidas para este paciente (mais recente no topo).</span>
+            </div>
+            <button id="btnCarregarReceitasPaciente" class="btn btn-secondary btn-sm">Carregar todas as receitas</button>
+          </div>
+          <div class="card-body card-body-compact">
+            <p class="msg-menor" id="listaReceitasPacienteVazia">Carregando última receita...</p>
+            <ul id="listaReceitasPaciente" class="lista-receitas prontuario-timeline mt-md"></ul>
+          </div>
+        </section>
+
+      </section>
+    </main>
+  </div>
+
+  <!-- ChatWindow pode ficar, mas será controlado pelo ChatUI.
+       Se seu CSS atual não respeita [hidden], ajuste o CSS do chat. -->
+  <div id="chatWindow" class="chat-window" hidden aria-hidden="true"></div>
+
+  <!-- PAINEL DESLIZANTE: RECEITA -->
+  <div id="receitaPanel" class="slide-panel-backdrop" aria-hidden="true" style="display:none;">
+    <aside class="slide-panel" role="dialog" aria-modal="true">
+      <header class="slide-panel-header">
+        <h2 id="receitaPanelTitulo">Receita médica</h2>
+        <button type="button" class="slide-panel-close" aria-label="Fechar" data-close-receita>✕</button>
+      </header>
+
+      <div class="slide-panel-body">
+        <form id="formReceitaProntuario" class="form-vertical form-receita-panel">
+          <div class="form-row">
+            <label for="receitaData">Data da receita</label>
+            <input type="date" id="receitaData">
+            <small class="texto-menor texto-suave">Vem preenchida com hoje, mas você pode alterar ou apagar.</small>
+          </div>
+
+          <div class="form-row">
+            <label>Medicamentos</label>
+            <div id="receitaItensContainer" class="receita-itens-container"></div>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAdicionarMedicamento">+ Adicionar outro medicamento</button>
+            <p class="msg-menor texto-suave">Para cada medicamento, preencha pelo menos o nome e a posologia.</p>
+          </div>
+
+          <div class="form-row">
+            <label for="receitaObservacoes">Observações gerais</label>
+            <textarea id="receitaObservacoes" rows="3" placeholder="Orientações adicionais, cuidados, restrições, etc."></textarea>
+            <small class="texto-menor texto-suave">Use este campo para orientações gerais que valem para toda a receita.</small>
+          </div>
+
+          <div class="form-row form-row-actions form-row-actions-inline">
+            <button type="button" class="btn btn-secondary" data-close-receita>Cancelar</button>
+            <button type="submit" class="btn btn-secondary" data-acao-receita="rascunho">Salvar como rascunho</button>
+            <button type="submit" class="btn btn-primary" data-acao-receita="final">Salvar e imprimir</button>
+          </div>
+        </form>
+      </div>
+    </aside>
+  </div>
+
+  <!-- MODAL: SOBRE -->
+  <div id="modalSobreSistema" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalSobreSistemaTitulo">
+    <div class="modal modal--lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalSobreSistemaTitulo">PRONTIO — Sobre o Sistema</h2>
+        <div class="modal-header-actions">
+          <button type="button" class="modal-close" aria-label="Fechar" data-modal-close="modalSobreSistema">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p><strong>PRONTIO — Sistema de Consultório Médico</strong><br>
+        Desenvolvido para uso pessoal do <strong>Dr. Marco Antônio Comper</strong>.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close="modalSobreSistema">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/main.js"></script>
+</body>
+</html>

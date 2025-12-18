@@ -1,0 +1,197 @@
+/* =====================================
+   PRONTIO - TABLES
+   - Tabelas padrão para listagens
+   - Estilos para cabeçalho, linhas, estados
+===================================== */
+
+.table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+/* TABELA BASE */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+  background-color: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-card);
+}
+
+/* “Truque” para permitir border-radius em tabela */
+.table thead,
+.table tbody {
+  background-color: inherit;
+}
+
+.table thead tr {
+  background-color: #f1f5f9;
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  text-align: left;
+  font-size: 13px;
+  border-bottom: 1px solid var(--cor-borda-suave);
+  color: var(--cor-texto-principal);
+}
+
+/* Última linha sem borda inferior forte */
+.table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* Cabeçalhos */
+.table th {
+  font-weight: 600;
+  color: var(--cor-texto-secundario);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  font-size: 11px;
+}
+
+/* Colunas de ações (ex: editar/excluir) */
+.table .col-actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+}
+
+/* Células com texto suave */
+.table .cell-muted {
+  color: var(--cor-texto-suave);
+}
+
+/* ESTILOS DE LINHA */
+
+/* Listrado (zebra) */
+.table-striped tbody tr:nth-child(odd) {
+  background-color: #f9fafb;
+}
+
+/* Hover */
+.table-hover tbody tr:hover {
+  background-color: #e5f0ff;
+}
+
+/* Estado selecionado (ex.: linha clicada) */
+.table-row-selected {
+  background-color: rgba(0, 102, 204, 0.1) !important;
+}
+
+/* Estado de alerta/perigo por linha (ex.: pacientes com pendência) */
+.table-row-warning {
+  background-color: rgba(255, 187, 0, 0.12);
+}
+
+.table-row-danger {
+  background-color: rgba(230, 57, 70, 0.12);
+}
+
+/* Tamanhos de tabela */
+
+.table-sm th,
+.table-sm td {
+  padding: 6px 8px;
+  font-size: 12px;
+}
+
+.table-lg th,
+.table-lg td {
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+/* ALINHAMENTO DE COLUNAS */
+
+.table td.text-right,
+.table th.text-right {
+  text-align: right;
+}
+
+.table td.text-center,
+.table th.text-center {
+  text-align: center;
+}
+
+/* FOOTER DA TABELA (ex.: paginação) */
+
+.table-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 4px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--cor-texto-secundario);
+}
+
+/* Paginação simples associada à tabela */
+.table-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.table-pagination button {
+  border: 1px solid var(--cor-borda-suave);
+  background-color: #ffffff;
+  color: var(--cor-texto-principal);
+  padding: 4px 8px;
+  font-size: 12px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.table-pagination button:hover:not(:disabled) {
+  background-color: #e5e7eb;
+}
+
+.table-pagination button[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Células com status (pode ser combinada com tokens) */
+
+.table-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.table-status-badge--success {
+  background-color: rgba(42, 157, 143, 0.12);
+  color: var(--cor-sucesso);
+}
+
+.table-status-badge--warning {
+  background-color: rgba(255, 187, 0, 0.14);
+  color: #935f00;
+}
+
+.table-status-badge--danger {
+  background-color: rgba(230, 57, 70, 0.14);
+  color: var(--cor-perigo);
+}
+
+/* RESPONSIVIDADE BÁSICA */
+
+@media (max-width: 768px) {
+  .table th,
+  .table td {
+    padding: 8px 10px;
+  }
+
+  .table-footer {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+}
