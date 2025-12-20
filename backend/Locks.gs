@@ -21,9 +21,11 @@ function Locks_withLock_(ctx, key, fn) {
     lock.waitLock(LOCK_TIMEOUT_MS);
     return fn();
   } catch (e) {
+    // Em geral, waitLock lança erro quando expira o timeout.
+    // Se quiser, dá para diferenciar pelo texto, mas mantemos simples e estável.
     var err = new Error("Recurso em uso. Tente novamente.");
     err.code = "CONFLICT";
-    err.details = { lockKey: lockKey };
+    err.details = { lockKey: lockKey, cause: String(e && e.message ? e.message : e) };
     throw err;
   } finally {
     try {
