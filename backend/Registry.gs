@@ -128,11 +128,10 @@ function _Registry_build_() {
   // =========================
   // CLÍNICA
   // =========================
-
-  // Qualquer usuário autenticado pode ler (o front precisa para exibir nome/logo, etc)
+  // ✅ Qualquer usuário autenticado pode ler (o front precisa para exibir nome/logo, etc)
   map["Clinica_Get"] = {
     action: "Clinica_Get",
-    handler: Clinica_Get,
+    handler: Clinica_Get, // deve existir em Clinica.gs
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -140,10 +139,10 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // Somente admin atualiza identidade/config institucional
+  // ✅ Somente admin atualiza identidade/config institucional
   map["Clinica_Update"] = {
     action: "Clinica_Update",
-    handler: Clinica_Update,
+    handler: Clinica_Update, // deve existir em Clinica.gs
     requiresAuth: true,
     roles: ["admin"],
     validations: [],
@@ -154,7 +153,6 @@ function _Registry_build_() {
   // =========================
   // PROFISSIONAIS
   // =========================
-
   // Listagem pode ser útil para secretária e profissional (ex.: selecionar agenda)
   map["Profissionais_List"] = {
     action: "Profissionais_List",
