@@ -82,6 +82,22 @@ function _Registry_build_() {
     lockKey: null
   };
 
+  /**
+   * ✅ DEV ONLY: Reset de senha (apenas para destravar ambiente DEV)
+   * IMPORTANTE:
+   * - A função Auth_ResetSenhaDev deve existir (ex.: AuthDebug.gs / AuthDev.gs)
+   * - Remover esta action quando terminar o diagnóstico/reset
+   */
+  map["Auth_ResetSenhaDev"] = {
+    action: "Auth_ResetSenhaDev",
+    handler: Auth_ResetSenhaDev,
+    requiresAuth: false,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "Auth_ResetSenhaDev"
+  };
+
   // =========================
   // USUÁRIOS (admin)
   // =========================
@@ -128,6 +144,7 @@ function _Registry_build_() {
   // =========================
   // CLÍNICA
   // =========================
+
   // ✅ Qualquer usuário autenticado pode ler (o front precisa para exibir nome/logo, etc)
   map["Clinica_Get"] = {
     action: "Clinica_Get",
@@ -153,6 +170,7 @@ function _Registry_build_() {
   // =========================
   // PROFISSIONAIS
   // =========================
+
   // Listagem pode ser útil para secretária e profissional (ex.: selecionar agenda)
   map["Profissionais_List"] = {
     action: "Profissionais_List",
@@ -197,6 +215,7 @@ function _Registry_build_() {
   // =========================
   // META / MIGRATIONS (admin)
   // =========================
+
   // ✅ Serve para rodar bootstrap/status do banco via API (contorna UI do Apps Script travada).
   // Requer Meta.gs com Meta_BootstrapDb e Meta_DbStatus.
   map["Meta_BootstrapDb"] = {
@@ -238,6 +257,7 @@ function Registry_ListActions(ctx, payload) {
     hasUsuariosAlterarSenha: keys.indexOf("Usuarios_AlterarSenha") >= 0,
     hasClinica: keys.indexOf("Clinica_Get") >= 0 && keys.indexOf("Clinica_Update") >= 0,
     hasProfissionais: keys.indexOf("Profissionais_List") >= 0,
-    hasMetaBootstrap: keys.indexOf("Meta_BootstrapDb") >= 0
+    hasMetaBootstrap: keys.indexOf("Meta_BootstrapDb") >= 0,
+    hasAuthResetSenhaDev: keys.indexOf("Auth_ResetSenhaDev") >= 0
   };
 }

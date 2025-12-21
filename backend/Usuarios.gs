@@ -3,10 +3,34 @@
  * PRONTIO - Usuarios.gs
  * ============================================================
  *
- * ✅ Atualização (compatibilidade de schema sem perder nada):
- * - Sua aba "Usuarios" hoje usa colunas como "NomeCompleto" (e não "Nome").
- * - O Auth precisa encontrar: ID_Usuario, Login, SenhaHash, Ativo (e Perfil).
- * - Este arquivo agora aceita aliases de header, sem exigir renomear planilha.
+ * ✅ SCHEMA DEFINITIVO (ABA "Usuarios")
+ *
+ * Nomes oficiais (recomendado):
+ * - ID_Usuario                 (string)  ex: USR_001
+ * - NomeCompleto               (string)  nome exibido
+ * - Login                      (string)  único (case-insensitive)
+ * - Email                      (string)  opcional
+ * - Perfil                     (string)  admin | medico | recepcao | profissional | secretaria | etc
+ * - Ativo                      (boolean) TRUE/FALSE
+ * - SenhaHash                  (string)  base64(sha256(senhaTexto))
+ * - RegistroProfissional       (string)  ex: CRM 12345 / CRP 091234
+ * - ConselhoProfissional       (string)  ex: CRM | CRP | CRO | COREN (opcional)
+ * - Especialidade              (string)  opcional
+ * - AssinaturaDigitalBase64    (string)  opcional
+ * - CorInterface               (string)  opcional
+ * - PermissoesCustomizadasJson (string)  JSON string (opcional)
+ * - ID_Clinica                 (string)  opcional
+ * - ID_Profissional            (string)  opcional
+ * - CriadoEm                   (date/ISO)
+ * - AtualizadoEm               (date/ISO)
+ * - UltimoLoginEm              (date/ISO)
+ *
+ * ✅ Importante:
+ * - Ativo e SenhaHash precisam ser SEMPRE corretos.
+ * - Registro/Especialidade NUNCA devem ir para Ativo/SenhaHash.
+ *
+ * ✅ Compatibilidade:
+ * - Este arquivo mantém aliases para schemas antigos (Nome, senhaHash, PasswordHash, etc).
  */
 
 var USUARIOS_SHEET_NAME = "Usuarios";
@@ -19,10 +43,12 @@ function handleUsuariosAction(action, payload) {
       return Usuarios_Criar_(payload);
     case "Usuarios_Atualizar":
       return Usuarios_Atualizar_(payload);
-
-    // ✅ NOVO: admin altera/reset senha pelo sistema
     case "Usuarios_AlterarSenha":
       return Usuarios_AlterarSenha_(payload);
+
+    // ✅ utilitário (não registrado no Registry por padrão): garante colunas oficiais no header
+    case "Usuarios_EnsureSchema":
+      return Usuarios_EnsureSchema_(payload);
 
     default:
       _usuariosThrow_("USUARIOS_UNKNOWN_ACTION", "Ação de usuários desconhecida: " + action, { action: action });
@@ -54,6 +80,10 @@ function gerarNovoUsuarioId_() {
   return "USR_" + Utilities.getUuid().split("-")[0].toUpperCase();
 }
 
+/**
+ * ✅ Hash definitivo de senha (compatível com Auth.gs atual)
+ * Base64(SHA-256( senhaTexto ))
+ */
 function hashSenha_(senha) {
   if (!senha) return "";
   var bytes = Utilities.computeDigest(
@@ -99,9 +129,6 @@ function _uHeader_(sheet) {
   return { header: header, values: values };
 }
 
-/**
- * Retorna índice da primeira coluna que bater com algum nome (case-sensitive no sheet, mas normalizamos trim).
- */
 function _uFindCol_(header, names) {
   for (var i = 0; i < names.length; i++) {
     var idx = header.indexOf(names[i]);
@@ -111,7 +138,7 @@ function _uFindCol_(header, names) {
 }
 
 /**
- * Mapeia índices aceitando aliases (compatível com seu schema atual).
+ * ✅ Índices com aliases + campos novos do schema definitivo
  */
 function _uBuildIdx_(header) {
   var idx = {
@@ -119,7 +146,7 @@ function _uBuildIdx_(header) {
     id: _uFindCol_(header, ["ID_Usuario", "idUsuario", "id_usuario", "id"]),
 
     // Campos base
-    nome: _uFindCol_(header, ["Nome", "NomeCompleto", "nome", "nomeCompleto"]),
+    nome: _uFindCol_(header, ["NomeCompleto", "Nome", "nome", "nomeCompleto"]),
     login: _uFindCol_(header, ["Login", "login", "emailLogin"]),
     email: _uFindCol_(header, ["Email", "E-mail", "email"]),
     perfil: _uFindCol_(header, ["Perfil", "perfil", "Role", "role"]),
@@ -128,17 +155,22 @@ function _uBuildIdx_(header) {
     // Auth
     senhaHash: _uFindCol_(header, ["SenhaHash", "senhaHash", "PasswordHash", "passwordHash"]),
 
-    // Datas
-    criadoEm: _uFindCol_(header, ["CriadoEm", "criadoEm"]),
-    atualizadoEm: _uFindCol_(header, ["AtualizadoEm", "atualizadoEm"]),
-    ultimoLoginEm: _uFindCol_(header, ["UltimoLoginEm", "ÚltimoLoginEm", "ultimoLoginEm"]),
-
-    // Extras (se existirem, a gente preserva)
-    documentoRegistro: _uFindCol_(header, ["DocumentoRegistro", "documentoRegistro"]),
+    // ✅ Campos profissionais (schema definitivo)
+    registroProfissional: _uFindCol_(header, ["RegistroProfissional", "DocumentoRegistro", "documentoRegistro", "Registro", "registro"]),
+    conselhoProfissional: _uFindCol_(header, ["ConselhoProfissional", "Conselho", "conselho"]),
     especialidade: _uFindCol_(header, ["Especialidade", "especialidade"]),
     assinaturaDigitalBase64: _uFindCol_(header, ["AssinaturaDigitalBase64", "assinaturaDigitalBase64"]),
     corInterface: _uFindCol_(header, ["CorInterface", "corInterface"]),
-    permissoesCustomizadas: _uFindCol_(header, ["PermissoesCustomizadas", "permissoesCustomizadas"])
+    permissoesCustomizadas: _uFindCol_(header, ["PermissoesCustomizadasJson", "PermissoesCustomizadas", "permissoesCustomizadas"]),
+
+    // ✅ Vinculações
+    idClinica: _uFindCol_(header, ["ID_Clinica", "idClinica", "idClinicaRef", "idClinicaUsuario"]),
+    idProfissional: _uFindCol_(header, ["ID_Profissional", "idProfissional", "idProfissionalRef"]),
+
+    // Datas
+    criadoEm: _uFindCol_(header, ["CriadoEm", "criadoEm"]),
+    atualizadoEm: _uFindCol_(header, ["AtualizadoEm", "atualizadoEm"]),
+    ultimoLoginEm: _uFindCol_(header, ["UltimoLoginEm", "ÚltimoLoginEm", "ultimoLoginEm"])
   };
 
   return idx;
@@ -147,6 +179,59 @@ function _uBuildIdx_(header) {
 function _uGet_(row, idx) {
   if (idx < 0) return "";
   return row[idx];
+}
+
+/**
+ * ============================================================
+ * ✅ ENSURE SCHEMA (cria colunas oficiais faltantes no header)
+ * - Não remove nada.
+ * - Não reordena (para não quebrar histórico), só garante que existam os nomes oficiais.
+ * ============================================================
+ */
+function Usuarios_EnsureSchema_(payload) {
+  var sheet = getUsuariosSheet_();
+  var lastCol = sheet.getLastColumn();
+  if (lastCol < 1) {
+    _usuariosThrow_("USUARIOS_BAD_SCHEMA", "Cabeçalho ausente na aba Usuarios.", null);
+  }
+
+  var header = sheet.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h || "").trim(); });
+  var needed = [
+    "ID_Usuario",
+    "NomeCompleto",
+    "Login",
+    "Email",
+    "Perfil",
+    "Ativo",
+    "SenhaHash",
+    "RegistroProfissional",
+    "ConselhoProfissional",
+    "Especialidade",
+    "AssinaturaDigitalBase64",
+    "CorInterface",
+    "PermissoesCustomizadasJson",
+    "ID_Clinica",
+    "ID_Profissional",
+    "CriadoEm",
+    "AtualizadoEm",
+    "UltimoLoginEm"
+  ];
+
+  var added = [];
+  for (var i = 0; i < needed.length; i++) {
+    var colName = needed[i];
+    if (header.indexOf(colName) < 0) {
+      header.push(colName);
+      added.push(colName);
+    }
+  }
+
+  if (added.length) {
+    // escreve header expandido
+    sheet.getRange(1, 1, 1, header.length).setValues([header]);
+  }
+
+  return { ok: true, added: added, totalCols: header.length };
 }
 
 /**
@@ -175,16 +260,21 @@ function Usuarios_Listar_(payload) {
       email: idx.email >= 0 ? String(_uGet_(row, idx.email) || "") : "",
       perfil: idx.perfil >= 0 ? String(_uGet_(row, idx.perfil) || "") : "",
       ativo: idx.ativo >= 0 ? boolFromCell_(_uGet_(row, idx.ativo)) : false,
-      criadoEm: idx.criadoEm >= 0 ? (_uGet_(row, idx.criadoEm) || "") : "",
-      atualizadoEm: idx.atualizadoEm >= 0 ? (_uGet_(row, idx.atualizadoEm) || "") : "",
-      ultimoLoginEm: idx.ultimoLoginEm >= 0 ? (_uGet_(row, idx.ultimoLoginEm) || "") : "",
 
-      // extras (opcional)
-      documentoRegistro: idx.documentoRegistro >= 0 ? String(_uGet_(row, idx.documentoRegistro) || "") : "",
+      // ✅ novos campos (se existirem)
+      registroProfissional: idx.registroProfissional >= 0 ? String(_uGet_(row, idx.registroProfissional) || "") : "",
+      conselhoProfissional: idx.conselhoProfissional >= 0 ? String(_uGet_(row, idx.conselhoProfissional) || "") : "",
       especialidade: idx.especialidade >= 0 ? String(_uGet_(row, idx.especialidade) || "") : "",
       assinaturaDigitalBase64: idx.assinaturaDigitalBase64 >= 0 ? String(_uGet_(row, idx.assinaturaDigitalBase64) || "") : "",
       corInterface: idx.corInterface >= 0 ? String(_uGet_(row, idx.corInterface) || "") : "",
-      permissoesCustomizadas: idx.permissoesCustomizadas >= 0 ? (_uGet_(row, idx.permissoesCustomizadas) || "") : ""
+      permissoesCustomizadasJson: idx.permissoesCustomizadas >= 0 ? String(_uGet_(row, idx.permissoesCustomizadas) || "") : "",
+
+      idClinica: idx.idClinica >= 0 ? String(_uGet_(row, idx.idClinica) || "") : "",
+      idProfissional: idx.idProfissional >= 0 ? String(_uGet_(row, idx.idProfissional) || "") : "",
+
+      criadoEm: idx.criadoEm >= 0 ? (_uGet_(row, idx.criadoEm) || "") : "",
+      atualizadoEm: idx.atualizadoEm >= 0 ? (_uGet_(row, idx.atualizadoEm) || "") : "",
+      ultimoLoginEm: idx.ultimoLoginEm >= 0 ? (_uGet_(row, idx.ultimoLoginEm) || "") : ""
     });
   }
 
@@ -206,7 +296,6 @@ function Usuarios_findByLoginForAuth_(login) {
   var header = pack.header;
   var idx = _uBuildIdx_(header);
 
-  // Obrigatórios para Auth
   if (idx.id < 0 || idx.login < 0 || idx.senhaHash < 0 || idx.ativo < 0) {
     _usuariosThrow_("USUARIOS_BAD_SCHEMA", "Cabeçalho da aba Usuarios incompleto para autenticação.", {
       required: ["ID_Usuario", "Login", "SenhaHash", "Ativo"],
@@ -280,6 +369,11 @@ function Usuarios_Criar_(payload) {
   var perfil = String(payload.perfil || "").trim() || "secretaria";
   var senha = String(payload.senha || "");
 
+  // ✅ campos profissionais (opcional)
+  var registroProfissional = String(payload.registroProfissional || payload.documentoRegistro || "").trim();
+  var conselhoProfissional = String(payload.conselhoProfissional || "").trim();
+  var especialidade = String(payload.especialidade || "").trim();
+
   if (!nome) _usuariosThrow_("USUARIOS_NOME_OBRIGATORIO", "Nome é obrigatório.", null);
   if (!login) _usuariosThrow_("USUARIOS_LOGIN_OBRIGATORIO", "Login é obrigatório.", null);
   if (!senha) _usuariosThrow_("USUARIOS_SENHA_OBRIGATORIA", "Senha é obrigatória.", null);
@@ -296,7 +390,6 @@ function Usuarios_Criar_(payload) {
     _usuariosThrow_("USUARIOS_BAD_SCHEMA", "Cabeçalho da aba Usuarios incompleto.", { header: header, idx: idx });
   }
 
-  // login duplicado
   var loginLower = login.toLowerCase();
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
@@ -311,17 +404,19 @@ function Usuarios_Criar_(payload) {
   var senhaHash = hashSenha_(senha);
 
   var novaLinha = new Array(sheet.getLastColumn());
-  // id
   novaLinha[idx.id] = novoId;
 
-  // nome (coluna pode ser Nome ou NomeCompleto)
   if (idx.nome >= 0) novaLinha[idx.nome] = nome;
-
   if (idx.login >= 0) novaLinha[idx.login] = login;
   if (idx.email >= 0) novaLinha[idx.email] = email;
   if (idx.perfil >= 0) novaLinha[idx.perfil] = perfil;
   if (idx.ativo >= 0) novaLinha[idx.ativo] = true;
   if (idx.senhaHash >= 0) novaLinha[idx.senhaHash] = senhaHash;
+
+  // ✅ novos campos se existirem no header
+  if (idx.registroProfissional >= 0) novaLinha[idx.registroProfissional] = registroProfissional;
+  if (idx.conselhoProfissional >= 0) novaLinha[idx.conselhoProfissional] = conselhoProfissional;
+  if (idx.especialidade >= 0) novaLinha[idx.especialidade] = especialidade;
 
   if (idx.criadoEm >= 0) novaLinha[idx.criadoEm] = agora;
   if (idx.atualizadoEm >= 0) novaLinha[idx.atualizadoEm] = agora;
@@ -355,6 +450,11 @@ function Usuarios_Atualizar_(payload) {
   var ativo;
   if (typeof payload.ativo === "boolean") ativo = payload.ativo;
   else ativo = boolFromCell_(payload.ativo);
+
+  // ✅ novos campos opcionais
+  var registroProfissional = payload.registroProfissional !== undefined ? String(payload.registroProfissional || "").trim() : null;
+  var conselhoProfissional = payload.conselhoProfissional !== undefined ? String(payload.conselhoProfissional || "").trim() : null;
+  var especialidade = payload.especialidade !== undefined ? String(payload.especialidade || "").trim() : null;
 
   if (!id) _usuariosThrow_("USUARIOS_ID_OBRIGATORIO", "ID é obrigatório.", null);
   if (!nome) _usuariosThrow_("USUARIOS_NOME_OBRIGATORIO", "Nome é obrigatório.", null);
@@ -401,6 +501,12 @@ function Usuarios_Atualizar_(payload) {
   if (idx.email >= 0) rowValues[idx.email] = email;
   if (idx.perfil >= 0) rowValues[idx.perfil] = perfil;
   if (idx.ativo >= 0) rowValues[idx.ativo] = ativo;
+
+  // ✅ novos campos (se existirem no header e vierem no payload)
+  if (idx.registroProfissional >= 0 && registroProfissional !== null) rowValues[idx.registroProfissional] = registroProfissional;
+  if (idx.conselhoProfissional >= 0 && conselhoProfissional !== null) rowValues[idx.conselhoProfissional] = conselhoProfissional;
+  if (idx.especialidade >= 0 && especialidade !== null) rowValues[idx.especialidade] = especialidade;
+
   if (idx.atualizadoEm >= 0) rowValues[idx.atualizadoEm] = agora;
 
   sheet.getRange(linha, 1, 1, rowValues.length).setValues([rowValues]);
@@ -417,8 +523,7 @@ function Usuarios_Atualizar_(payload) {
 }
 
 /**
- * ✅ NOVO: altera/reset senha de um usuário (admin).
- *
+ * ✅ Altera/reset senha de um usuário (admin).
  * payload: { id, senha }
  */
 function Usuarios_AlterarSenha_(payload) {
