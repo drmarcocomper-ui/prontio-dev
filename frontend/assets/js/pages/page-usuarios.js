@@ -1,7 +1,7 @@
 // =====================================
 // PRONTIO - pages/page-usuarios.js
 // Pilar F: Gestão de Usuários (Admin)
-// Compatível com usuarios.html enviado
+// Compatível com usuarios.html atual
 //
 // Ações usadas:
 // - Usuarios_Listar
@@ -101,6 +101,13 @@
         closeModal_("modalResetSenha");
       }
     });
+  }
+
+  function setButtonBusy_(btnId, busy) {
+    const btn = $(btnId);
+    if (!btn) return;
+    btn.disabled = !!busy;
+    btn.setAttribute("aria-busy", busy ? "true" : "false");
   }
 
   // ---------- state ----------
@@ -204,21 +211,25 @@
   async function refresh_() {
     showMsg_("usuariosMsg", "", "info");
 
+    const tbody = $("usuariosTbody");
+    const countEl = $("usuariosCount");
+    if (!tbody) return;
+
     if (!isAdmin_()) {
       USERS = [];
-      $("usuariosTbody").innerHTML = `<tr><td colspan="6" class="text-muted">Apenas administradores podem gerenciar usuários.</td></tr>`;
-      $("usuariosCount").textContent = "";
+      tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Apenas administradores podem gerenciar usuários.</td></tr>`;
+      if (countEl) countEl.textContent = "";
       return;
     }
 
     try {
-      $("usuariosTbody").innerHTML = `<tr><td colspan="6" class="text-muted">Carregando...</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Carregando...</td></tr>`;
       const list = await apiList_();
       USERS = Array.isArray(list) ? list : [];
       render_();
       showMsg_("usuariosMsg", "Usuários carregados.", "success");
     } catch (e) {
-      $("usuariosTbody").innerHTML = `<tr><td colspan="6" class="text-muted">Erro ao carregar.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Erro ao carregar.</td></tr>`;
       showMsg_("usuariosMsg", e?.message || "Falha ao carregar usuários.", "error");
     }
   }
@@ -249,13 +260,14 @@
     $("usuarioEmail").value = u.email || "";
     $("usuarioPerfil").value = u.perfil || "secretaria";
     $("usuarioAtivo").value = u.ativo ? "true" : "false";
-    $("usuarioSenha").value = "";
+    $("usuarioSenha").value = ""; // não edita senha aqui
 
     openModal_("modalUsuario");
   }
 
   async function saveUser_() {
     showMsg_("modalUsuarioMsg", "", "info");
+    setButtonBusy_("btnSalvarUsuario", true);
 
     try {
       const id = String($("usuarioId").value || "").trim();
@@ -272,6 +284,7 @@
       }
 
       if (!id) {
+        // criar
         if (!senha) {
           showMsg_("modalUsuarioMsg", "Informe a senha inicial para criar o usuário.", "error");
           return;
@@ -279,6 +292,7 @@
         await apiCreate_({ nome, login, email, perfil, senha });
         showMsg_("usuariosMsg", "Usuário criado com sucesso.", "success");
       } else {
+        // atualizar
         await apiUpdate_({ id, nome, login, email, perfil, ativo });
         showMsg_("usuariosMsg", "Usuário atualizado com sucesso.", "success");
       }
@@ -287,6 +301,8 @@
       await refresh_();
     } catch (e) {
       showMsg_("modalUsuarioMsg", e?.message || "Falha ao salvar usuário.", "error");
+    } finally {
+      setButtonBusy_("btnSalvarUsuario", false);
     }
   }
 
@@ -304,6 +320,7 @@
 
   async function confirmReset_() {
     showMsg_("modalResetMsg", "", "info");
+    setButtonBusy_("btnConfirmarReset", true);
 
     try {
       const id = String($("resetUserId").value || "").trim();
@@ -320,6 +337,8 @@
       await refresh_();
     } catch (e) {
       showMsg_("modalResetMsg", e?.message || "Falha ao resetar senha.", "error");
+    } finally {
+      setButtonBusy_("btnConfirmarReset", false);
     }
   }
 

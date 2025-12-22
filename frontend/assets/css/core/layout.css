@@ -11,6 +11,11 @@
   background: var(--cor-fundo-app);
 }
 
+/* =========================
+   COMPAT: HTML novo usa .app-main
+   Layout antigo usa .main-area
+   ========================= */
+
 /* Área principal (topbar + conteúdo das páginas) */
 .main-area {
   flex: 1;
@@ -21,13 +26,34 @@
   transition: margin-left 0.25s ease;
 }
 
+/* ✅ Alias: app-main deve se comportar como main-area */
+.app-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* evita overflow/encolhimento em flex */
+  /* mantém compat com sidebar fixa */
+  margin-left: 240px;
+  transition: margin-left 0.25s ease;
+}
+
 /* Quando sidebar está compacta (pílula) */
 body.sidebar-compact .main-area {
   margin-left: 78px;
 }
 
+/* ✅ Alias: compact também aplica no app-main */
+body.sidebar-compact .app-main {
+  margin-left: 78px;
+}
+
 /* Conteúdo padrão das páginas dentro da área principal */
 .content {
+  padding: var(--sp-4);
+}
+
+/* ✅ Alias: HTML novo usa .page-content */
+.page-content {
   padding: var(--sp-4);
 }
 
@@ -37,6 +63,11 @@ body.sidebar-compact .main-area {
 */
 @media (max-width: 768px) {
   .main-area {
+    margin-left: 0;
+  }
+
+  /* ✅ Alias mobile */
+  .app-main {
     margin-left: 0;
   }
 }
