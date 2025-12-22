@@ -127,6 +127,39 @@ function _Registry_build_() {
   }
 
   // =========================
+  // AUTH RECOVERY (Pilar H) - públicas
+  // =========================
+  map["Auth_ForgotPassword_Request"] = {
+    action: "Auth_ForgotPassword_Request",
+    handler: Auth_ForgotPassword_Request,
+    requiresAuth: false,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "Auth_ForgotPassword_Request"
+  };
+
+  map["Auth_ForgotPassword_ValidateToken"] = {
+    action: "Auth_ForgotPassword_ValidateToken",
+    handler: Auth_ForgotPassword_ValidateToken,
+    requiresAuth: false,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Auth_ForgotPassword_Reset"] = {
+    action: "Auth_ForgotPassword_Reset",
+    handler: Auth_ForgotPassword_Reset,
+    requiresAuth: false,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "Auth_ForgotPassword_Reset"
+  };
+
+  // =========================
   // USUÁRIOS (admin)
   // =========================
   map["Usuarios_Listar"] = {
@@ -176,15 +209,14 @@ function _Registry_build_() {
    * ============================================================
    */
   map["Usuarios_ResetSenhaAdmin"] = {
-  action: "Usuarios_ResetSenhaAdmin",
-  handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_ResetSenhaAdmin", payload, ctx); },
-  requiresAuth: true,
-  roles: ["admin"],
-  validations: [],
-  requiresLock: true,
-  lockKey: "Usuarios_ResetSenhaAdmin"
-};
-
+    action: "Usuarios_ResetSenhaAdmin",
+    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_ResetSenhaAdmin", payload, ctx); },
+    requiresAuth: true,
+    roles: ["admin"],
+    validations: [],
+    requiresLock: true,
+    lockKey: "Usuarios_ResetSenhaAdmin"
+  };
 
   /**
    * ============================================================
@@ -294,7 +326,6 @@ function _Registry_build_() {
   return map;
 }
 
-
 /**
  * ============================================================
  * Handler de diagnóstico: retorna as actions registradas.
@@ -316,35 +347,3 @@ function Registry_ListActions(ctx, payload) {
     hasUsuariosResetSenhaAdmin: keys.indexOf("Usuarios_ResetSenhaAdmin") >= 0
   };
 }
-  // =========================
-  // AUTH RECOVERY (Pilar H) - públicas
-  // =========================
-  map["Auth_ForgotPassword_Request"] = {
-    action: "Auth_ForgotPassword_Request",
-    handler: Auth_ForgotPassword_Request,
-    requiresAuth: false,
-    roles: [],
-    validations: [],
-    requiresLock: true,
-    lockKey: "Auth_ForgotPassword_Request"
-  };
-
-  map["Auth_ForgotPassword_ValidateToken"] = {
-    action: "Auth_ForgotPassword_ValidateToken",
-    handler: Auth_ForgotPassword_ValidateToken,
-    requiresAuth: false,
-    roles: [],
-    validations: [],
-    requiresLock: false,
-    lockKey: null
-  };
-
-  map["Auth_ForgotPassword_Reset"] = {
-    action: "Auth_ForgotPassword_Reset",
-    handler: Auth_ForgotPassword_Reset,
-    requiresAuth: false,
-    roles: [],
-    validations: [],
-    requiresLock: true,
-    lockKey: "Auth_ForgotPassword_Reset"
-  };
