@@ -1,13 +1,18 @@
 // =====================================
 // PRONTIO - pages/page-login.js
 // Página de Login (FRONT-END)
+// Pilar D: UX do Login (login ou e-mail)
 // =====================================
 //
 // Responsabilidades:
 // - Capturar usuário e senha do formulário
+// - Normalizar identificador (trim + lower) para reduzir erro humano
 // - Chamar Auth_Login via PRONTIO.auth.login (centralizado)
 // - Redirecionar (prioridade: destino salvo; fallback: HOME do sistema)
-// =====================================
+// - Melhorias UX (não exigem mudar HTML):
+//   - Placeholder: "Login ou e-mail" (se estiver vazio)
+//   - Autocomplete correto
+//   - Lembrar último login digitado (localStorage)
 
 (function (global, document) {
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
@@ -15,8 +20,26 @@
   // ✅ Defina aqui a "home" pós-login (módulo principal)
   const DEFAULT_HOME = "atendimento.html";
 
+  // UX: lembrar último identificador
+  const UX_KEYS = {
+    LAST_IDENTIFIER: "prontio.login.lastIdentifier"
+  };
+
   function qs(id) {
     return document.getElementById(id);
+  }
+
+  function lsGet(key) {
+    try { return global.localStorage ? global.localStorage.getItem(key) : null; }
+    catch (_) { return null; }
+  }
+
+  function lsSet(key, value) {
+    try {
+      if (!global.localStorage) return;
+      if (value === null || value === undefined || value === "") global.localStorage.removeItem(key);
+      else global.localStorage.setItem(key, String(value));
+    } catch (_) {}
   }
 
   function setMessageClass_(el, type) {
@@ -84,15 +107,44 @@
     return m ? m[1] : s;
   }
 
+  function normalizeIdentifier_(raw) {
+    // Pilar D: reduz confusão (maiúsculas, espaços, e-mail etc.)
+    return String(raw || "").trim().toLowerCase();
+  }
+
+  function applyUxHints_() {
+    const inpUser = qs("loginUsuario");
+    const inpPass = qs("loginSenha");
+
+    // Placeholders e autocomplete (só aplica se estiver vazio)
+    if (inpUser) {
+      if (!inpUser.getAttribute("placeholder")) inpUser.setAttribute("placeholder", "Login ou e-mail");
+      if (!inpUser.getAttribute("autocomplete")) inpUser.setAttribute("autocomplete", "username");
+      // inputmode ajuda no mobile (teclado com @)
+      inpUser.setAttribute("inputmode", "email");
+
+      // Preenche com último identificador usado
+      const last = lsGet(UX_KEYS.LAST_IDENTIFIER);
+      if (!inpUser.value && last) inpUser.value = last;
+    }
+
+    if (inpPass) {
+      if (!inpPass.getAttribute("placeholder")) inpPass.setAttribute("placeholder", "Senha");
+      if (!inpPass.getAttribute("autocomplete")) inpPass.setAttribute("autocomplete", "current-password");
+    }
+  }
+
   async function handleSubmit(ev) {
     ev.preventDefault();
     hideMessage();
 
-    const usuario = (qs("loginUsuario")?.value || "").trim();
+    const rawIdentifier = (qs("loginUsuario")?.value || "");
     const senha = qs("loginSenha")?.value || "";
 
-    if (!usuario || !senha) {
-      showMessage("Informe usuário e senha.", "error");
+    const identifier = normalizeIdentifier_(rawIdentifier);
+
+    if (!identifier || !senha) {
+      showMessage("Informe login (ou e-mail) e senha.", "error");
       return;
     }
 
@@ -101,17 +153,27 @@
       return;
     }
 
+    // UX: salva para preencher na próxima vez
+    lsSet(UX_KEYS.LAST_IDENTIFIER, identifier);
+
     setFormBusy_(true);
 
     try {
-      await PRONTIO.auth.login({ login: usuario, senha });
+      await PRONTIO.auth.login({ login: identifier, senha: senha });
       global.location.href = resolvePostLoginUrl_();
     } catch (err) {
-      // log técnico opcional (sem poluir UI)
+      // log técnico opcional
       try { console.warn("[PRONTIO.login] erro:", err); } catch (e) {}
 
-      const msg = err && err.message ? err.message : "Falha no login.";
-      showMessage(cleanLoginErrorMessage_(msg), "error");
+      const msgRaw = err && err.message ? err.message : "Falha no login.";
+      const msg = cleanLoginErrorMessage_(msgRaw);
+
+      // Mensagem amigável padrão
+      if (/usu[aá]rio|senha inv[aá]lid/i.test(msg)) {
+        showMessage("Login (ou e-mail) ou senha inválidos.", "error");
+      } else {
+        showMessage(msg || "Falha no login.", "error");
+      }
     } finally {
       setFormBusy_(false);
     }
@@ -119,9 +181,9 @@
 
   function init() {
     setYear();
+    applyUxHints_();
 
     // ✅ Se já estiver logado (token), não fica preso no login
-    // Melhor: respeita redirect pendente (se existir)
     try {
       if (PRONTIO.auth && typeof PRONTIO.auth.isAuthenticated === "function" && PRONTIO.auth.isAuthenticated()) {
         global.location.href = resolvePostLoginUrl_();

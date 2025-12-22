@@ -2,33 +2,21 @@
  * ============================================================
  * PRONTIO - Auth.gs (FASE 5)
  * ============================================================
- * - Identificar usuário via token no payload (CacheService)
- * - Roles (admin/medico/recepcao)
- * - Sessão (token) compatível com legado
+ * + Pilar G: Auditoria (best-effort)
  *
- * Actions (API):
- * - Auth_Login  (payload: { login, senha })
- * - Auth_Me     (payload: { token })
- * - Auth_Logout (payload: { token })
+ * Actions:
+ * - Auth_Login
+ * - Auth_Me
+ * - Auth_Logout
  */
 
 var AUTH_CACHE_PREFIX = typeof AUTH_CACHE_PREFIX !== "undefined" ? AUTH_CACHE_PREFIX : "PRONTIO_AUTH_";
 var AUTH_TTL_SECONDS = typeof AUTH_TTL_SECONDS !== "undefined" ? AUTH_TTL_SECONDS : (60 * 60 * 10);
 
-/**
- * ✅ Canonical interno atual + aliases para casar com a estratégia:
- * - medico <-> profissional
- * - recepcao <-> secretaria
- *
- * Não quebra legado: quem já está gravado como "medico"/"recepcao" continua funcionando.
- * E permite começar os novos módulos usando "profissional"/"secretaria" se quiser.
- */
 var AUTH_ROLES = {
   admin: "admin",
   medico: "medico",
   recepcao: "recepcao",
-
-  // aliases novos (estratégia)
   profissional: "profissional",
   secretaria: "secretaria"
 };
@@ -56,10 +44,6 @@ function Auth_getUserContext_(payload) {
   }
 }
 
-/**
- * ✅ Mantém payload.token (legado) e aceita payload.authToken (opcional)
- * para facilitar compatibilidade com diferentes clientes.
- */
 function Auth_getTokenFromPayload_(payload) {
   payload = payload || {};
   var token = (payload.token || payload.authToken || "").toString().trim();
@@ -69,7 +53,6 @@ function Auth_getTokenFromPayload_(payload) {
 function Auth_requireAuth_(ctx, payload) {
   var user = Auth_getUserContext_(payload);
   if (!user) {
-    // mantém PERMISSION_DENIED para não quebrar o que já depende disso
     return Errors.response(ctx, Errors.CODES.PERMISSION_DENIED, "Login obrigatório.", { reason: "AUTH_REQUIRED" });
   }
   ctx.user = user;
@@ -86,10 +69,7 @@ function Auth_requireRoles_(ctx, roles) {
   }
 
   var userRoles = Auth_rolesForUser_(user);
-
-  // normaliza roles requeridas para lower-case (mais tolerante)
   var required = roles.map(function (r) { return String(r || "").trim().toLowerCase(); });
-
   var allowed = required.some(function (r) { return userRoles.indexOf(r) >= 0; });
 
   if (!allowed) {
@@ -108,7 +88,6 @@ function Auth_rolesForUser_(user) {
   var perfil = (user.perfil || user.role || "").toString().trim().toLowerCase();
   if (!perfil) return [];
 
-  // ✅ Admin herda tudo (inclui aliases novos)
   if (perfil === AUTH_ROLES.admin) {
     return [
       AUTH_ROLES.admin,
@@ -119,17 +98,14 @@ function Auth_rolesForUser_(user) {
     ];
   }
 
-  // ✅ medico/profissional são equivalentes
   if (perfil === AUTH_ROLES.medico || perfil === AUTH_ROLES.profissional) {
     return [AUTH_ROLES.medico, AUTH_ROLES.profissional];
   }
 
-  // ✅ recepcao/secretaria são equivalentes
   if (perfil === AUTH_ROLES.recepcao || perfil === AUTH_ROLES.secretaria) {
     return [AUTH_ROLES.recepcao, AUTH_ROLES.secretaria];
   }
 
-  // fallback: aceita perfis customizados
   return [perfil];
 }
 
@@ -170,6 +146,9 @@ function Auth_Login(ctx, payload) {
   var u = Usuarios_findByLoginForAuth_(login);
 
   if (!u || !u.ativo) {
+    try {
+      Audit_securityEvent_(ctx, "Auth_Login", "AUTH_LOGIN", "DENY", { reason: "INVALID_CREDENTIALS", loginHint: String(login).slice(0, 80) }, {});
+    } catch (_) {}
     var e2 = new Error("Usuário ou senha inválidos.");
     e2.code = (Errors && Errors.CODES && Errors.CODES.AUTH_INVALID_CREDENTIALS) ? Errors.CODES.AUTH_INVALID_CREDENTIALS : "AUTH_INVALID_CREDENTIALS";
     e2.details = null;
@@ -185,6 +164,9 @@ function Auth_Login(ctx, payload) {
 
   var ok = Usuarios_verifyPassword_(senha, u.senhaHash);
   if (!ok) {
+    try {
+      Audit_securityEvent_(ctx, "Auth_Login", "AUTH_LOGIN", "DENY", { reason: "INVALID_CREDENTIALS", loginHint: String(login).slice(0, 80) }, {});
+    } catch (_) {}
     var e4 = new Error("Usuário ou senha inválidos.");
     e4.code = (Errors && Errors.CODES && Errors.CODES.AUTH_INVALID_CREDENTIALS) ? Errors.CODES.AUTH_INVALID_CREDENTIALS : "AUTH_INVALID_CREDENTIALS";
     e4.details = null;
@@ -197,13 +179,19 @@ function Auth_Login(ctx, payload) {
     }
   } catch (_) {}
 
-  return Auth_createSession_({
+  var session = Auth_createSession_({
     id: u.id,
     nome: u.nome,
     login: u.login,
     email: u.email,
     perfil: u.perfil
   });
+
+  // para auditoria do sucesso
+  try { ctx.user = _authNormalizeUser_(session.user); } catch (_) {}
+  try { Audit_securityEvent_(ctx, "Auth_Login", "AUTH_LOGIN", "SUCCESS", {}, {}); } catch (_) {}
+
+  return session;
 }
 
 function Auth_Me(ctx, payload) {
@@ -232,13 +220,14 @@ function Auth_Logout(ctx, payload) {
   payload = payload || {};
   var token = Auth_getTokenFromPayload_(payload);
   if (!token) return { ok: true };
+
+  try { Audit_securityEvent_(ctx, "Auth_Logout", "AUTH_LOGOUT", "SUCCESS", {}, {}); } catch (_) {}
   return Auth_destroySession_(token);
 }
 
 function _authNormalizeUser_(user) {
   if (!user || typeof user !== "object") return null;
 
-  // ✅ normaliza perfil para lower-case (evita divergências no Auth_rolesForUser_)
   var perfil = (user.perfil !== undefined ? user.perfil : (user.Perfil || user.role || "usuario"));
   perfil = (perfil || "usuario").toString().trim().toLowerCase();
 

@@ -35,7 +35,13 @@
 
 var USUARIOS_SHEET_NAME = "Usuarios";
 
-function handleUsuariosAction(action, payload) {
+/**
+ * Dispatcher de ações (chamado pelo Registry/Api).
+ * Compatibilidade:
+ * - Chamadas antigas passam apenas (action, payload)
+ * - Chamadas novas (Pilar E / Pilar G) passam (action, payload, ctx)
+ */
+function handleUsuariosAction(action, payload, ctx) {
   switch (action) {
     case "Usuarios_Listar":
       return Usuarios_Listar_(payload);
@@ -45,6 +51,16 @@ function handleUsuariosAction(action, payload) {
       return Usuarios_Atualizar_(payload);
     case "Usuarios_AlterarSenha":
       return Usuarios_AlterarSenha_(payload);
+
+    // ✅ Pilar C (PROD): reset/admin por ID ou por login/email
+    // ✅ Pilar G (auditoria): precisa ctx para registrar quem fez o reset
+    case "Usuarios_ResetSenhaAdmin":
+      return Usuarios_ResetSenhaAdmin_(payload, ctx);
+
+    // ✅ Pilar E (self-service): alterar a própria senha (exige ctx.user)
+    // ✅ Pilar G (auditoria): registra SUCCESS/DENY
+    case "Usuarios_AlterarMinhaSenha":
+      return Usuarios_AlterarMinhaSenha_(payload, ctx);
 
     // ✅ utilitário (não registrado no Registry por padrão): garante colunas oficiais no header
     case "Usuarios_EnsureSchema":
@@ -282,11 +298,12 @@ function Usuarios_Listar_(payload) {
 }
 
 /**
- * Busca usuário por login para autenticação (inclui senhaHash).
+ * Busca usuário por identificador para autenticação (inclui senhaHash).
+ * ✅ Pilar A: Aceita Login OU Email (case-insensitive). Prioriza Login.
  */
-function Usuarios_findByLoginForAuth_(login) {
-  login = (login || "").toString().trim().toLowerCase();
-  if (!login) return null;
+function Usuarios_findByLoginForAuth_(identifier) {
+  identifier = (identifier || "").toString().trim().toLowerCase();
+  if (!identifier) return null;
 
   var sheet = getUsuariosSheet_();
   var pack = _uHeader_(sheet);
@@ -296,21 +313,39 @@ function Usuarios_findByLoginForAuth_(login) {
   var header = pack.header;
   var idx = _uBuildIdx_(header);
 
-  if (idx.id < 0 || idx.login < 0 || idx.senhaHash < 0 || idx.ativo < 0) {
+  if (idx.id < 0 || idx.senhaHash < 0 || idx.ativo < 0) {
     _usuariosThrow_("USUARIOS_BAD_SCHEMA", "Cabeçalho da aba Usuarios incompleto para autenticação.", {
-      required: ["ID_Usuario", "Login", "SenhaHash", "Ativo"],
+      required: ["ID_Usuario", "SenhaHash", "Ativo"],
       header: header,
       idx: idx
     });
   }
 
+  var foundByEmail = null;
+
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
     if (!row[idx.id]) continue;
 
-    var rowLogin = String(_uGet_(row, idx.login) || "").trim().toLowerCase();
-    if (rowLogin && rowLogin === login) {
+    var rowLogin = idx.login >= 0 ? String(_uGet_(row, idx.login) || "").trim().toLowerCase() : "";
+    var rowEmail = idx.email >= 0 ? String(_uGet_(row, idx.email) || "").trim().toLowerCase() : "";
+
+    // Prioridade 1: Login
+    if (rowLogin && rowLogin === identifier) {
       return {
+        id: String(_uGet_(row, idx.id) || ""),
+        nome: idx.nome >= 0 ? String(_uGet_(row, idx.nome) || "") : "",
+        login: idx.login >= 0 ? String(_uGet_(row, idx.login) || "") : "",
+        email: idx.email >= 0 ? String(_uGet_(row, idx.email) || "") : "",
+        perfil: idx.perfil >= 0 ? String(_uGet_(row, idx.perfil) || "") : "",
+        ativo: idx.ativo >= 0 ? boolFromCell_(_uGet_(row, idx.ativo)) : false,
+        senhaHash: idx.senhaHash >= 0 ? String(_uGet_(row, idx.senhaHash) || "") : ""
+      };
+    }
+
+    // Fallback: Email
+    if (!foundByEmail && rowEmail && rowEmail === identifier) {
+      foundByEmail = {
         id: String(_uGet_(row, idx.id) || ""),
         nome: idx.nome >= 0 ? String(_uGet_(row, idx.nome) || "") : "",
         login: idx.login >= 0 ? String(_uGet_(row, idx.login) || "") : "",
@@ -322,7 +357,77 @@ function Usuarios_findByLoginForAuth_(login) {
     }
   }
 
+  return foundByEmail;
+}
+
+/**
+ * Localiza linha por ID_Usuario.
+ * Retorna { sheet, rowIndex, row, header, idx } ou null.
+ */
+function Usuarios_findRowById_(id) {
+  id = (id || "").toString().trim();
+  if (!id) return null;
+
+  var sheet = getUsuariosSheet_();
+  var pack = _uHeader_(sheet);
+  var values = pack.values;
+  if (values.length <= 1) return null;
+
+  var header = pack.header;
+  var idx = _uBuildIdx_(header);
+
+  if (idx.id < 0) {
+    _usuariosThrow_("USUARIOS_BAD_SCHEMA", 'Coluna "ID_Usuario" (ou alias) não encontrada.', { header: header, idx: idx });
+  }
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (row[idx.id] && String(row[idx.id]) === id) {
+      return { sheet: sheet, rowIndex: i + 1, row: row, header: header, idx: idx };
+    }
+  }
   return null;
+}
+
+/**
+ * Localiza linha por Login OU Email (case-insensitive).
+ * Retorna { sheet, rowIndex, row, header, idx } ou null.
+ */
+function Usuarios_findRowByIdentifier_(identifier) {
+  identifier = (identifier || "").toString().trim().toLowerCase();
+  if (!identifier) return null;
+
+  var sheet = getUsuariosSheet_();
+  var pack = _uHeader_(sheet);
+  var values = pack.values;
+  if (values.length <= 1) return null;
+
+  var header = pack.header;
+  var idx = _uBuildIdx_(header);
+
+  if (idx.id < 0) {
+    _usuariosThrow_("USUARIOS_BAD_SCHEMA", 'Coluna "ID_Usuario" (ou alias) não encontrada.', { header: header, idx: idx });
+  }
+
+  var foundByEmail = null;
+
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (!row[idx.id]) continue;
+
+    var rowLogin = idx.login >= 0 ? String(_uGet_(row, idx.login) || "").trim().toLowerCase() : "";
+    var rowEmail = idx.email >= 0 ? String(_uGet_(row, idx.email) || "").trim().toLowerCase() : "";
+
+    if (rowLogin && rowLogin === identifier) {
+      return { sheet: sheet, rowIndex: i + 1, row: row, header: header, idx: idx };
+    }
+
+    if (!foundByEmail && rowEmail && rowEmail === identifier) {
+      foundByEmail = { sheet: sheet, rowIndex: i + 1, row: row, header: header, idx: idx };
+    }
+  }
+
+  return foundByEmail;
 }
 
 /**
@@ -525,6 +630,7 @@ function Usuarios_Atualizar_(payload) {
 /**
  * ✅ Altera/reset senha de um usuário (admin).
  * payload: { id, senha }
+ * (mantido para compatibilidade com chamadas existentes)
  */
 function Usuarios_AlterarSenha_(payload) {
   payload = payload || {};
@@ -535,37 +641,202 @@ function Usuarios_AlterarSenha_(payload) {
   if (!id) _usuariosThrow_("USUARIOS_ID_OBRIGATORIO", "ID é obrigatório.", null);
   if (!senha) _usuariosThrow_("USUARIOS_SENHA_OBRIGATORIA", "Senha é obrigatória.", null);
 
-  var sheet = getUsuariosSheet_();
-  var pack = _uHeader_(sheet);
-  var values = pack.values;
-  if (values.length <= 1) _usuariosThrow_("USUARIOS_NAO_ENCONTRADO", "Usuário não encontrado.", { id: id });
+  var found = Usuarios_findRowById_(id);
+  if (!found) _usuariosThrow_("USUARIOS_NAO_ENCONTRADO", "Usuário não encontrado.", { id: id });
 
-  var header = pack.header;
-  var idx = _uBuildIdx_(header);
+  var idx = found.idx;
 
-  if (idx.id < 0 || idx.senhaHash < 0) {
-    _usuariosThrow_("USUARIOS_BAD_SCHEMA", 'Cabeçalho deve conter "ID_Usuario" e "SenhaHash" (ou aliases).', { header: header, idx: idx });
-  }
-
-  var linha = -1;
-  for (var i = 1; i < values.length; i++) {
-    var row = values[i];
-    if (row[idx.id] && String(row[idx.id]) === id) {
-      linha = i + 1;
-      break;
-    }
-  }
-
-  if (linha === -1) {
-    _usuariosThrow_("USUARIOS_NAO_ENCONTRADO", "Usuário não encontrado.", { id: id });
+  if (idx.senhaHash < 0) {
+    _usuariosThrow_("USUARIOS_BAD_SCHEMA", 'Cabeçalho deve conter "SenhaHash" (ou aliases).', { header: found.header, idx: idx });
   }
 
   var senhaHash = hashSenha_(senha);
-  sheet.getRange(linha, idx.senhaHash + 1).setValue(senhaHash);
+  found.sheet.getRange(found.rowIndex, idx.senhaHash + 1).setValue(senhaHash);
 
   if (idx.atualizadoEm >= 0) {
-    sheet.getRange(linha, idx.atualizadoEm + 1).setValue(new Date());
+    found.sheet.getRange(found.rowIndex, idx.atualizadoEm + 1).setValue(new Date());
   }
 
   return { ok: true, id: id };
+}
+
+/**
+ * ============================================================
+ * Pilar C — Reset de senha ADMIN (PROD)
+ * ============================================================
+ * payload aceito:
+ * - { id: "USR_001", senha: "nova" }
+ * - { identifier: "marco" | "marco@exemplo.com", senha: "nova" }
+ * - { login: "...", senha: "nova" }  (alias)
+ * - { email: "...", senha: "nova" }  (alias)
+ *
+ * opcionais:
+ * - { ativar: true } -> marca Ativo=TRUE se existir coluna
+ *
+ * Retorna sem vazar hash:
+ * { ok:true, id, login, email, ativo? }
+ *
+ * ✅ Pilar G:
+ * - recebe ctx para auditar quem executou e quem foi afetado
+ * - NÃO loga senha/token (Audit_securityEvent_ sanitiza)
+ */
+function Usuarios_ResetSenhaAdmin_(payload, ctx) {
+  payload = payload || {};
+  ctx = ctx || {};
+
+  var id = String(payload.id || "").trim();
+  var identifier = String(payload.identifier || payload.login || payload.email || "").trim();
+  var senha = String(payload.senha || "");
+
+  var ativar;
+  if (typeof payload.ativar === "boolean") ativar = payload.ativar;
+  else if (payload.ativar !== undefined) ativar = boolFromCell_(payload.ativar);
+  else ativar = null; // não altera por padrão
+
+  if (!senha) _usuariosThrow_("USUARIOS_SENHA_OBRIGATORIA", "Senha é obrigatória.", null);
+  if (!id && !identifier) _usuariosThrow_("USUARIOS_ID_OU_IDENTIFICADOR_OBRIGATORIO", "Informe id ou identifier (login/email).", null);
+
+  var found = id ? Usuarios_findRowById_(id) : Usuarios_findRowByIdentifier_(identifier);
+  if (!found) {
+    _usuariosThrow_("USUARIOS_NAO_ENCONTRADO", "Usuário não encontrado.", { id: id || null, identifier: identifier || null });
+  }
+
+  var idx = found.idx;
+
+  if (idx.senhaHash < 0) {
+    _usuariosThrow_("USUARIOS_BAD_SCHEMA", 'Cabeçalho deve conter "SenhaHash" (ou aliases).', { header: found.header, idx: idx });
+  }
+
+  var senhaHash = hashSenha_(senha);
+  found.sheet.getRange(found.rowIndex, idx.senhaHash + 1).setValue(senhaHash);
+
+  if (ativar === true && idx.ativo >= 0) {
+    found.sheet.getRange(found.rowIndex, idx.ativo + 1).setValue(true);
+  }
+
+  if (idx.atualizadoEm >= 0) {
+    found.sheet.getRange(found.rowIndex, idx.atualizadoEm + 1).setValue(new Date());
+  }
+
+  // ✅ Pilar G: auditoria best-effort (sem senha)
+  try {
+    var targetId = idx.id >= 0 ? String(_uGet_(found.row, idx.id) || "") : "";
+    var targetLogin = idx.login >= 0 ? String(_uGet_(found.row, idx.login) || "") : "";
+    if (typeof Audit_securityEvent_ === "function") {
+      Audit_securityEvent_(
+        ctx,
+        "Usuarios_ResetSenhaAdmin",
+        "ADMIN_PASSWORD_RESET",
+        "SUCCESS",
+        { ativar: ativar === true },
+        { id: targetId, login: targetLogin }
+      );
+    }
+  } catch (_) {}
+
+  var rowNow = found.sheet.getRange(found.rowIndex, 1, 1, found.sheet.getLastColumn()).getValues()[0];
+
+  return {
+    ok: true,
+    id: idx.id >= 0 ? String(_uGet_(rowNow, idx.id) || "") : "",
+    login: idx.login >= 0 ? String(_uGet_(rowNow, idx.login) || "") : "",
+    email: idx.email >= 0 ? String(_uGet_(rowNow, idx.email) || "") : "",
+    ativo: idx.ativo >= 0 ? boolFromCell_(_uGet_(rowNow, idx.ativo)) : null
+  };
+}
+
+/**
+ * ============================================================
+ * Pilar E — Alterar senha do PRÓPRIO usuário
+ * ============================================================
+ * payload:
+ * - { senhaAtual, novaSenha }
+ *
+ * Regras:
+ * - usuário deve estar autenticado (ctx.user)
+ * - valida senha atual
+ * - grava nova senha
+ * - não permite trocar senha de outro usuário
+ *
+ * ✅ Pilar G:
+ * - audita DENY quando senha atual inválida
+ * - audita SUCCESS quando troca ocorre
+ */
+function Usuarios_AlterarMinhaSenha_(payload, ctx) {
+  payload = payload || {};
+  ctx = ctx || {};
+
+  if (!ctx.user || !ctx.user.id) {
+    _usuariosThrow_("AUTH_REQUIRED", "Usuário não autenticado.", null);
+  }
+
+  var senhaAtual = String(payload.senhaAtual || "");
+  var novaSenha = String(payload.novaSenha || "");
+
+  if (!senhaAtual) {
+    _usuariosThrow_("USUARIOS_SENHA_ATUAL_OBRIGATORIA", "Senha atual é obrigatória.", null);
+  }
+  if (!novaSenha) {
+    _usuariosThrow_("USUARIOS_NOVA_SENHA_OBRIGATORIA", "Nova senha é obrigatória.", null);
+  }
+  if (novaSenha.length < 6) {
+    _usuariosThrow_("USUARIOS_SENHA_FRACA", "Nova senha deve ter pelo menos 6 caracteres.", null);
+  }
+
+  var found = Usuarios_findRowById_(ctx.user.id);
+  if (!found) {
+    _usuariosThrow_("USUARIOS_NAO_ENCONTRADO", "Usuário não encontrado.", { id: ctx.user.id });
+  }
+
+  var idx = found.idx;
+
+  if (idx.senhaHash < 0) {
+    _usuariosThrow_("USUARIOS_BAD_SCHEMA", 'Coluna "SenhaHash" não encontrada.', { header: found.header });
+  }
+
+  var senhaHashAtual = String(_uGet_(found.row, idx.senhaHash) || "");
+  if (!Usuarios_verifyPassword_(senhaAtual, senhaHashAtual)) {
+    // ✅ Pilar G: auditoria DENY best-effort
+    try {
+      if (typeof Audit_securityEvent_ === "function") {
+        Audit_securityEvent_(
+          ctx,
+          "Usuarios_AlterarMinhaSenha",
+          "PASSWORD_CHANGE",
+          "DENY",
+          { reason: "CURRENT_PASSWORD_INVALID" },
+          { id: ctx.user.id, login: ctx.user.login || "" }
+        );
+      }
+    } catch (_) {}
+
+    _usuariosThrow_("USUARIOS_SENHA_ATUAL_INVALIDA", "Senha atual inválida.", null);
+  }
+
+  var novaHash = hashSenha_(novaSenha);
+  found.sheet.getRange(found.rowIndex, idx.senhaHash + 1).setValue(novaHash);
+
+  // Opcional: reativar (não faz aqui; isso é admin-only no Pilar C)
+  if (idx.atualizadoEm >= 0) {
+    found.sheet.getRange(found.rowIndex, idx.atualizadoEm + 1).setValue(new Date());
+  }
+
+  // ✅ Pilar G: auditoria SUCCESS best-effort
+  try {
+    if (typeof Audit_securityEvent_ === "function") {
+      Audit_securityEvent_(
+        ctx,
+        "Usuarios_AlterarMinhaSenha",
+        "PASSWORD_CHANGE",
+        "SUCCESS",
+        {},
+        { id: ctx.user.id, login: ctx.user.login || "" }
+      );
+    }
+  } catch (_) {}
+
+  return {
+    ok: true,
+    id: ctx.user.id
+  };
 }

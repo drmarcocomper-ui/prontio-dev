@@ -18,6 +18,11 @@
  *     requiresLock: boolean,
  *     lockKey: string|null
  *   }
+ *
+ * Observações:
+ * - Este Registry é construído sob demanda (lazy) na primeira chamada.
+ * - Em DEV, algumas actions auxiliares podem existir.
+ * - Em PROD, actions DEV NÃO devem ser registradas.
  */
 
 var REGISTRY_ACTIONS = null;
@@ -34,8 +39,11 @@ function Registry_getAction_(action) {
 }
 
 /**
+ * Utilitário opcional:
  * Cria um handler seguro para quando uma função não existe no deploy.
  * Isso evita que o Registry "quebre" durante a construção do map.
+ *
+ * (Mantido para compatibilidade e uso futuro.)
  */
 function _Registry_missingHandler_(fnName) {
   return function (ctx, payload) {
@@ -96,25 +104,27 @@ function _Registry_build_() {
   };
 
   /**
-   * ✅ DEV ONLY: Reset de senha (apenas para destravar ambiente DEV)
-   * IMPORTANTE:
-   * - A função Auth_ResetSenhaDev pode NÃO existir no deploy publicado.
-   * - O Registry NÃO pode quebrar por isso.
-   *
-   * Se a função existir, usa ela.
-   * Se não existir, registra um handler que falha de forma controlada.
+   * ============================================================
+   * DEV ONLY — Reset de senha
+   * ============================================================
+   * - Só existe em DEV
+   * - Só registra se a função existir
+   * - Em PROD, essa action NÃO EXISTE (não aparece no Registry)
    */
-  map["Auth_ResetSenhaDev"] = {
-    action: "Auth_ResetSenhaDev",
-    handler: (typeof Auth_ResetSenhaDev === "function")
-      ? Auth_ResetSenhaDev
-      : _Registry_missingHandler_("Auth_ResetSenhaDev"),
-    requiresAuth: false,
-    roles: [],
-    validations: [],
-    requiresLock: true,
-    lockKey: "Auth_ResetSenhaDev"
-  };
+  if (
+    String(PRONTIO_ENV).toUpperCase() === "DEV" &&
+    typeof Auth_ResetSenhaDev === "function"
+  ) {
+    map["Auth_ResetSenhaDev"] = {
+      action: "Auth_ResetSenhaDev",
+      handler: Auth_ResetSenhaDev,
+      requiresAuth: false,
+      roles: [],
+      validations: [],
+      requiresLock: true,
+      lockKey: "Auth_ResetSenhaDev"
+    };
+  }
 
   // =========================
   // USUÁRIOS (admin)
@@ -149,6 +159,7 @@ function _Registry_build_() {
     lockKey: "Usuarios_Atualizar"
   };
 
+  // ✅ Já existia: altera senha por ID (admin)
   map["Usuarios_AlterarSenha"] = {
     action: "Usuarios_AlterarSenha",
     handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_AlterarSenha", payload); },
@@ -159,14 +170,44 @@ function _Registry_build_() {
     lockKey: "Usuarios_AlterarSenha"
   };
 
+  /**
+   * ============================================================
+   * Pilar C — Reset de senha em PRODUÇÃO (admin-only)
+   * ============================================================
+   */
+  map["Usuarios_ResetSenhaAdmin"] = {
+  action: "Usuarios_ResetSenhaAdmin",
+  handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_ResetSenhaAdmin", payload, ctx); },
+  requiresAuth: true,
+  roles: ["admin"],
+  validations: [],
+  requiresLock: true,
+  lockKey: "Usuarios_ResetSenhaAdmin"
+};
+
+
+  /**
+   * ============================================================
+   * Pilar E — Alterar senha do PRÓPRIO usuário
+   * ============================================================
+   * Aqui é obrigatório passar ctx, para garantir "self-service" real.
+   */
+  map["Usuarios_AlterarMinhaSenha"] = {
+    action: "Usuarios_AlterarMinhaSenha",
+    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_AlterarMinhaSenha", payload, ctx); },
+    requiresAuth: true,
+    roles: [], // qualquer usuário autenticado
+    validations: [],
+    requiresLock: true,
+    lockKey: "Usuarios_AlterarMinhaSenha"
+  };
+
   // =========================
   // CLÍNICA
   // =========================
-
-  // ✅ Qualquer usuário autenticado pode ler (o front precisa para exibir nome/logo, etc)
   map["Clinica_Get"] = {
     action: "Clinica_Get",
-    handler: Clinica_Get, // deve existir em Clinica.gs
+    handler: Clinica_Get,
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -174,10 +215,9 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // ✅ Somente admin atualiza identidade/config institucional
   map["Clinica_Update"] = {
     action: "Clinica_Update",
-    handler: Clinica_Update, // deve existir em Clinica.gs
+    handler: Clinica_Update,
     requiresAuth: true,
     roles: ["admin"],
     validations: [],
@@ -188,13 +228,11 @@ function _Registry_build_() {
   // =========================
   // PROFISSIONAIS
   // =========================
-
-  // Listagem pode ser útil para secretária e profissional (ex.: selecionar agenda)
   map["Profissionais_List"] = {
     action: "Profissionais_List",
     handler: Profissionais_List,
     requiresAuth: true,
-    roles: [], // controlamos depois via ACL se necessário
+    roles: [],
     validations: [],
     requiresLock: false,
     lockKey: null
@@ -233,9 +271,6 @@ function _Registry_build_() {
   // =========================
   // META / MIGRATIONS (admin)
   // =========================
-
-  // ✅ Serve para rodar bootstrap/status do banco via API (contorna UI do Apps Script travada).
-  // Requer Meta.gs com Meta_BootstrapDb e Meta_DbStatus.
   map["Meta_BootstrapDb"] = {
     action: "Meta_BootstrapDb",
     handler: Meta_BootstrapDb,
@@ -259,6 +294,7 @@ function _Registry_build_() {
   return map;
 }
 
+
 /**
  * ============================================================
  * Handler de diagnóstico: retorna as actions registradas.
@@ -276,6 +312,7 @@ function Registry_ListActions(ctx, payload) {
     hasClinica: keys.indexOf("Clinica_Get") >= 0 && keys.indexOf("Clinica_Update") >= 0,
     hasProfissionais: keys.indexOf("Profissionais_List") >= 0,
     hasMetaBootstrap: keys.indexOf("Meta_BootstrapDb") >= 0,
-    hasAuthResetSenhaDev: keys.indexOf("Auth_ResetSenhaDev") >= 0
+    hasAuthResetSenhaDev: keys.indexOf("Auth_ResetSenhaDev") >= 0,
+    hasUsuariosResetSenhaAdmin: keys.indexOf("Usuarios_ResetSenhaAdmin") >= 0
   };
 }

@@ -5,8 +5,7 @@
     <title>PRONTIO - Login</title>
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- (Opcional) API URL via meta. O core/api.js já lê isso.
-         Se você já define em PRONTIO.config.apiUrl (config.js), pode ignorar. -->
+    <!-- (Opcional) API URL via meta -->
     <meta name="prontio-api-url" content="" />
 
     <!-- CSS principal -->
@@ -29,26 +28,51 @@
         <form id="formLogin" class="login-form">
           <div id="mensagemLogin" class="mensagem is-hidden"></div>
 
+          <!-- LOGIN / EMAIL -->
           <div class="form-group">
-            <label for="loginUsuario">Usuário</label>
+            <label for="loginUsuario">Login ou e-mail</label>
             <input
               type="text"
               id="loginUsuario"
               name="usuario"
+              placeholder="Login ou e-mail"
               autocomplete="username"
+              inputmode="email"
               required
             />
           </div>
 
+          <!-- SENHA -->
           <div class="form-group">
             <label for="loginSenha">Senha</label>
-            <input
-              type="password"
-              id="loginSenha"
-              name="senha"
-              autocomplete="current-password"
-              required
-            />
+            <div class="password-field">
+              <input
+                type="password"
+                id="loginSenha"
+                name="senha"
+                placeholder="Senha"
+                autocomplete="current-password"
+                required
+              />
+              <!-- Botão mostrar/ocultar senha -->
+              <button
+                type="button"
+                id="toggleSenha"
+                class="btn btn-link btn-sm"
+                aria-pressed="false"
+                tabindex="-1"
+              >
+                Mostrar
+              </button>
+            </div>
+
+            <!-- Aviso de Caps Lock -->
+            <div
+              id="loginCapsLockHint"
+              class="text-warning text-small is-hidden"
+            >
+              Caps Lock ativado
+            </div>
           </div>
 
           <div class="login-actions">
@@ -67,12 +91,6 @@
     </div>
 
     <!-- CORE -->
-    <!-- Ordem recomendada:
-         1) config (define apiUrl)
-         2) helpers/utils
-         3) api (callApiData)
-         4) auth (login/me/logout)
-         5) app/main -->
     <script src="assets/js/core/config.js"></script>
     <script src="assets/js/core/dom.js"></script>
     <script src="assets/js/core/utils.js"></script>
@@ -81,7 +99,7 @@
     <script src="assets/js/core/auth.js"></script>
     <script src="assets/js/core/app.js"></script>
 
-    <!-- WIDGETS necessários no login -->
+    <!-- WIDGETS -->
     <script src="assets/js/widgets/widget-toast.js"></script>
 
     <!-- PÁGINA -->

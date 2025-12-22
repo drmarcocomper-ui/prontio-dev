@@ -1,432 +1,388 @@
 // =====================================
 // PRONTIO - pages/page-usuarios.js
-// Administração de usuários (multiusuário)
+// Pilar F: Gestão de Usuários (Admin)
+// Compatível com usuarios.html enviado
 //
-// Funcionalidades:
-// - Listar usuários (Usuarios_Listar)
-// - Criar novo usuário (Usuarios_Criar)
-// - Editar usuário via modal (Usuarios_Atualizar)
+// Ações usadas:
+// - Usuarios_Listar
+// - Usuarios_Criar
+// - Usuarios_Atualizar
+// - Usuarios_ResetSenhaAdmin
 //
-// Requer perfil "admin" para gerenciar usuários.
+// IDs esperados no HTML:
+// - usuariosMsg, usuariosBusca, usuariosFiltroAtivo
+// - btnRecarregar, btnNovoUsuario
+// - usuariosTbody, usuariosCount
+// - modalUsuario + campos: usuarioId, usuarioNome, usuarioLogin, usuarioEmail, usuarioPerfil, usuarioAtivo, usuarioSenha
+// - btnSalvarUsuario, modalUsuarioMsg, modalUsuarioTitle
+// - modalResetSenha + campos: resetUserId, resetUserLabel, resetNovaSenha, resetAtivar
+// - btnConfirmarReset, modalResetMsg
 // =====================================
 
 (function (global, document) {
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
-  const api = PRONTIO.api || {};
   const auth = PRONTIO.auth || {};
-  const widgets = (PRONTIO.widgets = PRONTIO.widgets || {});
-  const toastWidget = widgets.toast || null;
+  const api = PRONTIO.api || {};
 
-  // ✅ IMPORTANTE:
-  // callApi (envelope) != callApiData (data)
-  const callApiData =
-    typeof api.callApiData === "function"
-      ? api.callApiData
-      : typeof global.callApiData === "function"
-      ? global.callApiData
-      : null;
+  // ---------- helpers ----------
+  const $ = (id) => document.getElementById(id);
 
-  let usuariosCache = []; // lista mais recente, para facilitar edição
+  function showMsg_(id, msg, type) {
+    const el = $(id);
+    if (!el) return;
 
-  // -----------------------------------------
-  // Mensagens
-  // -----------------------------------------
-  function showMessage(texto, tipo) {
-    if (toastWidget && typeof toastWidget.createPageMessages === "function") {
-      const pageMsg = toastWidget.createPageMessages("#mensagemUsuarios");
-      const opts = { autoHide: tipo === "sucesso", autoHideDelay: 3000 };
-
-      switch (tipo) {
-        case "sucesso":
-          pageMsg.sucesso(texto, opts);
-          return;
-        case "erro":
-          pageMsg.erro(texto, opts);
-          return;
-        case "aviso":
-          pageMsg.aviso(texto, opts);
-          return;
-        default:
-          pageMsg.info(texto, opts);
-          return;
-      }
-    }
-
-    // fallback div
-    const div = document.getElementById("mensagemUsuarios");
-    if (!div) return;
-
-    if (!texto) {
-      div.className = "mensagem is-hidden";
-      div.textContent = "";
+    if (!msg) {
+      el.textContent = "";
+      el.classList.add("is-hidden");
+      el.classList.remove("mensagem-sucesso", "mensagem-erro", "mensagem-aviso", "mensagem-info");
       return;
     }
 
-    div.className = "mensagem";
-    div.textContent = texto;
+    el.textContent = String(msg);
+    el.classList.remove("is-hidden");
+    el.classList.remove("mensagem-sucesso", "mensagem-erro", "mensagem-aviso", "mensagem-info");
 
-    switch (tipo) {
-      case "sucesso":
-        div.classList.add("mensagem-sucesso");
-        break;
-      case "erro":
-        div.classList.add("mensagem-erro");
-        break;
-      case "aviso":
-        div.classList.add("mensagem-aviso");
-        break;
-      default:
-        div.classList.add("mensagem-info");
-        break;
+    if (type === "success") el.classList.add("mensagem-sucesso");
+    else if (type === "warning") el.classList.add("mensagem-aviso");
+    else if (type === "error") el.classList.add("mensagem-erro");
+    else el.classList.add("mensagem-info");
+  }
+
+  function escHtml_(s) {
+    return String(s || "")
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function assertApi_() {
+    if (!api || typeof api.callApiData !== "function") {
+      throw new Error("PRONTIO.api.callApiData não está disponível.");
     }
   }
 
-  function clearMessage() {
-    showMessage("", "info");
-  }
-
-  // -----------------------------------------
-  // Modal helpers
-  // -----------------------------------------
-  function openEditModal() {
-    const backdrop = document.getElementById("modalEditarUsuarioBackdrop");
-    if (backdrop) {
-      backdrop.classList.add("is-open");
-    }
-  }
-
-  function closeEditModal() {
-    const backdrop = document.getElementById("modalEditarUsuarioBackdrop");
-    if (backdrop) {
-      backdrop.classList.remove("is-open");
-    }
-  }
-
-  function bindModalCloseButtons() {
-    const backdrop = document.getElementById("modalEditarUsuarioBackdrop");
-    if (!backdrop) return;
-
-    const buttons = backdrop.querySelectorAll("[data-modal-close='modalEditarUsuarioBackdrop']");
-    buttons.forEach((btn) => {
-      if (btn.dataset.boundClose === "true") return;
-      btn.dataset.boundClose = "true";
-      btn.addEventListener("click", function (e) {
-        e.preventDefault();
-        closeEditModal();
-      });
-    });
-
-    // fechar com ESC
-    document.addEventListener("keydown", function (e) {
-      if (e.key === "Escape") {
-        closeEditModal();
-      }
-    });
-  }
-
-  // -----------------------------------------
-  // Carregar lista de usuários
-  // -----------------------------------------
-  async function carregarUsuarios() {
-    if (!callApiData) {
-      console.error("[PRONTIO.usuarios] callApiData não disponível.");
-      showMessage("Erro interno: API não disponível.", "erro");
-      return;
-    }
-
-    showMessage("Carregando usuários...", "info");
-
+  function isAdmin_() {
     try {
-      const lista = await callApiData({
-        action: "Usuarios_Listar",
-        payload: {}
-      });
-
-      usuariosCache = Array.isArray(lista) ? lista : [];
-      renderTabelaUsuarios(usuariosCache);
-      showMessage("Usuários carregados com sucesso.", "sucesso");
-    } catch (error) {
-      console.error("[PRONTIO.usuarios] Erro ao carregar usuários:", error);
-      const msg =
-        (error && error.message) || "Erro inesperado ao carregar usuários.";
-      showMessage(msg, "erro");
+      const u = auth && typeof auth.getUser === "function" ? auth.getUser() : null;
+      const perfil = (u && u.perfil ? String(u.perfil) : "").toLowerCase();
+      return perfil === "admin";
+    } catch (_) {
+      return false;
     }
   }
 
-  function renderTabelaUsuarios(lista) {
-    const tbody = document.getElementById("usuarios-tbody");
+  function openModal_(id) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.remove("is-hidden");
+  }
+
+  function closeModal_(id) {
+    const el = $(id);
+    if (!el) return;
+    el.classList.add("is-hidden");
+  }
+
+  function bindModalClosers_() {
+    document.querySelectorAll("[data-modal-close]").forEach((el) => {
+      if (el.dataset._boundClose === "1") return;
+      el.dataset._boundClose = "1";
+      el.addEventListener("click", () => {
+        const target = el.getAttribute("data-modal-close");
+        if (target) closeModal_(target);
+      });
+    });
+
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        closeModal_("modalUsuario");
+        closeModal_("modalResetSenha");
+      }
+    });
+  }
+
+  // ---------- state ----------
+  let USERS = [];
+  let FILTER_TEXT = "";
+  let FILTER_ATIVO = "todos"; // todos | ativos | inativos
+
+  // ---------- API wrappers ----------
+  async function apiList_() {
+    assertApi_();
+    return await api.callApiData({ action: "Usuarios_Listar", payload: {} });
+  }
+
+  async function apiCreate_(payload) {
+    assertApi_();
+    return await api.callApiData({ action: "Usuarios_Criar", payload });
+  }
+
+  async function apiUpdate_(payload) {
+    assertApi_();
+    return await api.callApiData({ action: "Usuarios_Atualizar", payload });
+  }
+
+  async function apiResetSenha_(payload) {
+    assertApi_();
+    return await api.callApiData({ action: "Usuarios_ResetSenhaAdmin", payload });
+  }
+
+  // ---------- filtering ----------
+  function matches_(u) {
+    if (!u) return false;
+
+    if (FILTER_ATIVO === "ativos" && !u.ativo) return false;
+    if (FILTER_ATIVO === "inativos" && u.ativo) return false;
+
+    const t = (FILTER_TEXT || "").trim().toLowerCase();
+    if (!t) return true;
+
+    const hay = [
+      u.id, u.nome, u.login, u.email, u.perfil,
+      u.ativo ? "ativo" : "inativo"
+    ].map(v => String(v || "").toLowerCase()).join(" ");
+
+    return hay.includes(t);
+  }
+
+  function getFiltered_() {
+    return (USERS || []).filter(matches_);
+  }
+
+  // ---------- render ----------
+  function render_() {
+    const tbody = $("usuariosTbody");
+    const countEl = $("usuariosCount");
     if (!tbody) return;
+
+    const rows = getFiltered_();
 
     tbody.innerHTML = "";
 
-    if (!lista.length) {
-      const tr = document.createElement("tr");
-      const td = document.createElement("td");
-      td.colSpan = 6;
-      td.textContent = "Nenhum usuário cadastrado.";
-      td.className = "text-muted";
-      tr.appendChild(td);
-      tbody.appendChild(tr);
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Nenhum usuário encontrado.</td></tr>`;
+      if (countEl) countEl.textContent = "0 usuário(s)";
       return;
     }
 
-    lista.forEach((u) => {
+    rows.forEach((u) => {
       const tr = document.createElement("tr");
-      tr.dataset.userId = u.id || "";
 
-      const tdNome = document.createElement("td");
-      tdNome.textContent = u.nome || "";
+      tr.innerHTML = `
+        <td>
+          <div class="cell-title">${escHtml_(u.nome || "")}</div>
+          <div class="cell-sub text-muted text-small">${escHtml_(u.id || "")}</div>
+        </td>
+        <td>${escHtml_(u.login || "")}</td>
+        <td>${escHtml_(u.email || "")}</td>
+        <td><span class="badge">${escHtml_(u.perfil || "")}</span></td>
+        <td>
+          <span class="status ${u.ativo ? "status-ok" : "status-bad"}">
+            ${u.ativo ? "Ativo" : "Inativo"}
+          </span>
+        </td>
+        <td class="col-actions">
+          <button class="btn btn-secondary btn-sm" data-act="edit">Editar</button>
+          <button class="btn btn-secondary btn-sm" data-act="reset">Reset senha</button>
+          <button class="btn btn-secondary btn-sm" data-act="toggle">${u.ativo ? "Desativar" : "Ativar"}</button>
+        </td>
+      `;
 
-      const tdLogin = document.createElement("td");
-      tdLogin.textContent = u.login || "";
-
-      const tdEmail = document.createElement("td");
-      tdEmail.textContent = u.email || "";
-
-      const tdPerfil = document.createElement("td");
-      tdPerfil.textContent = u.perfil || "";
-
-      const tdAtivo = document.createElement("td");
-      tdAtivo.textContent = u.ativo ? "Ativo" : "Inativo";
-
-      const tdAcoes = document.createElement("td");
-      tdAcoes.className = "text-right";
-
-      const btnEditar = document.createElement("button");
-      btnEditar.type = "button";
-      btnEditar.className = "btn btn-secondary btn-sm btn-usuarios-editar";
-      btnEditar.textContent = "Editar";
-      btnEditar.addEventListener("click", function () {
-        abrirModalEditarUsuario(u.id);
-      });
-
-      tdAcoes.appendChild(btnEditar);
-
-      tr.appendChild(tdNome);
-      tr.appendChild(tdLogin);
-      tr.appendChild(tdEmail);
-      tr.appendChild(tdPerfil);
-      tr.appendChild(tdAtivo);
-      tr.appendChild(tdAcoes);
+      tr.querySelector('[data-act="edit"]')?.addEventListener("click", () => openEdit_(u));
+      tr.querySelector('[data-act="reset"]')?.addEventListener("click", () => openReset_(u));
+      tr.querySelector('[data-act="toggle"]')?.addEventListener("click", () => toggleAtivo_(u));
 
       tbody.appendChild(tr);
     });
+
+    if (countEl) countEl.textContent = `${rows.length} usuário(s)`;
   }
 
-  // -----------------------------------------
-  // Criar novo usuário
-  // -----------------------------------------
-  async function onSubmitNovoUsuario(event) {
-    event.preventDefault();
+  // ---------- load ----------
+  async function refresh_() {
+    showMsg_("usuariosMsg", "", "info");
 
-    if (!callApiData) {
-      showMessage("Erro interno: API não disponível.", "erro");
+    if (!isAdmin_()) {
+      USERS = [];
+      $("usuariosTbody").innerHTML = `<tr><td colspan="6" class="text-muted">Apenas administradores podem gerenciar usuários.</td></tr>`;
+      $("usuariosCount").textContent = "";
       return;
     }
-
-    const nomeEl = document.getElementById("novoUsuarioNome");
-    const loginEl = document.getElementById("novoUsuarioLogin");
-    const emailEl = document.getElementById("novoUsuarioEmail");
-    const perfilEl = document.getElementById("novoUsuarioPerfil");
-    const senhaEl = document.getElementById("novoUsuarioSenha");
-
-    const nome = (nomeEl?.value || "").trim();
-    const login = (loginEl?.value || "").trim();
-    const email = (emailEl?.value || "").trim();
-    const perfil = (perfilEl?.value || "").trim() || "secretaria";
-    const senha = senhaEl?.value || "";
-
-    if (!nome) {
-      showMessage("Informe o nome do usuário.", "erro");
-      return;
-    }
-    if (!login) {
-      showMessage("Informe o login do usuário.", "erro");
-      return;
-    }
-    if (!senha) {
-      showMessage("Informe uma senha para o usuário.", "erro");
-      return;
-    }
-
-    showMessage("Criando usuário...", "info");
 
     try {
-      await callApiData({
-        action: "Usuarios_Criar",
-        payload: {
-          nome: nome,
-          login: login,
-          email: email,
-          perfil: perfil,
-          senha: senha
-        }
-      });
-
-      showMessage("Usuário criado com sucesso.", "sucesso");
-
-      if (nomeEl) nomeEl.value = "";
-      if (loginEl) loginEl.value = "";
-      if (emailEl) emailEl.value = "";
-      if (senhaEl) senhaEl.value = "";
-
-      carregarUsuarios();
-    } catch (error) {
-      console.error("[PRONTIO.usuarios] Erro ao criar usuário:", error);
-      const msg =
-        (error && error.message) || "Erro inesperado ao criar usuário.";
-      showMessage(msg, "erro");
+      $("usuariosTbody").innerHTML = `<tr><td colspan="6" class="text-muted">Carregando...</td></tr>`;
+      const list = await apiList_();
+      USERS = Array.isArray(list) ? list : [];
+      render_();
+      showMsg_("usuariosMsg", "Usuários carregados.", "success");
+    } catch (e) {
+      $("usuariosTbody").innerHTML = `<tr><td colspan="6" class="text-muted">Erro ao carregar.</td></tr>`;
+      showMsg_("usuariosMsg", e?.message || "Falha ao carregar usuários.", "error");
     }
   }
 
-  // -----------------------------------------
-  // Editar usuário via modal
-  // -----------------------------------------
-  function encontrarUsuarioPorId(id) {
-    if (!id || !Array.isArray(usuariosCache)) return null;
-    return usuariosCache.find((u) => String(u.id) === String(id)) || null;
+  // ---------- modal: create/edit ----------
+  function openCreate_() {
+    showMsg_("modalUsuarioMsg", "", "info");
+    $("modalUsuarioTitle").textContent = "Novo usuário";
+
+    $("usuarioId").value = "";
+    $("usuarioNome").value = "";
+    $("usuarioLogin").value = "";
+    $("usuarioEmail").value = "";
+    $("usuarioPerfil").value = "secretaria";
+    $("usuarioAtivo").value = "true";
+    $("usuarioSenha").value = "";
+
+    openModal_("modalUsuario");
   }
 
-  function abrirModalEditarUsuario(idUsuario) {
-    const usuario = encontrarUsuarioPorId(idUsuario);
-    if (!usuario) {
-      showMessage("Usuário não encontrado para edição.", "erro");
-      return;
-    }
+  function openEdit_(u) {
+    showMsg_("modalUsuarioMsg", "", "info");
+    $("modalUsuarioTitle").textContent = "Editar usuário";
 
-    const idEl = document.getElementById("editarUsuarioId");
-    const nomeEl = document.getElementById("editarUsuarioNome");
-    const loginEl = document.getElementById("editarUsuarioLogin");
-    const emailEl = document.getElementById("editarUsuarioEmail");
-    const perfilEl = document.getElementById("editarUsuarioPerfil");
-    const ativoEl = document.getElementById("editarUsuarioAtivo");
+    $("usuarioId").value = u.id || "";
+    $("usuarioNome").value = u.nome || "";
+    $("usuarioLogin").value = u.login || "";
+    $("usuarioEmail").value = u.email || "";
+    $("usuarioPerfil").value = u.perfil || "secretaria";
+    $("usuarioAtivo").value = u.ativo ? "true" : "false";
+    $("usuarioSenha").value = "";
 
-    if (idEl) idEl.value = usuario.id || "";
-    if (nomeEl) nomeEl.value = usuario.nome || "";
-    if (loginEl) loginEl.value = usuario.login || "";
-    if (emailEl) emailEl.value = usuario.email || "";
-    if (perfilEl) perfilEl.value = usuario.perfil || "secretaria";
-    if (ativoEl) ativoEl.checked = !!usuario.ativo;
-
-    openEditModal();
+    openModal_("modalUsuario");
   }
 
-  async function onSubmitEditarUsuario(event) {
-    event.preventDefault();
-
-    if (!callApiData) {
-      showMessage("Erro interno: API não disponível.", "erro");
-      return;
-    }
-
-    const idEl = document.getElementById("editarUsuarioId");
-    const nomeEl = document.getElementById("editarUsuarioNome");
-    const loginEl = document.getElementById("editarUsuarioLogin");
-    const emailEl = document.getElementById("editarUsuarioEmail");
-    const perfilEl = document.getElementById("editarUsuarioPerfil");
-    const ativoEl = document.getElementById("editarUsuarioAtivo");
-
-    const id = idEl?.value || "";
-    const nome = (nomeEl?.value || "").trim();
-    const login = (loginEl?.value || "").trim();
-    const email = (emailEl?.value || "").trim();
-    const perfil = (perfilEl?.value || "").trim() || "secretaria";
-    const ativo = !!(ativoEl && ativoEl.checked);
-
-    if (!id) {
-      showMessage("Usuário inválido para edição.", "erro");
-      return;
-    }
-    if (!nome) {
-      showMessage("Informe o nome do usuário.", "erro");
-      return;
-    }
-    if (!login) {
-      showMessage("Informe o login do usuário.", "erro");
-      return;
-    }
-
-    showMessage("Salvando alterações do usuário...", "info");
+  async function saveUser_() {
+    showMsg_("modalUsuarioMsg", "", "info");
 
     try {
-      await callApiData({
-        action: "Usuarios_Atualizar",
-        payload: {
-          id: id,
-          nome: nome,
-          login: login,
-          email: email,
-          perfil: perfil,
-          ativo: ativo
+      const id = String($("usuarioId").value || "").trim();
+      const nome = String($("usuarioNome").value || "").trim();
+      const login = String($("usuarioLogin").value || "").trim();
+      const email = String($("usuarioEmail").value || "").trim();
+      const perfil = String($("usuarioPerfil").value || "").trim() || "secretaria";
+      const ativo = String($("usuarioAtivo").value || "true") === "true";
+      const senha = String($("usuarioSenha").value || "");
+
+      if (!nome || !login) {
+        showMsg_("modalUsuarioMsg", "Informe nome e login.", "error");
+        return;
+      }
+
+      if (!id) {
+        if (!senha) {
+          showMsg_("modalUsuarioMsg", "Informe a senha inicial para criar o usuário.", "error");
+          return;
         }
+        await apiCreate_({ nome, login, email, perfil, senha });
+        showMsg_("usuariosMsg", "Usuário criado com sucesso.", "success");
+      } else {
+        await apiUpdate_({ id, nome, login, email, perfil, ativo });
+        showMsg_("usuariosMsg", "Usuário atualizado com sucesso.", "success");
+      }
+
+      closeModal_("modalUsuario");
+      await refresh_();
+    } catch (e) {
+      showMsg_("modalUsuarioMsg", e?.message || "Falha ao salvar usuário.", "error");
+    }
+  }
+
+  // ---------- modal: reset senha ----------
+  function openReset_(u) {
+    showMsg_("modalResetMsg", "", "info");
+
+    $("resetUserId").value = u.id || "";
+    $("resetUserLabel").textContent = `${u.nome || "Usuário"} (${u.login || u.email || u.id})`;
+    $("resetNovaSenha").value = "";
+    $("resetAtivar").checked = true;
+
+    openModal_("modalResetSenha");
+  }
+
+  async function confirmReset_() {
+    showMsg_("modalResetMsg", "", "info");
+
+    try {
+      const id = String($("resetUserId").value || "").trim();
+      const senha = String($("resetNovaSenha").value || "");
+      const ativar = !!$("resetAtivar").checked;
+
+      if (!id) return showMsg_("modalResetMsg", "Usuário inválido para reset.", "error");
+      if (!senha) return showMsg_("modalResetMsg", "Informe a nova senha.", "error");
+
+      await apiResetSenha_({ id, senha, ativar });
+      showMsg_("usuariosMsg", "Senha resetada com sucesso.", "success");
+
+      closeModal_("modalResetSenha");
+      await refresh_();
+    } catch (e) {
+      showMsg_("modalResetMsg", e?.message || "Falha ao resetar senha.", "error");
+    }
+  }
+
+  // ---------- actions ----------
+  async function toggleAtivo_(u) {
+    showMsg_("usuariosMsg", "", "info");
+
+    const novoAtivo = !u.ativo;
+    const ok = global.confirm(`Confirma ${novoAtivo ? "ATIVAR" : "DESATIVAR"} o usuário "${u.nome || u.id}"?`);
+    if (!ok) return;
+
+    try {
+      await apiUpdate_({
+        id: u.id,
+        nome: u.nome,
+        login: u.login,
+        email: u.email,
+        perfil: u.perfil,
+        ativo: novoAtivo
       });
 
-      showMessage("Usuário atualizado com sucesso.", "sucesso");
-      closeEditModal();
-      carregarUsuarios();
-    } catch (error) {
-      console.error("[PRONTIO.usuarios] Erro ao atualizar usuário:", error);
-      const msg =
-        (error && error.message) || "Erro inesperado ao atualizar usuário.";
-      showMessage(msg, "erro");
+      showMsg_("usuariosMsg", `Usuário ${novoAtivo ? "ativado" : "desativado"} com sucesso.`, "success");
+      await refresh_();
+    } catch (e) {
+      showMsg_("usuariosMsg", e?.message || "Falha ao atualizar status.", "error");
     }
   }
 
-  // -----------------------------------------
-  // Permissão admin
-  // -----------------------------------------
-  function verificarPermissaoAdmin() {
-    if (!auth || typeof auth.getUser !== "function") {
-      return;
-    }
-    const user = auth.getUser();
-    if (!user) return;
+  // ---------- boot ----------
+  async function boot_() {
+    bindModalClosers_();
 
-    const perfil = (user.perfil || "").toLowerCase();
-    if (perfil !== "admin") {
-      showMessage(
-        "Apenas usuários administradores podem gerenciar usuários.",
-        "erro"
-      );
-    }
+    // sessão
+    try {
+      if (auth && typeof auth.ensureSession === "function") {
+        await auth.ensureSession({ redirect: true });
+      } else if (auth && typeof auth.requireAuth === "function") {
+        auth.requireAuth({ redirect: true });
+      }
+    } catch (_) {}
+
+    // label + logout
+    try { auth?.renderUserLabel?.(); } catch (_) {}
+    try { auth?.bindLogoutButtons?.(); } catch (_) {}
+
+    // binds
+    $("btnRecarregar")?.addEventListener("click", refresh_);
+    $("btnNovoUsuario")?.addEventListener("click", openCreate_);
+    $("btnSalvarUsuario")?.addEventListener("click", saveUser_);
+    $("btnConfirmarReset")?.addEventListener("click", confirmReset_);
+
+    $("usuariosBusca")?.addEventListener("input", (ev) => {
+      FILTER_TEXT = String(ev.target.value || "");
+      render_();
+    });
+
+    $("usuariosFiltroAtivo")?.addEventListener("change", (ev) => {
+      FILTER_ATIVO = String(ev.target.value || "todos");
+      render_();
+    });
+
+    await refresh_();
   }
 
-  // -----------------------------------------
-  // Inicialização da página
-  // -----------------------------------------
-  function initUsuariosPage() {
-    // Exige autenticação
-    if (auth && typeof auth.requireAuth === "function") {
-      auth.requireAuth();
-    }
-
-    verificarPermissaoAdmin();
-    bindModalCloseButtons();
-
-    const formNovo = document.getElementById("formNovoUsuario");
-    if (formNovo) {
-      formNovo.addEventListener("submit", onSubmitNovoUsuario);
-    }
-
-    const formEditar = document.getElementById("formEditarUsuario");
-    if (formEditar) {
-      formEditar.addEventListener("submit", onSubmitEditarUsuario);
-    }
-
-    const btnRecarregar = document.getElementById("btnRecarregarUsuarios");
-    if (btnRecarregar) {
-      btnRecarregar.addEventListener("click", function () {
-        carregarUsuarios();
-      });
-    }
-
-    carregarUsuarios();
-  }
-
-  if (typeof PRONTIO.registerPageInitializer === "function") {
-    PRONTIO.registerPageInitializer("usuarios", initUsuariosPage);
-  } else {
-    PRONTIO.pages = PRONTIO.pages || {};
-    PRONTIO.pages.usuarios = { init: initUsuariosPage };
-  }
+  document.addEventListener("DOMContentLoaded", boot_);
 })(window, document);

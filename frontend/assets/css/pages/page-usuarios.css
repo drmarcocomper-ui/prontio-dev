@@ -1,6 +1,6 @@
 /* =====================================
    PRONTIO - page-usuarios.css
-   Estilos específicos da página Usuários
+   Pilar F: ajustes de UX para gestão de usuários
 ===================================== */
 
 /* Ajuste geral da página de usuários (se precisar algo específico) */
@@ -9,18 +9,11 @@ body[data-page="usuarios"] .content {
 }
 
 /* Espaçamento entre cards */
-.mt-2 {
-  margin-top: var(--sp-3, 12px);
-}
-
-.mt-3 {
-  margin-top: var(--sp-4, 16px);
-}
+.mt-2 { margin-top: var(--sp-3, 12px); }
+.mt-3 { margin-top: var(--sp-4, 16px); }
 
 /* Mensagens da página de usuários */
-#mensagemUsuarios {
-  margin-bottom: 10px;
-}
+#mensagemUsuarios { margin-bottom: 10px; }
 
 /* Formulário de novo usuário */
 #formNovoUsuario {
@@ -69,26 +62,36 @@ body[data-page="usuarios"] .content {
 }
 
 /* Tabela de usuários */
-#usuarios-tbody td {
-  font-size: 13px;
-}
+#usuarios-tbody td { font-size: 13px; }
 
-/* Status "Ativo/Inativo" pode ser refinado aqui no futuro */
+/* Ações */
+#usuarios-tbody td.usuarios-acoes,
 #usuarios-tbody td:last-child {
   white-space: nowrap;
 }
 
+/* Status pill */
+.status-pill {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.status-pill.is-ativo {
+  background: rgba(0, 128, 0, 0.12);
+  color: #0b6b0b;
+}
+
+.status-pill.is-inativo {
+  background: rgba(160, 0, 0, 0.12);
+  color: #8b1010;
+}
+
 /* Responsivo */
 @media (max-width: 768px) {
-  body[data-page="usuarios"] .content {
-    max-width: 100%;
-  }
-
-  #formNovoUsuario .form-row {
-    grid-template-columns: 1fr;
-  }
-
-  #formNovoUsuario .form-actions {
-    justify-content: flex-start;
-  }
+  body[data-page="usuarios"] .content { max-width: 100%; }
+  #formNovoUsuario .form-row { grid-template-columns: 1fr; }
+  #formNovoUsuario .form-actions { justify-content: flex-start; }
 }

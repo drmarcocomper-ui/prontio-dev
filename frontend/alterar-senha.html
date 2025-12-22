@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>PRONTIO - Alterar senha</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="assets/css/style.css" />
+</head>
+
+<body data-page-id="alterar-senha">
+  <div class="page">
+    <h1>Alterar senha</h1>
+
+    <form id="formAlterarSenha">
+      <div id="mensagemSenha" class="mensagem is-hidden"></div>
+
+      <div class="form-group">
+        <label for="senhaAtual">Senha atual</label>
+        <input type="password" id="senhaAtual" required />
+      </div>
+
+      <div class="form-group">
+        <label for="novaSenha">Nova senha</label>
+        <input type="password" id="novaSenha" required />
+      </div>
+
+      <div class="form-group">
+        <label for="novaSenha2">Confirmar nova senha</label>
+        <input type="password" id="novaSenha2" required />
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        Alterar senha
+      </button>
+    </form>
+  </div>
+
+  <script src="assets/js/core/config.js"></script>
+  <script src="assets/js/core/api.js"></script>
+  <script src="assets/js/core/auth.js"></script>
+  <script src="assets/js/pages/page-alterar-senha.js"></script>
+</body>
+</html>
