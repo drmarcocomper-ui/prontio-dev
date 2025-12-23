@@ -1,0 +1,188 @@
+C:.
+│   .gitattributes
+│   .gitignore
+│   index.html
+│
+├───backend
+│       .clasp.json
+│       Agenda.gs
+│       AgendaConfig.gs
+│       AgendaConflitos.gs
+│       Api.gs
+│       appsscript.json
+│       Audit.gs
+│       AuditSchema.gs
+│       AuditSecurity.gs
+│       Auth.gs
+│       AuthDebug.gs
+│       AuthDev.gs
+│       AuthRecovery.gs
+│       Cache.gs
+│       Clinica.gs
+│       Config.gs
+│       Configuracoes.gs
+│       DocsCabecalho.gs
+│       Errors.gs
+│       Evolucao.gs
+│       Exames.gs
+│       Health.gs
+│       Ids.gs
+│       Locks.gs
+│       Medicamentos.gs
+│       Meta.gs
+│       Migrations.gs
+│       Pacientes.gs
+│       Profissionais.gs
+│       Prontuario.gs
+│       PublicUrl.gs
+│       Receita.gs
+│       ReceitaLayout.gs
+│       RecoverySchema.gs
+│       Registry.gs
+│       Repository.gs
+│       Schema.gs
+│       Usuarios.gs
+│       Utils.gs
+│       Validators.gs
+│
+├───frontend
+│   │   .gitattributes
+│   │   agenda.html
+│   │   alterar-senha.html
+│   │   atendimento.html
+│   │   chat.html
+│   │   configuracoes.html
+│   │   exames.html
+│   │   financeiro.html
+│   │   forgot-password.html
+│   │   index.html
+│   │   laudo.html
+│   │   pacientes.html
+│   │   page-template.html
+│   │   prontuario.html
+│   │   relatorios.html
+│   │   reset-password.html
+│   │   usuarios.html
+│   │
+│   ├───assets
+│   │   ├───css
+│   │   │   │   style.css
+│   │   │   │
+│   │   │   ├───components
+│   │   │   │       buttons.css
+│   │   │   │       cards.css
+│   │   │   │       chat-topbar.css
+│   │   │   │       forms.css
+│   │   │   │       modals.css
+│   │   │   │       receita-autocomplete.css
+│   │   │   │       receitas-timeline.css
+│   │   │   │       sidebar.css
+│   │   │   │       slide-panel.css
+│   │   │   │       tables.css
+│   │   │   │       topbar.css
+│   │   │   │
+│   │   │   ├───core
+│   │   │   │       layout.css
+│   │   │   │       reset.css
+│   │   │   │       tokens.css
+│   │   │   │       typography.css
+│   │   │   │
+│   │   │   ├───img
+│   │   │   │       favicon.ico
+│   │   │   │       favicon.png
+│   │   │   │       icons
+│   │   │   │       logo.png
+│   │   │   │
+│   │   │   ├───pages
+│   │   │   │       page-agenda.css
+│   │   │   │       page-atendimento.css
+│   │   │   │       page-chat.css
+│   │   │   │       page-configuracoes.css
+│   │   │   │       page-evolucao.css
+│   │   │   │       page-exames.css
+│   │   │   │       page-laudo.css
+│   │   │   │       page-login.css
+│   │   │   │       page-pacientes.css
+│   │   │   │       page-prontuario.css
+│   │   │   │       page-receita.css
+│   │   │   │       page-usuarios.css
+│   │   │   │
+│   │   │   ├───print
+│   │   │   │       print-atestado.css
+│   │   │   │       print-case.css
+│   │   │   │       print-encaminhamento.css
+│   │   │   │       print-laudo.css
+│   │   │   │       print-receita.css
+│   │   │   │
+│   │   │   └───theme
+│   │   │           theme-dark.css
+│   │   │           theme-default.css
+│   │   │           theme-toggle.css
+│   │   │
+│   │   └───js
+│   │       │   main.js
+│   │       │
+│   │       ├───core
+│   │       │       api.js
+│   │       │       app.js
+│   │       │       auth.js
+│   │       │       config.js
+│   │       │       dom.js
+│   │       │       guard.js
+│   │       │       helpers.js
+│   │       │       router.js
+│   │       │       session.js
+│   │       │       state.js
+│   │       │       storage.js
+│   │       │       theme.js
+│   │       │       ui-core.js
+│   │       │       utils.js
+│   │       │
+│   │       ├───pages
+│   │       │       page-agenda.js
+│   │       │       page-alterar-senha.js
+│   │       │       page-atendimento.js
+│   │       │       page-chat.js
+│   │       │       page-configuracoes.js
+│   │       │       page-exames.js
+│   │       │       page-forgot-password.js
+│   │       │       page-laudo.js
+│   │       │       page-login.js
+│   │       │       page-pacientes.js
+│   │       │       page-prontuario.js
+│   │       │       page-receita.js
+│   │       │       page-reset-password.js
+│   │       │       page-usuarios.js
+│   │       │
+│   │       ├───print
+│   │       │       print-atestado.js
+│   │       │       print-core.js
+│   │       │       print-encaminhamento.js
+│   │       │       print-laudo.js
+│   │       │       print-receita.js
+│   │       │
+│   │       ├───ui
+│   │       │       chat-ui.js
+│   │       │       messages.js
+│   │       │       modals.js
+│   │       │       sidebar-loader.js
+│   │       │
+│   │       └───widgets
+│   │               widget-calendar.js
+│   │               widget-drawer.js
+│   │               widget-form.js
+│   │               widget-modais.js
+│   │               widget-searchbar.js
+│   │               widget-sidebar.js
+│   │               widget-table.js
+│   │               widget-toast.js
+│   │               widget-topbar.js
+│   │
+│   └───fragments
+│           painel-receita.html
+│
+└───textos
+        menu-configurações.txt
+        tree-barra-F.txt
+
+PS C:\dev\prontio\prontio-dev\prontio-dev> 
