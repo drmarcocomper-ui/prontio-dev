@@ -13,7 +13,7 @@
 //   - Placeholder: "Login ou e-mail" (se estiver vazio)
 //   - Autocomplete correto
 //   - Lembrar último login digitado (localStorage)
-//   - Detectar Caps Lock
+//   - Detectar Caps Lock (só aparece quando realmente ativo)
 //   - Mostrar/Ocultar senha (botão toggleSenha)
 
 (function (global, document) {
@@ -101,8 +101,6 @@
     }
     if (inpUser) inpUser.disabled = !!busy;
     if (inpPass) inpPass.disabled = !!busy;
-
-    // mantém toggle coerente (opcional)
     if (btnToggle) btnToggle.disabled = !!busy;
   }
 
@@ -114,7 +112,6 @@
   }
 
   function normalizeIdentifier_(raw) {
-    // Pilar D: reduz confusão (maiúsculas, espaços, e-mail etc.)
     return String(raw || "").trim().toLowerCase();
   }
 
@@ -122,13 +119,11 @@
     const inpUser = qs("loginUsuario");
     const inpPass = qs("loginSenha");
 
-    // Placeholders e autocomplete (só aplica se estiver vazio)
     if (inpUser) {
       if (!inpUser.getAttribute("placeholder")) inpUser.setAttribute("placeholder", "Login ou e-mail");
       if (!inpUser.getAttribute("autocomplete")) inpUser.setAttribute("autocomplete", "username");
       inpUser.setAttribute("inputmode", "email");
 
-      // Preenche com último identificador usado
       const last = lsGet(UX_KEYS.LAST_IDENTIFIER);
       if (!inpUser.value && last) inpUser.value = last;
     }
@@ -139,47 +134,56 @@
     }
   }
 
+  // ✅ CapsLock: não usa "focus(ev)" (pode dar falso positivo). Só decide via keydown/keyup.
   function bindCapsLockDetector_() {
     const input = qs("loginSenha");
     const hint = qs("loginCapsLockHint");
     if (!input || !hint) return;
 
-    // começa escondido (evita "sempre ativo")
+    if (hint.dataset.boundCaps === "1") return;
+    hint.dataset.boundCaps = "1";
+
+    // sempre começa escondido
     hint.classList.add("is-hidden");
 
-    function update(ev) {
-      if (!ev || typeof ev.getModifierState !== "function") {
+    function updateFromKeyEvent(ev) {
+      try {
+        const caps = !!(ev && typeof ev.getModifierState === "function" && ev.getModifierState("CapsLock"));
+        hint.classList.toggle("is-hidden", !caps);
+      } catch (_) {
         hint.classList.add("is-hidden");
-        return;
       }
-      const caps = ev.getModifierState("CapsLock");
-      hint.classList.toggle("is-hidden", !caps);
     }
 
-    input.addEventListener("keydown", update);
-    input.addEventListener("keyup", update);
+    input.addEventListener("keydown", updateFromKeyEvent);
+    input.addEventListener("keyup", updateFromKeyEvent);
+
+    // Ao focar/desfocar, esconde (evita ficar preso ligado)
+    input.addEventListener("focus", () => hint.classList.add("is-hidden"));
     input.addEventListener("blur", () => hint.classList.add("is-hidden"));
-    input.addEventListener("focus", (ev) => update(ev));
   }
 
+  // ✅ Mostrar/Ocultar senha: bind robusto e idempotente
   function bindTogglePassword_() {
     const input = qs("loginSenha");
     const btn = qs("toggleSenha");
     if (!input || !btn) return;
 
-    // estado inicial coerente
-    btn.textContent = (input.type === "text") ? "Ocultar" : "Mostrar";
-    btn.setAttribute("aria-pressed", (input.type === "text") ? "true" : "false");
+    if (btn.dataset.boundToggle === "1") return;
+    btn.dataset.boundToggle = "1";
+
+    function syncLabel_() {
+      const visible = input.type === "text";
+      btn.textContent = visible ? "Ocultar" : "Mostrar";
+      btn.setAttribute("aria-pressed", visible ? "true" : "false");
+    }
+
+    syncLabel_();
 
     btn.addEventListener("click", function (ev) {
       ev.preventDefault();
-
-      const isPassword = input.type === "password";
-      input.type = isPassword ? "text" : "password";
-
-      btn.textContent = isPassword ? "Ocultar" : "Mostrar";
-      btn.setAttribute("aria-pressed", isPassword ? "true" : "false");
-
+      input.type = (input.type === "password") ? "text" : "password";
+      syncLabel_();
       try { input.focus(); } catch (_) {}
     });
   }
@@ -203,7 +207,6 @@
       return;
     }
 
-    // UX: salva para preencher na próxima vez
     lsSet(UX_KEYS.LAST_IDENTIFIER, identifier);
 
     setFormBusy_(true);
@@ -233,7 +236,6 @@
     bindCapsLockDetector_();
     bindTogglePassword_();
 
-    // ✅ Se já estiver logado (token), não fica preso no login
     try {
       if (PRONTIO.auth && typeof PRONTIO.auth.isAuthenticated === "function" && PRONTIO.auth.isAuthenticated()) {
         global.location.href = resolvePostLoginUrl_();
@@ -243,6 +245,9 @@
 
     const form = qs("formLogin");
     if (!form) return;
+
+    if (form.dataset.boundSubmit === "1") return;
+    form.dataset.boundSubmit = "1";
 
     form.addEventListener("submit", handleSubmit);
   }

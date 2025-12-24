@@ -3,6 +3,9 @@
    Tela de login (sem sidebar/topbar)
 ===================================== */
 
+/* ✅ Garantia: is-hidden realmente some */
+.is-hidden { display: none !important; }
+
 .login-page {
   min-height: 100vh;
   display: flex;
@@ -69,7 +72,9 @@
 }
 
 .login-form input[type="text"],
-.login-form input[type="password"] {
+.login-form input[type="password"],
+.login-form input[type="email"],
+.login-form input[type="search"] {
   width: 100%;
   box-sizing: border-box;
   border-radius: 6px;
@@ -81,42 +86,78 @@
 }
 
 .login-form input[type="text"]:focus,
-.login-form input[type="password"]:focus {
+.login-form input[type="password"]:focus,
+.login-form input[type="email"]:focus,
+.login-form input[type="search"]:focus {
   border-color: var(--cor-primaria, #0066cc);
   box-shadow: 0 0 0 1px rgba(0, 102, 204, 0.4);
 }
 
 /* =====================================
-   Pilar D/H: campo de senha com botão
+   Campo de senha com "olho" dentro
 ===================================== */
 .password-field {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 8px;
 }
 
-.password-field input[type="password"],
-.password-field input[type="text"] {
-  flex: 1;
-  min-width: 0;
+/* adiciona espaço interno para o botão (olho) */
+.password-field input {
+  padding-right: 44px;
 }
 
-/* Botão "Mostrar/Ocultar" - neutro */
+/* botão sobreposto dentro do input (lado direito) */
 .password-field .btn.btn-link {
-  padding: 6px 8px;
-  border-radius: 6px;
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   white-space: nowrap;
+
+  /* visual neutro */
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  z-index: 2;
+  color: var(--cor-texto-secundario, #4b5563);
+}
+
+.password-field .btn.btn-link:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+/* Troca texto por ícone (olho) sem mudar HTML */
+.password-field .btn.btn-link {
+  font-size: 0; /* esconde "Mostrar" visualmente */
+}
+.password-field .btn.btn-link::before {
+  content: "👁";
+  font-size: 16px;
+  line-height: 1;
+}
+.password-field .btn.btn-link[aria-pressed="true"]::before {
+  content: "🙈"; /* quando está mostrando */
 }
 
 /* =====================================
-   Pilar D: Caps Lock hint
+   Caps Lock hint
 ===================================== */
 #loginCapsLockHint {
-  margin-top: 6px;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #f59e0b;
 }
 
 /* =====================================
-   Pilar H: link "Esqueci minha senha"
+   Link "Esqueci minha senha"
 ===================================== */
 .login-links {
   margin-top: 8px;
@@ -150,18 +191,11 @@
   text-align: center;
 }
 
-#loginCapsLockHint {
-  margin-top: 4px;
-  font-size: 12px;
-  color: #f59e0b; /* âmbar */
-}
-
 /* Responsivo */
 @media (max-width: 480px) {
   .login-card {
     padding: 18px 16px 16px;
   }
-
   .login-links {
     justify-content: flex-start;
   }
