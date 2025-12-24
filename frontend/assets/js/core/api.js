@@ -8,11 +8,11 @@
  * - PRONTIO.api.callApiEnvelope({ action, payload }) -> envelope completo
  * - PRONTIO.api.callApiData({ action, payload })     -> somente data (throw se success=false)
  *
- * ✅ Patch CORS/Preflight (Apps Script WebApp):
- * - Envia POST como application/x-www-form-urlencoded via URLSearchParams
- * - NÃO define headers custom (evita preflight/OPTIONS)
- * - Usa mode:"cors" e credentials:"omit"
- * - Seu Api.gs já suporta form-urlencoded.
+ * ✅ Patch CORS DEFINITIVO (GitHub Pages + Apps Script WebApp):
+ * - NÃO usa fetch (evita CORS/preflight).
+ * - Usa JSONP via <script> com querystring:
+ *     ?action=...&payload=...&callback=...
+ * - Backend já aceita e.parameter.action/e.parameter.payload (Api.gs).
  *
  * ✅ Pilar I (UX sessão):
  * - Ao detectar AUTH_REQUIRED/AUTH_EXPIRED/etc, grava motivo em localStorage
@@ -55,14 +55,6 @@
       return JSON.stringify(err);
     } catch (e) {
       return String(err);
-    }
-  }
-
-  function safeJsonParse_(text) {
-    try {
-      return JSON.parse(text);
-    } catch (e) {
-      return null;
     }
   }
 
@@ -109,7 +101,6 @@
   // ============================================================
 
   function getAuthToken_() {
-    // Preferência: PRONTIO.auth.getToken()
     try {
       if (PRONTIO.auth && typeof PRONTIO.auth.getToken === "function") {
         const t = PRONTIO.auth.getToken();
@@ -117,7 +108,6 @@
       }
     } catch (e) {}
 
-    // Fallback (compat)
     try {
       const ls = global.localStorage;
       if (!ls) return "";
@@ -167,7 +157,6 @@
 
   function tryAutoLogout_(reasonCode) {
     try {
-      // ✅ Pilar I: grava motivo para o login mostrar aviso
       saveAuthReason_(reasonCode);
 
       if (PRONTIO.auth && typeof PRONTIO.auth.clearSession === "function") {
@@ -180,67 +169,69 @@
   }
 
   // ============================================================
-  // Fetch helpers
+  // JSONP transport (CORS-free)
   // ============================================================
 
-  async function safeReadText_(resp) {
-    try {
-      return await resp.text();
-    } catch (e) {
-      return "";
-    }
+  function buildJsonpUrl_(apiUrl, action, payload, callbackName) {
+    const u = new URL(apiUrl);
+
+    // garante callback (Api.gs ignora campos desconhecidos; callback é para o wrapper abaixo)
+    u.searchParams.set("callback", callbackName);
+
+    u.searchParams.set("action", String(action || ""));
+    u.searchParams.set("payload", JSON.stringify(payload || {}));
+
+    return u.toString();
   }
 
-  /**
-   * ✅ Envia como form-urlencoded SEM headers custom para evitar CORS preflight.
-   * Api.gs já suporta:
-   * - form-urlencoded: action=...&payload={...}
-   */
-  async function fetchJson_(apiUrl, bodyObj) {
-    let resp;
+  function jsonp_(url, timeoutMs) {
+    timeoutMs = typeof timeoutMs === "number" ? timeoutMs : 15000;
 
-    // Monta body action=...&payload=...
-    const action = String(bodyObj && bodyObj.action ? bodyObj.action : "");
-    const payload = bodyObj && bodyObj.payload ? bodyObj.payload : {};
+    return new Promise((resolve, reject) => {
+      const cbName = "__prontio_jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+      let done = false;
 
-    const form = new URLSearchParams();
-    form.set("action", action);
-    form.set("payload", JSON.stringify(payload || {}));
+      const cleanup = () => {
+        try { delete global[cbName]; } catch (_) { global[cbName] = undefined; }
+        if (script && script.parentNode) script.parentNode.removeChild(script);
+        if (timer) clearTimeout(timer);
+      };
 
-    try {
-      resp = await fetch(apiUrl, {
-        method: "POST",
+      const timer = setTimeout(() => {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error("Timeout ao chamar API (JSONP)."));
+      }, timeoutMs);
 
-        // ✅ CORS-safe defaults
-        mode: "cors",
-        credentials: "omit",
-        redirect: "follow",
+      // callback global
+      global[cbName] = (data) => {
+        if (done) return;
+        done = true;
+        cleanup();
+        resolve(data);
+      };
 
-        // ✅ não setar headers custom aqui
-        // ✅ usar URLSearchParams como body (não string)
-        body: form
-      });
-    } catch (e) {
-      throw new Error("Falha de rede ao chamar API: " + normalizeError_(e));
-    }
+      const script = document.createElement("script");
+      script.async = true;
+      script.src = url.replace("callback=", "callback=" + encodeURIComponent(cbName)); // mantém compat
 
-    if (!resp.ok) {
-      const txt = await safeReadText_(resp);
-      const extra = txt ? "\n\n" + txt.slice(0, 600) : "";
-      throw new Error(`Erro HTTP ${resp.status} ao chamar API.${extra}`);
-    }
+      script.onerror = () => {
+        if (done) return;
+        done = true;
+        cleanup();
+        reject(new Error("Falha de rede ao chamar API (JSONP)."));
+      };
 
-    // tenta json direto; se falhar, tenta parse de text
-    try {
-      return await resp.json();
-    } catch (e) {
-      const txt = await safeReadText_(resp);
-      const parsed = safeJsonParse_(txt);
-      if (parsed) return parsed;
+      document.head.appendChild(script);
+    });
+  }
 
-      const extra = txt ? "\n\n" + txt.slice(0, 600) : "";
-      throw new Error("API não retornou JSON válido: " + normalizeError_(e) + extra);
-    }
+  async function transport_(apiUrl, action, payload) {
+    // Apps Script não suporta JSONP nativo; então usamos callback manual.
+    const cbName = "__prontio_jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
+    const url = buildJsonpUrl_(apiUrl, action, payload, cbName);
+    return await jsonp_(url, 20000);
   }
 
   // ============================================================
@@ -258,7 +249,13 @@
     const payloadRaw = (args && args.payload) || {};
     const payload = withAuthToken_(payloadRaw);
 
-    const json = await fetchJson_(apiUrl, { action, payload });
+    let json;
+    try {
+      json = await transport_(apiUrl, action, payload);
+    } catch (e) {
+      throw new Error("Falha de rede ao chamar API: " + normalizeError_(e));
+    }
+
     return ensureEnvelope_(json);
   }
 
