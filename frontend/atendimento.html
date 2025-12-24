@@ -2,54 +2,64 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>PRONTIO - Lista de Atendimento</title>
+  <title>PRONTIO - Atendimento</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
   <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="assets/css/components/modals.css">
   <link rel="stylesheet" href="assets/css/components/topbar.css">
+  <link rel="stylesheet" href="assets/css/pages/page-atendimento.css">
 </head>
 
 <body
   data-theme="light"
-  data-page-id="index"
+  data-page-id="atendimento"
   data-subtitle="Pacientes agendados do dia de hoje para frente"
-  data-tag="Atendimentos"
+  data-tag="Atendimento"
   data-context="Atendimentos"
 >
   <div class="app-shell">
-    <!-- ✅ Sidebar compartilhada (partial) -->
     <div data-include-sidebar></div>
 
     <main class="main-area">
       <div id="topbarMount" data-partial="topbar"></div>
 
-      <section class="content content-index">
+      <section class="content content-atendimento">
+        <!-- ✅ Mensagens padrão (page-atendimento.js usa isso) -->
+        <div id="mensagemListaAtendimento" class="mensagem" style="display:none;" role="status" aria-live="polite"></div>
+
         <section class="card">
-          <div class="card-header card-header-lista">
+          <div class="card-header card-header-lista atendimento-header">
             <div>
               <h2>Atendimentos a partir de hoje</h2>
-              <p class="card-subtitle">Exibe todos os agendamentos do dia atual em diante.</p>
+              <p class="card-subtitle">Clique em uma linha para abrir o prontuário (quando houver ID).</p>
+              <div id="infoUltimaAtualizacao" class="lista-atendimento-info"></div>
             </div>
-            <div>
-              <button id="btnRecarregarLista" class="btn btn-secondary">Recarregar lista</button>
+
+            <div class="atendimento-actions">
+              <button id="btnAbrirProntuario" class="btn btn-primary" type="button" disabled>Abrir prontuário</button>
+              <button id="btnRecarregarLista" class="btn btn-secondary" type="button">Recarregar lista</button>
             </div>
           </div>
 
           <div class="tabela-atendimento-wrapper">
-            <table class="tabela tabela-atendimento">
+            <table class="tabela tabela-atendimento" aria-label="Lista de atendimentos">
               <thead>
                 <tr>
-                  <th>Data</th>
-                  <th>Hora</th>
-                  <th>Paciente</th>
-                  <th>Tipo</th>
-                  <th>Status</th>
+                  <th class="col-data">Data</th>
+                  <th class="col-hora">Hora</th>
+                  <th class="col-paciente">Paciente</th>
+                  <th class="col-tipo">Tipo</th>
+                  <th class="col-status">Status</th>
                 </tr>
               </thead>
               <tbody id="tabelaAtendimentoBody"></tbody>
             </table>
           </div>
+
+          <p class="atendimento-hint">
+            Dica: em breve você poderá marcar “Chegou”, “Em atendimento” e “Concluído” direto nesta fila.
+          </p>
         </section>
       </section>
     </main>
