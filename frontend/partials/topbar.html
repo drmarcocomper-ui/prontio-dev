@@ -1,0 +1,62 @@
+<!-- frontend/partials/topbar.html -->
+<header class="topbar" data-component="topbar">
+  <div class="topbar-col-left">
+    <div class="topbar-left-header">
+      <button
+        type="button"
+        class="icon-button topbar-menu-button js-toggle-sidebar"
+        aria-label="Abrir menu de navegação"
+        aria-expanded="false"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+          <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" fill="currentColor"></path>
+        </svg>
+      </button>
+
+      <div id="topbar-breadcrumb" class="topbar-breadcrumb"></div>
+    </div>
+
+    <div class="topbar-title-main">
+      <h1 id="topbar-title-text">PRONTIO</h1>
+      <span id="topbar-tag" class="topbar-tag">PRONTIO</span>
+    </div>
+
+    <p id="topbar-subtitle" class="topbar-subtitle"></p>
+  </div>
+
+  <div class="topbar-col-right">
+    <!-- Slot para ações extras (ex.: botão do chat) -->
+    <div id="topbar-extra" class="topbar-extra">
+      <div id="topbar-chat-slot"></div>
+    </div>
+
+    <div class="topbar-meta">
+      <span id="topbar-meta-date" class="topbar-meta-item"></span>
+      <span id="topbar-meta-context" class="topbar-meta-item"></span>
+    </div>
+
+    <button
+      id="btn-theme-toggle"
+      class="theme-toggle-btn js-toggle-theme"
+      title="Alternar tema"
+      aria-pressed="false"
+      type="button"
+    >
+      <svg class="icon-svg js-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
+        <path
+          d="M12 4V2m0 20v-2m8-8h2M2 12h2m14.95-6.95l1.414-1.414M4.636 19.364l1.414-1.414M4.636 4.636L3.222 3.222M19.364 19.364l1.414 1.414"
+          stroke="currentColor"
+          fill="none"
+        ></path>
+      </svg>
+
+      <svg class="icon-svg js-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" style="display:none">
+        <path
+          d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"
+          stroke="currentColor"
+          fill="none"
+        ></path>
+      </svg>
+    </button>
+  </div>
+</header>

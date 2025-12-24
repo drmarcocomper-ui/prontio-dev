@@ -3,6 +3,8 @@
 
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
   PRONTIO.pages = PRONTIO.pages || {};
+  PRONTIO.ui = PRONTIO.ui || {};
+  PRONTIO.ui.modals = PRONTIO.ui.modals || {};
 
   /**
    * ============================================================
@@ -94,6 +96,9 @@
     }
   }
 
+  // ============================================================
+  // Loader util
+  // ============================================================
   function loadScript_(src) {
     return new Promise((resolve) => {
       const s = document.createElement("script");
@@ -113,6 +118,9 @@
     return ok;
   }
 
+  // ============================================================
+  // Infra
+  // ============================================================
   async function ensureApiLoaded_() {
     const hasApi =
       PRONTIO.api &&
@@ -152,8 +160,25 @@
     return !!hasAuthAfter;
   }
 
-  function initModals_() {
-    document.querySelectorAll("[data-modal-open]").forEach(function (opener) {
+  async function ensureSessionIfAvailable_() {
+    if (isLoginPage_()) return true;
+    if (!PRONTIO.auth || typeof PRONTIO.auth.ensureSession !== "function") return true;
+
+    try {
+      const ok = await PRONTIO.auth.ensureSession({ redirect: true });
+      return !!ok;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ============================================================
+  // Modais (mantém compat com sidebar-loader)
+  // ============================================================
+  function bindModalTriggers_(doc) {
+    const root = doc || document;
+
+    root.querySelectorAll("[data-modal-open]").forEach(function (opener) {
       opener.addEventListener("click", function (ev) {
         ev.preventDefault();
         const id = opener.getAttribute("data-modal-open");
@@ -165,7 +190,7 @@
       });
     });
 
-    document.querySelectorAll("[data-modal-close]").forEach(function (closer) {
+    root.querySelectorAll("[data-modal-close]").forEach(function (closer) {
       closer.addEventListener("click", function (ev) {
         ev.preventDefault();
         const id = closer.getAttribute("data-modal-close");
@@ -177,7 +202,7 @@
       });
     });
 
-    document.querySelectorAll(".modal-backdrop").forEach(function (modal) {
+    root.querySelectorAll(".modal-backdrop").forEach(function (modal) {
       modal.addEventListener("click", function (ev) {
         if (ev.target !== modal) return;
         modal.classList.remove("is-open");
@@ -196,75 +221,11 @@
     });
   }
 
-  function escapeHtml_(s) {
-    return String(s || "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
-  }
+  PRONTIO.ui.modals.bindTriggers = bindModalTriggers_;
 
-  function mountTopbar_() {
-    const mount = document.getElementById("topbarMount");
-    if (!mount) return;
-    if (mount.children && mount.children.length) return;
-
-    const title = (document.title || "")
-      .replace("PRONTIO - ", "")
-      .replace("PRONTIO — ", "")
-      .trim();
-
-    const subtitle = document.body.getAttribute("data-subtitle") || "";
-    const tag = document.body.getAttribute("data-tag") || "";
-    const context = document.body.getAttribute("data-context") || "";
-
-    const now = new Date();
-    const dd = String(now.getDate()).padStart(2, "0");
-    const mm = String(now.getMonth() + 1).padStart(2, "0");
-    const yyyy = now.getFullYear();
-
-    mount.innerHTML = `
-      <header class="topbar" data-component="topbar">
-        <div class="topbar-col-left">
-          <div class="topbar-left-header">
-            <button type="button" class="icon-button topbar-menu-button js-toggle-sidebar" aria-label="Abrir menu de navegação">
-              <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
-                <path d="M3 6h18v2H3V6zm0 5h18v2H3v-2zm0 5h18v2H3v-2z" fill="currentColor" />
-              </svg>
-            </button>
-            <div id="topbar-breadcrumb" class="topbar-breadcrumb"></div>
-          </div>
-
-          <div class="topbar-title-main">
-            <h1 id="topbar-title-text">${escapeHtml_(title)}</h1>
-            <span id="topbar-tag" class="topbar-tag">${escapeHtml_(tag)}</span>
-          </div>
-
-          <p id="topbar-subtitle" class="topbar-subtitle">${escapeHtml_(subtitle)}</p>
-        </div>
-
-        <div class="topbar-col-right">
-          <div id="topbar-extra" class="topbar-extra"></div>
-
-          <div class="topbar-meta">
-            <span id="topbar-meta-date" class="topbar-meta-item">${dd}/${mm}/${yyyy}</span>
-            <span id="topbar-meta-context" class="topbar-meta-item">${escapeHtml_(context)}</span>
-          </div>
-
-          <button id="btn-theme-toggle" class="theme-toggle-btn js-toggle-theme" title="Alternar tema" aria-pressed="false">
-            <svg class="icon-svg js-theme-icon-sun" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 4V2m0 20v-2m8-8h2M2 12h2m14.95-6.95l1.414-1.414M4.636 19.364l1.414-1.414M4.636 4.636L3.222 3.222M19.364 19.364l1.414 1.414" stroke="currentColor" fill="none"/>
-            </svg>
-            <svg class="icon-svg js-theme-icon-moon" viewBox="0 0 24 24" aria-hidden="true" style="display:none">
-              <path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z" stroke="currentColor" fill="none"/>
-            </svg>
-          </button>
-        </div>
-      </header>
-    `;
-  }
-
+  // ============================================================
+  // Tema (exposto para widget-topbar rebind)
+  // ============================================================
   function initThemeToggle_() {
     const btn = document.querySelector(".js-toggle-theme");
     if (!btn) return;
@@ -302,18 +263,27 @@
     });
   }
 
-  async function ensureSessionIfAvailable_() {
-    if (isLoginPage_()) return true;
-    if (!PRONTIO.auth || typeof PRONTIO.auth.ensureSession !== "function") return true;
+  // ✅ Para o widget-topbar conseguir rebind:
+  PRONTIO.ui.initTheme = initThemeToggle_;
 
-    try {
-      const ok = await PRONTIO.auth.ensureSession({ redirect: true });
-      return !!ok;
-    } catch (e) {
-      return false;
-    }
+  // ============================================================
+  // Anti-flash (esconde UI até sidebar + topbar prontas)
+  // ============================================================
+  function ensureShellLoadingStyle_() {
+    if (document.getElementById("prontio-shell-loading-style")) return;
+
+    const style = document.createElement("style");
+    style.id = "prontio-shell-loading-style";
+    style.textContent = `
+      html.prontio-shell-loading body { visibility: hidden; }
+      html.prontio-shell-loading .app-shell { visibility: hidden; }
+    `;
+    document.head.appendChild(style);
   }
 
+  // ============================================================
+  // Bootstrap
+  // ============================================================
   async function bootstrap_() {
     if (PRONTIO._bootstrapRunning) return;
     if (PRONTIO._bootstrapDone) return;
@@ -322,7 +292,13 @@
     PRONTIO._mainBootstrapped = true;
 
     try {
-      // 1) Infra primeiro
+      // ✅ esconde o shell logo de cara (evita aparecer miolo antes do menu/topo)
+      if (!isLoginPage_()) {
+        ensureShellLoadingStyle_();
+        document.documentElement.classList.add("prontio-shell-loading");
+      }
+
+      // 1) Infra
       await ensureApiLoaded_();
       await ensureAuthLoaded_();
 
@@ -332,22 +308,36 @@
         if (!ok) return;
       }
 
-      // 3) Guard server-side (Auth_Me)
+      // 3) Guard server-side
       const okSession = await ensureSessionIfAvailable_();
       if (!okSession) return;
 
-      // 4) UI
+      // 4) UI (sidebar + topbar via widgets)
       if (!isLoginPage_()) {
-        // ✅ Sidebar única sempre (inclusive chat standalone)
+        // Sidebar (controlador + loader)
         await loadOnce_("assets/js/ui/sidebar.js");
         await loadOnce_("assets/js/ui/sidebar-loader.js");
 
-        // ⚠️ Se for chat com header próprio, não monta topbar/modais/tema (evita header duplicado)
-        if (!isChatStandalone_()) {
-          mountTopbar_();
-          initModals_();
-          initThemeToggle_();
+        // Aguarda sidebar carregar para evitar flash
+        if (PRONTIO.ui && PRONTIO.ui.sidebarLoader && typeof PRONTIO.ui.sidebarLoader.load === "function") {
+          await PRONTIO.ui.sidebarLoader.load();
         }
+
+        // Topbar: ✅ consolidado via widget + partial
+        if (!isChatStandalone_()) {
+          await loadOnce_("assets/js/widgets/widget-topbar.js");
+          if (PRONTIO.widgets && PRONTIO.widgets.topbar && typeof PRONTIO.widgets.topbar.init === "function") {
+            await PRONTIO.widgets.topbar.init();
+          }
+
+          // bind modais (conteúdo da página) – sidebar-loader já rebinda o que ele injeta
+          bindModalTriggers_(document);
+        }
+      }
+
+      // ✅ revela a UI após montar sidebar/topbar
+      if (!isLoginPage_()) {
+        document.documentElement.classList.remove("prontio-shell-loading");
       }
 
       // 5) Logout + label
@@ -377,9 +367,15 @@
       if (page && typeof page.init === "function") {
         try { page.init(); } catch (e) {}
       }
+
     } finally {
       PRONTIO._bootstrapRunning = false;
       PRONTIO._bootstrapDone = true;
+
+      // fallback: se algo der ruim no meio, não deixe a UI invisível pra sempre
+      if (!isLoginPage_()) {
+        document.documentElement.classList.remove("prontio-shell-loading");
+      }
     }
   }
 
