@@ -9,9 +9,9 @@
  * - PRONTIO.api.callApiData({ action, payload })     -> somente data (throw se success=false)
  *
  * ✅ Patch CORS/Preflight (Apps Script WebApp):
- * - Envia POST como application/x-www-form-urlencoded:
- *   action=...&payload=JSON.stringify(...)
+ * - Envia POST como application/x-www-form-urlencoded via URLSearchParams
  * - NÃO define headers custom (evita preflight/OPTIONS)
+ * - Usa mode:"cors" e credentials:"omit"
  * - Seu Api.gs já suporta form-urlencoded.
  *
  * ✅ Pilar I (UX sessão):
@@ -202,6 +202,7 @@
     // Monta body action=...&payload=...
     const action = String(bodyObj && bodyObj.action ? bodyObj.action : "");
     const payload = bodyObj && bodyObj.payload ? bodyObj.payload : {};
+
     const form = new URLSearchParams();
     form.set("action", action);
     form.set("payload", JSON.stringify(payload || {}));
@@ -209,8 +210,15 @@
     try {
       resp = await fetch(apiUrl, {
         method: "POST",
-        // ✅ não setar headers aqui
-        body: form.toString()
+
+        // ✅ CORS-safe defaults
+        mode: "cors",
+        credentials: "omit",
+        redirect: "follow",
+
+        // ✅ não setar headers custom aqui
+        // ✅ usar URLSearchParams como body (não string)
+        body: form
       });
     } catch (e) {
       throw new Error("Falha de rede ao chamar API: " + normalizeError_(e));
