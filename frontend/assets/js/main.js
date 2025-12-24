@@ -8,17 +8,6 @@
    * ============================================================
    * COMPAT: DOMContentLoaded para scripts lazy-loaded
    * ============================================================
-   * Problema:
-   * - main.js lazy-load de page-*.js acontece após DOMContentLoaded.
-   * - Se page-*.js faz: document.addEventListener("DOMContentLoaded", boot_)
-   *   o boot_ nunca roda.
-   *
-   * Solução:
-   * - Se DOM já está pronto, intercepta addEventListener("DOMContentLoaded", fn)
-   *   e executa fn imediatamente (async), uma única vez.
-   *
-   * Observação:
-   * - Isso evita retrabalho imediato em todas as pages e estabiliza o app.
    */
   (function patchDOMContentLoadedOnce_() {
     if (PRONTIO._domContentLoadedPatched) return;
@@ -30,13 +19,10 @@
     const origAdd = document.addEventListener.bind(document);
 
     document.addEventListener = function (type, listener, options) {
-      // comportamento padrão
       origAdd(type, listener, options);
 
-      // compat: se DOMContentLoaded já ocorreu, chama imediatamente
       if (type === "DOMContentLoaded" && PRONTIO._domContentAlreadyLoaded) {
         try {
-          // evita chamar 2x o mesmo listener (best-effort)
           if (listener && typeof listener === "function") {
             const key = "__prontio_dcl_" + String(listener);
             PRONTIO._dclOnce = PRONTIO._dclOnce || {};
@@ -51,7 +37,6 @@
       }
     };
 
-    // se ainda não carregou, marca quando carregar
     if (!alreadyLoaded) {
       origAdd("DOMContentLoaded", function () {
         PRONTIO._domContentAlreadyLoaded = true;
@@ -67,7 +52,6 @@
     PRONTIO.pages[pageId] = { init: initFn };
   };
 
-  // Compat com versões antigas que usavam outro nome
   PRONTIO.registerPageInitializer = function registerPageInitializer(pageId, initFn) {
     PRONTIO.registerPage(pageId, initFn);
   };
@@ -100,6 +84,14 @@
       path.endsWith("/login.html") ||
       path.endsWith("login.html")
     );
+  }
+
+  function isChatStandalone_() {
+    try {
+      return document.body && document.body.getAttribute("data-chat-standalone") === "true";
+    } catch (e) {
+      return false;
+    }
   }
 
   function loadScript_(src) {
@@ -158,44 +150,6 @@
       typeof PRONTIO.auth.bindLogoutButtons === "function";
 
     return !!hasAuthAfter;
-  }
-
-  function initSidebar_() {
-    const sidebar = document.getElementById("sidebar");
-    const backdrop = document.querySelector("[data-sidebar-backdrop]");
-    const btnCompact = document.querySelector(".js-toggle-compact");
-    const btnMobile = document.querySelector(".js-toggle-sidebar");
-
-    function openMobile() {
-      if (!sidebar) return;
-      sidebar.classList.add("is-open");
-      if (backdrop) {
-        backdrop.hidden = false;
-        backdrop.setAttribute("aria-hidden", "false");
-      }
-    }
-
-    function closeMobile() {
-      if (!sidebar) return;
-      sidebar.classList.remove("is-open");
-      if (backdrop) {
-        backdrop.hidden = true;
-        backdrop.setAttribute("aria-hidden", "true");
-      }
-    }
-
-    if (btnMobile) btnMobile.addEventListener("click", openMobile);
-    if (backdrop) backdrop.addEventListener("click", closeMobile);
-
-    if (btnCompact && sidebar) {
-      btnCompact.addEventListener("click", function () {
-        sidebar.classList.toggle("is-compact");
-        btnCompact.setAttribute(
-          "aria-pressed",
-          sidebar.classList.contains("is-compact") ? "true" : "false"
-        );
-      });
-    }
   }
 
   function initModals_() {
@@ -361,12 +315,10 @@
   }
 
   async function bootstrap_() {
-    // idempotência
     if (PRONTIO._bootstrapRunning) return;
     if (PRONTIO._bootstrapDone) return;
     PRONTIO._bootstrapRunning = true;
 
-    // main.js é a fonte de verdade do guard
     PRONTIO._mainBootstrapped = true;
 
     try {
@@ -384,12 +336,18 @@
       const okSession = await ensureSessionIfAvailable_();
       if (!okSession) return;
 
-      // 4) Só depois monta UI (evita "flash")
+      // 4) UI
       if (!isLoginPage_()) {
-        mountTopbar_();
-        initSidebar_();
-        initModals_();
-        initThemeToggle_();
+        // ✅ Sidebar única sempre (inclusive chat standalone)
+        await loadOnce_("assets/js/ui/sidebar.js");
+        await loadOnce_("assets/js/ui/sidebar-loader.js");
+
+        // ⚠️ Se for chat com header próprio, não monta topbar/modais/tema (evita header duplicado)
+        if (!isChatStandalone_()) {
+          mountTopbar_();
+          initModals_();
+          initThemeToggle_();
+        }
       }
 
       // 5) Logout + label
@@ -403,7 +361,7 @@
       const pageId = getPageId_();
       if (!pageId) return;
 
-      // 6) Lazy load page script (page can register itself OR rely on DOMContentLoaded compat)
+      // 6) Lazy load page script
       if (!PRONTIO.pages[pageId]) {
         let ok = await loadOnce_("assets/js/pages/page-" + pageId + ".js");
         if (!ok) ok = await loadOnce_("assets/js/page-" + pageId + ".js");
@@ -414,7 +372,7 @@
         await loadOnce_("assets/js/pages/page-receita.js");
       }
 
-      // 8) Se a página registrou init, executa. Se não, o compat DOMContentLoaded cobre.
+      // 8) Se a página registrou init, executa
       const page = PRONTIO.pages[pageId];
       if (page && typeof page.init === "function") {
         try { page.init(); } catch (e) {}

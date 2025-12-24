@@ -4,40 +4,64 @@
   <meta charset="UTF-8" />
   <title>PRONTIO - Alterar senha</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <!-- ✅ Padronização do shell -->
   <link rel="stylesheet" href="assets/css/style.css" />
+  <link rel="stylesheet" href="assets/css/components/modals.css" />
+  <link rel="stylesheet" href="assets/css/components/topbar.css" />
 </head>
 
-<body data-page-id="alterar-senha">
-  <div class="page">
-    <h1>Alterar senha</h1>
+<body
+  data-theme="light"
+  data-page-id="alterar-senha"
+  data-subtitle="Atualize sua senha de acesso"
+  data-tag="Sistema"
+  data-context="Segurança"
+>
+  <div class="app-shell">
+    <!-- ✅ Sidebar compartilhada (partial) -->
+    <div data-include-sidebar></div>
 
-    <form id="formAlterarSenha">
-      <div id="mensagemSenha" class="mensagem is-hidden"></div>
+    <main class="main-area">
+      <div id="topbarMount" data-partial="topbar"></div>
 
-      <div class="form-group">
-        <label for="senhaAtual">Senha atual</label>
-        <input type="password" id="senhaAtual" required />
-      </div>
+      <section class="content">
+        <section class="card">
+          <div class="card-header">
+            <h2>Alterar senha</h2>
+            <p class="card-subtitle">Defina uma nova senha para sua conta.</p>
+          </div>
 
-      <div class="form-group">
-        <label for="novaSenha">Nova senha</label>
-        <input type="password" id="novaSenha" required />
-      </div>
+          <div class="card-body">
+            <form id="formAlterarSenha" class="form-vertical">
+              <div id="mensagemSenha" class="mensagem is-hidden"></div>
 
-      <div class="form-group">
-        <label for="novaSenha2">Confirmar nova senha</label>
-        <input type="password" id="novaSenha2" required />
-      </div>
+              <div class="form-group">
+                <label for="senhaAtual">Senha atual</label>
+                <input type="password" id="senhaAtual" required autocomplete="current-password" />
+              </div>
 
-      <button type="submit" class="btn btn-primary">
-        Alterar senha
-      </button>
-    </form>
+              <div class="form-group">
+                <label for="novaSenha">Nova senha</label>
+                <input type="password" id="novaSenha" required autocomplete="new-password" />
+              </div>
+
+              <div class="form-group">
+                <label for="novaSenha2">Confirmar nova senha</label>
+                <input type="password" id="novaSenha2" required autocomplete="new-password" />
+              </div>
+
+              <div class="form-row form-row-actions form-row-actions-inline">
+                <button type="submit" class="btn btn-primary">Alterar senha</button>
+              </div>
+            </form>
+          </div>
+        </section>
+      </section>
+    </main>
   </div>
 
-  <script src="assets/js/core/config.js"></script>
-  <script src="assets/js/core/api.js"></script>
-  <script src="assets/js/core/auth.js"></script>
-  <script src="assets/js/pages/page-alterar-senha.js"></script>
+  <!-- ÚNICO SCRIPT (main faz lazy-load do page-alterar-senha.js) -->
+  <script src="assets/js/main.js"></script>
 </body>
 </html>

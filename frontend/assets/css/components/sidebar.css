@@ -100,17 +100,59 @@ body.sidebar-compact .sidebar {
   color: var(--cor-texto-principal);
 }
 
-/* Ativo */
+/* =====================================
+   ATIVO
+   - compat com versões antigas: .is-active / [data-active="true"]
+   - padrão atual do ui/sidebar.js: .active
+===================================== */
 .sidebar-nav .nav-link.is-active,
-.sidebar-nav .nav-link[data-active="true"] {
+.sidebar-nav .nav-link[data-active="true"],
+.sidebar-nav .nav-link.active {
   background: var(--cor-primaria-clara);
   color: var(--cor-primaria);
   font-weight: 600;
 }
 
 .sidebar-nav .nav-link.is-active .icon-svg,
-.sidebar-nav .nav-link[data-active="true"] .icon-svg {
+.sidebar-nav .nav-link[data-active="true"] .icon-svg,
+.sidebar-nav .nav-link.active .icon-svg {
   color: var(--cor-primaria);
+}
+
+/* =====================================
+   BADGE "EM BREVE"
+===================================== */
+.nav-badge {
+  margin-left: auto;
+  padding: 2px 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 999px;
+  border: 1px solid var(--cor-borda-suave);
+  background: var(--cor-fundo-card-alt);
+  color: var(--cor-texto-suave);
+}
+
+/* Esconde o badge no modo compacto */
+body.sidebar-compact .nav-badge {
+  display: none;
+}
+
+/* Links desativados (visíveis, mas não clicáveis) */
+.nav-link-soon,
+.sidebar-nav .nav-link[data-soon="true"],
+.sidebar-nav .nav-link[aria-disabled="true"] {
+  opacity: 0.65;
+  cursor: not-allowed;
+  pointer-events: none; /* bloqueia clique */
+}
+
+.nav-link-soon:hover,
+.sidebar-nav .nav-link[data-soon="true"]:hover {
+  background: transparent; /* evita efeito hover */
+  color: var(--cor-texto-principal);
 }
 
 /* =====================================
@@ -118,9 +160,9 @@ body.sidebar-compact .sidebar {
 ===================================== */
 
 .sidebar-group[data-nav-group="sistema"] {
-  margin-top: auto;               /* empurra para o final da sidebar */
+  margin-top: auto;
   padding-inline: var(--sp-2);
-  padding-top: var(--sp-5);       /* espaço elegante acima */
+  padding-top: var(--sp-5);
   padding-bottom: var(--sp-4);
 }
 

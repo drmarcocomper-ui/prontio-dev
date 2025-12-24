@@ -5,138 +5,160 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>PRONTIO - Chat</title>
 
+  <!-- ✅ Base do sistema (para sidebar + botões) -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+
   <!-- CSS específico da página de Chat -->
   <link rel="stylesheet" href="assets/css/pages/page-chat.css" />
 </head>
-<body data-page-id="chat">
-  <header class="app-header">
-    <div class="app-header__title">
-      <span class="logo-dot"></span>
-      <span class="app-name">PRONTIO</span>
-      <span class="app-section">/ Chat</span>
-    </div>
 
-    <div class="app-header__right">
-      <!-- Navegação padronizada -->
-      <div class="app-header__nav">
-        <a id="chat-nav-agenda" href="#" class="btn btn-ghost">
-          Ver agenda
-        </a>
-        <a id="chat-nav-prontuario" href="#" class="btn btn-ghost">
-          Ver prontuário
-        </a>
-      </div>
+<body
+  data-page-id="chat"
+  data-chat-standalone="true"
+  data-subtitle="Comunicação interna"
+  data-tag="Chat"
+  data-context="Chat"
+>
+  <div class="app-shell">
+    <!-- ✅ Sidebar compartilhada (partial) -->
+    <div data-include-sidebar></div>
 
-      <div class="app-header__user">
-        <span id="current-user-label"></span>
-        <button id="change-user-button" class="btn btn-outline">
-          Trocar usuário
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main class="chat-layout">
-    <section class="chat-sidebar">
-      <h2>Salas</h2>
-
-      <!-- Salas fixas -->
-      <div id="static-rooms">
-        <button
-          class="chat-room chat-room--active"
-          data-room-id="default"
-          data-room-label="Chat principal"
-          data-room-description="Canal geral da clínica."
-        >
-          🩺 Chat principal
-        </button>
-
-        <button
-          class="chat-room"
-          data-room-id="secretaria"
-          data-room-label="Secretaria"
-          data-room-description="Comunicação entre recepção e equipe."
-        >
-          📋 Secretaria
-        </button>
-
-        <button
-          class="chat-room"
-          data-room-id="financeiro"
-          data-room-label="Financeiro"
-          data-room-description="Assuntos de cobrança e faturamento."
-        >
-          💰 Financeiro
-        </button>
-      </div>
-
-      <!-- Salas criadas automaticamente (paciente/agenda) -->
-      <p class="chat-sidebar__dynamic-label">
-        Salas dinâmicas
-      </p>
-      <div id="patient-rooms">
-        <!-- Botões de salas de pacientes/consultas criados via JS -->
-      </div>
-    </section>
-
-    <section class="chat-main">
-      <div class="chat-main__header">
-        <div>
-          <h1 id="chat-room-title">Chat principal</h1>
-          <p id="chat-room-subtitle" class="chat-main__subtitle">
-            Canal geral da clínica.
-          </p>
+    <main class="main-area">
+      <!-- ⚠️ Chat tem header próprio; main.js não montará topbar quando data-chat-standalone="true" -->
+      <header class="app-header">
+        <div class="app-header__title">
+          <span class="logo-dot"></span>
+          <span class="app-name">PRONTIO</span>
+          <span class="app-section">/ Chat</span>
         </div>
-        <button id="reload-button" class="btn btn-ghost" title="Atualizar mensagens">
-          ⟳ Atualizar
-        </button>
-      </div>
 
-      <!-- PAINEL: PRÓXIMO PACIENTE -->
-      <div id="next-patient-panel" class="next-patient">
-        <div class="next-patient__info">
-          <div class="next-patient__title-row">
-            <h2 class="next-patient__title">Próximo paciente</h2>
-            <span
-              id="next-patient-status-pill"
-              class="next-patient__status-pill next-patient__status-pill--empty"
-            >
-              Fila vazia
-            </span>
+        <div class="app-header__right">
+          <!-- Navegação padronizada -->
+          <div class="app-header__nav">
+            <a id="chat-nav-agenda" href="#" class="btn btn-ghost">
+              Ver agenda
+            </a>
+            <a id="chat-nav-prontuario" href="#" class="btn btn-ghost">
+              Ver prontuário
+            </a>
           </div>
-          <p id="next-patient-summary" class="next-patient__summary">
-            Nenhum paciente na fila neste momento.
+
+          <div class="app-header__user">
+            <span id="current-user-label"></span>
+            <button id="change-user-button" class="btn btn-outline">
+              Trocar usuário
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="chat-layout">
+        <section class="chat-sidebar">
+          <h2>Salas</h2>
+
+          <!-- Salas fixas -->
+          <div id="static-rooms">
+            <button
+              class="chat-room chat-room--active"
+              data-room-id="default"
+              data-room-label="Chat principal"
+              data-room-description="Canal geral da clínica."
+            >
+              🩺 Chat principal
+            </button>
+
+            <button
+              class="chat-room"
+              data-room-id="secretaria"
+              data-room-label="Secretaria"
+              data-room-description="Comunicação entre recepção e equipe."
+            >
+              📋 Secretaria
+            </button>
+
+            <button
+              class="chat-room"
+              data-room-id="financeiro"
+              data-room-label="Financeiro"
+              data-room-description="Assuntos de cobrança e faturamento."
+            >
+              💰 Financeiro
+            </button>
+          </div>
+
+          <!-- Salas criadas automaticamente (paciente/agenda) -->
+          <p class="chat-sidebar__dynamic-label">
+            Salas dinâmicas
           </p>
-          <p id="next-patient-details" class="next-patient__details"></p>
-        </div>
-        <div class="next-patient__actions">
-          <button id="btn-next-patient" class="btn btn-primary">
-            Chamar próximo
-          </button>
-          <button id="btn-refresh-next-patient" class="btn btn-ghost">
-            Atualizar fila
-          </button>
-        </div>
-      </div>
+          <div id="patient-rooms">
+            <!-- Botões de salas de pacientes/consultas criados via JS -->
+          </div>
+        </section>
 
-      <div id="chat-messages" class="chat-messages">
-        <!-- Mensagens serão inseridas aqui via JavaScript -->
-      </div>
+        <section class="chat-main">
+          <div class="chat-main__header">
+            <div>
+              <h1 id="chat-room-title">Chat principal</h1>
+              <p id="chat-room-subtitle" class="chat-main__subtitle">
+                Canal geral da clínica.
+              </p>
+            </div>
+            <button id="reload-button" class="btn btn-ghost" title="Atualizar mensagens">
+              ⟳ Atualizar
+            </button>
+          </div>
 
-      <form id="chat-form" class="chat-input-area" autocomplete="off">
-        <textarea
-          id="chat-input"
-          class="chat-input-area__textarea"
-          rows="2"
-          placeholder="Digite sua mensagem e pressione Enter para enviar (Shift+Enter para nova linha)..."
-        ></textarea>
-        <button type="submit" id="send-button" class="btn btn-primary">
-          Enviar
-        </button>
-      </form>
-    </section>
-  </main>
+          <!-- PAINEL: PRÓXIMO PACIENTE -->
+          <div id="next-patient-panel" class="next-patient">
+            <div class="next-patient__info">
+              <div class="next-patient__title-row">
+                <h2 class="next-patient__title">Próximo paciente</h2>
+                <span
+                  id="next-patient-status-pill"
+                  class="next-patient__status-pill next-patient__status-pill--empty"
+                >
+                  Fila vazia
+                </span>
+              </div>
+              <p id="next-patient-summary" class="next-patient__summary">
+                Nenhum paciente na fila neste momento.
+              </p>
+              <p id="next-patient-details" class="next-patient__details"></p>
+            </div>
+            <div class="next-patient__actions">
+              <button id="btn-next-patient" class="btn btn-primary">
+                Chamar próximo
+              </button>
+              <button id="btn-refresh-next-patient" class="btn btn-ghost">
+                Atualizar fila
+              </button>
+            </div>
+          </div>
 
+          <div id="chat-messages" class="chat-messages">
+            <!-- Mensagens serão inseridas aqui via JavaScript -->
+          </div>
+
+          <form id="chat-form" class="chat-input-area" autocomplete="off">
+            <textarea
+              id="chat-input"
+              class="chat-input-area__textarea"
+              rows="2"
+              placeholder="Digite sua mensagem e pressione Enter para enviar (Shift+Enter para nova linha)..."
+            ></textarea>
+            <button type="submit" id="send-button" class="btn btn-primary">
+              Enviar
+            </button>
+          </form>
+        </section>
+      </main>
+    </main>
+  </div>
+
+  <!-- Chat antigo -->
   <script src="assets/js/chat.js"></script>
+
+  <!-- ✅ Main (para carregar sidebar única) -->
+  <script src="assets/js/main.js"></script>
 </body>
 </html>

@@ -24,99 +24,8 @@
   data-has-prontuario="true"
 >
   <div class="app-shell">
-    <!-- SIDEBAR / MENU LATERAL -->
-    <aside id="sidebar" class="sidebar" data-component="sidebar">
-      <div class="sidebar-header">
-        <button
-          type="button"
-          class="icon-button js-toggle-compact"
-          aria-label="Alternar modo compacto da barra lateral"
-          aria-pressed="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
-            <path d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2z" fill="currentColor" />
-          </svg>
-        </button>
-
-        <div class="app-brand">
-          <div class="app-logo">PRONTIO</div>
-          <div class="app-version" id="appVersion">v1.0.3 - Dr. Marco Antônio Comper</div>
-        </div>
-      </div>
-
-      <!-- Navegação principal -->
-      <nav class="sidebar-nav" id="sidebarNav" aria-label="Navegação principal">
-        <a href="index.html" class="nav-link" data-page-id="index">
-          <span class="icon">
-            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 0-1 1h-5v-6H10v6H5a1 1 0 0 0-1-1v-9.5z" fill="currentColor" />
-            </svg>
-          </span>
-          <span class="label">Início</span>
-        </a>
-
-        <a href="agenda.html" class="nav-link" data-page-id="agenda" aria-current="page">
-          <span class="icon">
-            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M7 2a1 1 0 0 0-1 1v1H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 0 0-2 0v1H9V3A1 1 0 0 0 8 2zM5 9h14v9H5z" fill="currentColor" />
-            </svg>
-          </span>
-          <span class="label">Agenda</span>
-        </a>
-
-        <a href="pacientes.html" class="nav-link" data-page-id="pacientes">
-          <span class="icon">
-            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z" fill="currentColor" />
-            </svg>
-          </span>
-          <span class="label">Pacientes</span>
-        </a>
-
-        <a href="prontuario.html" class="nav-link" data-page-id="prontuario" data-nav-section="prontuario">
-          <span class="icon">
-            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M7 3a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5L14.5 3zM14 4.5 18.5 9H14z" fill="currentColor" />
-            </svg>
-          </span>
-          <span class="label">Prontuário</span>
-        </a>
-      </nav>
-
-      <div class="sidebar-group" data-nav-group="sistema">
-        <div class="nav-label">Sistema</div>
-
-        <a href="configuracoes.html#perfil" class="nav-link nav-link-sub" data-page-id="perfil">
-          <span class="icon">
-            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.5 0-6 1.7-6 4v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1c0-2.3-2.5-4-6-4z" fill="currentColor" />
-            </svg>
-          </span>
-          <span class="label">Perfil</span>
-        </a>
-
-        <a href="javascript:void(0)" class="nav-link nav-link-sub" data-page-id="sistema-sobre" data-modal-open="modalSobreSistema">
-          <span class="icon">
-            <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 2a10 10 0 1 0 10 10A10.011 10.011 0 0 0 12 2zm0 4a1.25 1.25 0 1 1-1.25 1.25A1.25 1.25 0 0 1 12 6zm2 11h-4v-1.5h1V11H10V9.5h3a1 1 0 0 1 1 1v5h1z" fill="currentColor" />
-            </svg>
-          </span>
-          <span class="label">Sobre</span>
-        </a>
-
-        <button type="button" class="nav-link nav-link-sub nav-link-action" data-nav-action="logout">
-          <span class="label">Sair</span>
-        </button>
-      </div>
-
-      <div class="sidebar-footer">
-        <small class="sidebar-user" id="sidebarUser"></small>
-        <span class="sidebar-year">
-          &copy; <span id="anoAtualSidebar"></span> PRONTIO
-        </span>
-      </div>
-    </aside>
-
-    <div class="sidebar-backdrop" data-sidebar-backdrop></div>
+    <!-- ✅ Sidebar compartilhada (partial) -->
+    <div data-include-sidebar></div>
 
     <!-- ÁREA PRINCIPAL -->
     <main class="main-area">
@@ -484,7 +393,7 @@
     </div>
   </div>
 
-  <!-- ÚNICO SCRIPT carregado no HTML (SEM type="module") -->
+  <!-- ÚNICO SCRIPT carregado no HTML -->
   <script src="assets/js/main.js"></script>
 </body>
 </html>

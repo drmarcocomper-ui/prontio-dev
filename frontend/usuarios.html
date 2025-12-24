@@ -1,210 +1,222 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <title>PRONTIO - Usuários</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+<head>
+  <meta charset="UTF-8" />
+  <title>PRONTIO - Usuários</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <!-- CSS base do sistema -->
-    <link rel="stylesheet" href="assets/css/style.css" />
-    <!-- CSS da página -->
-    <link rel="stylesheet" href="assets/css/pages/page-usuarios.css" />
-  </head>
+  <!-- CSS base do sistema -->
+  <link rel="stylesheet" href="assets/css/style.css" />
+  <!-- CSS da página -->
+  <link rel="stylesheet" href="assets/css/pages/page-usuarios.css" />
+  <!-- Modais + Topbar (padrão do app) -->
+  <link rel="stylesheet" href="assets/css/components/modals.css" />
+  <link rel="stylesheet" href="assets/css/components/topbar.css" />
+</head>
 
-  <body data-page-id="usuarios" data-page="usuarios">
-    <!-- Layout padrão -->
-    <div class="app-shell">
-      <!-- Sidebar (se você já carrega via sidebar-loader.js, ele vai preencher) -->
-      <aside id="appSidebar" class="sidebar"></aside>
+<body
+  data-page-id="usuarios"
+  data-page="usuarios"
+  data-subtitle="Gerenciamento de contas e permissões"
+  data-tag="Usuários"
+  data-context="Admin"
+>
+  <div class="app-shell">
+    <!-- ✅ Sidebar compartilhada (partial) -->
+    <div data-include-sidebar></div>
 
-      <main class="app-main">
-        <!-- Topbar (se você já carrega via widget/topbar, ele vai preencher) -->
-        <header id="appTopbar" class="topbar">
-          <div class="topbar-left">
-            <h1 class="page-title">Usuários</h1>
-          </div>
-          <div class="topbar-right">
-            <span id="sidebarUser" class="user-label"></span>
-            <a href="#" data-nav-action="logout" class="btn btn-secondary btn-sm">Sair</a>
-          </div>
-        </header>
+    <main class="main-area">
+      <!-- ✅ Topbar padronizada -->
+      <div id="topbarMount" data-partial="topbar"></div>
 
-        <section class="page-content">
-          <!-- Feedback -->
-          <div id="usuariosMsg" class="mensagem is-hidden"></div>
+      <section class="content page-content">
+        <!-- Feedback -->
+        <div id="usuariosMsg" class="mensagem is-hidden"></div>
 
-          <!-- Barra de ações -->
-          <div class="usuarios-toolbar">
-            <div class="usuarios-toolbar-left">
-              <div class="form-group form-inline">
-                <label for="usuariosBusca" class="sr-only">Buscar</label>
-                <input
-                  id="usuariosBusca"
-                  type="text"
-                  class="input"
-                  placeholder="Buscar por nome, login, e-mail, perfil..."
-                  autocomplete="off"
-                />
-              </div>
-
-              <div class="form-group form-inline">
-                <label for="usuariosFiltroAtivo" class="sr-only">Status</label>
-                <select id="usuariosFiltroAtivo" class="select">
-                  <option value="todos">Todos</option>
-                  <option value="ativos">Ativos</option>
-                  <option value="inativos">Inativos</option>
-                </select>
-              </div>
+        <!-- Barra de ações -->
+        <div class="usuarios-toolbar">
+          <div class="usuarios-toolbar-left">
+            <div class="form-group form-inline">
+              <label for="usuariosBusca" class="sr-only">Buscar</label>
+              <input
+                id="usuariosBusca"
+                type="text"
+                class="input"
+                placeholder="Buscar por nome, login, e-mail, perfil..."
+                autocomplete="off"
+              />
             </div>
 
-            <div class="usuarios-toolbar-right">
-              <button id="btnRecarregar" class="btn btn-secondary">Recarregar</button>
-              <button id="btnNovoUsuario" class="btn btn-primary">Novo usuário</button>
-            </div>
-          </div>
-
-          <!-- Tabela -->
-          <div class="card">
-            <div class="card-content">
-              <div class="table-wrap">
-                <table class="table" id="usuariosTable">
-                  <thead>
-                    <tr>
-                      <th>Nome</th>
-                      <th>Login</th>
-                      <th>E-mail</th>
-                      <th>Perfil</th>
-                      <th>Status</th>
-                      <th class="col-actions">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody id="usuariosTbody">
-                    <tr>
-                      <td colspan="6" class="text-muted">Carregando...</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-              <div class="usuarios-footer">
-                <span id="usuariosCount" class="text-muted text-small"></span>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
-    </div>
-
-    <!-- Modal: Criar/Editar -->
-    <div id="modalUsuario" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="modalUsuarioTitle">
-      <div class="modal-backdrop" data-modal-close="modalUsuario"></div>
-      <div class="modal-panel">
-        <div class="modal-header">
-          <h2 id="modalUsuarioTitle" class="modal-title">Novo usuário</h2>
-          <button class="modal-close" type="button" data-modal-close="modalUsuario" aria-label="Fechar">×</button>
-        </div>
-
-        <div class="modal-body">
-          <div id="modalUsuarioMsg" class="mensagem is-hidden"></div>
-
-          <input type="hidden" id="usuarioId" />
-
-          <div class="form-grid">
-            <div class="form-group">
-              <label for="usuarioNome">Nome completo</label>
-              <input id="usuarioNome" type="text" class="input" placeholder="Ex.: Dr. Marco Antônio Comper" />
-            </div>
-
-            <div class="form-group">
-              <label for="usuarioLogin">Login</label>
-              <input id="usuarioLogin" type="text" class="input" placeholder="Ex.: marco" autocomplete="off" />
-            </div>
-
-            <div class="form-group">
-              <label for="usuarioEmail">E-mail</label>
-              <input id="usuarioEmail" type="email" class="input" placeholder="Ex.: marco@exemplo.com" />
-            </div>
-
-            <div class="form-group">
-              <label for="usuarioPerfil">Perfil</label>
-              <select id="usuarioPerfil" class="select">
-                <option value="admin">admin</option>
-                <option value="medico">medico</option>
-                <option value="secretaria">secretaria</option>
-                <option value="profissional">profissional</option>
-                <option value="nutricionista">nutricionista</option>
-                <option value="recepcao">recepcao</option>
-              </select>
-              <div class="hint text-small text-muted">Você pode ajustar a lista de perfis conforme sua política.</div>
-            </div>
-
-            <div class="form-group">
-              <label for="usuarioAtivo">Ativo</label>
-              <select id="usuarioAtivo" class="select">
-                <option value="true">Sim</option>
-                <option value="false">Não</option>
+            <div class="form-group form-inline">
+              <label for="usuariosFiltroAtivo" class="sr-only">Status</label>
+              <select id="usuariosFiltroAtivo" class="select">
+                <option value="todos">Todos</option>
+                <option value="ativos">Ativos</option>
+                <option value="inativos">Inativos</option>
               </select>
             </div>
+          </div>
 
-            <!-- Senha só é obrigatória ao criar -->
-            <div class="form-group">
-              <label for="usuarioSenha">Senha (apenas para novo usuário)</label>
-              <input id="usuarioSenha" type="password" class="input" placeholder="Defina a senha inicial" autocomplete="new-password" />
-            </div>
+          <div class="usuarios-toolbar-right">
+            <button id="btnRecarregar" class="btn btn-secondary">Recarregar</button>
+            <button id="btnNovoUsuario" class="btn btn-primary">Novo usuário</button>
           </div>
         </div>
 
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-modal-close="modalUsuario">Cancelar</button>
-          <button type="button" id="btnSalvarUsuario" class="btn btn-primary">Salvar</button>
+        <!-- Tabela -->
+        <div class="card">
+          <div class="card-content">
+            <div class="table-wrap">
+              <table class="table" id="usuariosTable">
+                <thead>
+                  <tr>
+                    <th>Nome</th>
+                    <th>Login</th>
+                    <th>E-mail</th>
+                    <th>Perfil</th>
+                    <th>Status</th>
+                    <th class="col-actions">Ações</th>
+                  </tr>
+                </thead>
+                <tbody id="usuariosTbody">
+                  <tr>
+                    <td colspan="6" class="text-muted">Carregando...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="usuarios-footer">
+              <span id="usuariosCount" class="text-muted text-small"></span>
+            </div>
+          </div>
         </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Modal: Criar/Editar -->
+  <div id="modalUsuario" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="modalUsuarioTitle">
+    <div class="modal-backdrop" data-modal-close="modalUsuario"></div>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 id="modalUsuarioTitle" class="modal-title">Novo usuário</h2>
+        <button class="modal-close" type="button" data-modal-close="modalUsuario" aria-label="Fechar">×</button>
       </div>
-    </div>
 
-    <!-- Modal: Reset de senha (admin) -->
-    <div id="modalResetSenha" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="modalResetSenhaTitle">
-      <div class="modal-backdrop" data-modal-close="modalResetSenha"></div>
-      <div class="modal-panel">
-        <div class="modal-header">
-          <h2 id="modalResetSenhaTitle" class="modal-title">Resetar senha</h2>
-          <button class="modal-close" type="button" data-modal-close="modalResetSenha" aria-label="Fechar">×</button>
-        </div>
+      <div class="modal-body">
+        <div id="modalUsuarioMsg" class="mensagem is-hidden"></div>
 
-        <div class="modal-body">
-          <div id="modalResetMsg" class="mensagem is-hidden"></div>
+        <input type="hidden" id="usuarioId" />
 
-          <input type="hidden" id="resetUserId" />
-
-          <p class="text-muted">
-            Usuário: <strong id="resetUserLabel">—</strong>
-          </p>
-
+        <div class="form-grid">
           <div class="form-group">
-            <label for="resetNovaSenha">Nova senha</label>
-            <input id="resetNovaSenha" type="password" class="input" autocomplete="new-password" />
+            <label for="usuarioNome">Nome completo</label>
+            <input id="usuarioNome" type="text" class="input" placeholder="Ex.: Dr. Marco Antônio Comper" />
           </div>
 
           <div class="form-group">
-            <label class="checkbox">
-              <input id="resetAtivar" type="checkbox" checked />
-              Reativar usuário (Ativo = TRUE)
-            </label>
+            <label for="usuarioLogin">Login</label>
+            <input id="usuarioLogin" type="text" class="input" placeholder="Ex.: marco" autocomplete="off" />
+          </div>
+
+          <div class="form-group">
+            <label for="usuarioEmail">E-mail</label>
+            <input id="usuarioEmail" type="email" class="input" placeholder="Ex.: marco@exemplo.com" />
+          </div>
+
+          <div class="form-group">
+            <label for="usuarioPerfil">Perfil</label>
+            <select id="usuarioPerfil" class="select">
+              <option value="admin">admin</option>
+              <option value="medico">medico</option>
+              <option value="secretaria">secretaria</option>
+              <option value="profissional">profissional</option>
+              <option value="nutricionista">nutricionista</option>
+              <option value="recepcao">recepcao</option>
+            </select>
+            <div class="hint text-small text-muted">Você pode ajustar a lista de perfis conforme sua política.</div>
+          </div>
+
+          <div class="form-group">
+            <label for="usuarioAtivo">Ativo</label>
+            <select id="usuarioAtivo" class="select">
+              <option value="true">Sim</option>
+              <option value="false">Não</option>
+            </select>
+          </div>
+
+          <!-- Senha só é obrigatória ao criar -->
+          <div class="form-group">
+            <label for="usuarioSenha">Senha (apenas para novo usuário)</label>
+            <input id="usuarioSenha" type="password" class="input" placeholder="Defina a senha inicial" autocomplete="new-password" />
           </div>
         </div>
+      </div>
 
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-modal-close="modalResetSenha">Cancelar</button>
-          <button type="button" id="btnConfirmarReset" class="btn btn-primary">Confirmar reset</button>
-        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close="modalUsuario">Cancelar</button>
+        <button type="button" id="btnSalvarUsuario" class="btn btn-primary">Salvar</button>
       </div>
     </div>
+  </div>
 
-    <!-- CORE (mínimo necessário para o main.js) -->
-    <script src="assets/js/core/config.js"></script>
-    <script src="assets/js/core/api.js"></script>
-    <script src="assets/js/core/auth.js"></script>
+  <!-- Modal: Reset de senha (admin) -->
+  <div id="modalResetSenha" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="modalResetSenhaTitle">
+    <div class="modal-backdrop" data-modal-close="modalResetSenha"></div>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <h2 id="modalResetSenhaTitle" class="modal-title">Resetar senha</h2>
+        <button class="modal-close" type="button" data-modal-close="modalResetSenha" aria-label="Fechar">×</button>
+      </div>
 
-    <!-- MAIN (bootstrap + guard + lazy-load pages/page-<id>.js) -->
-    <script src="assets/js/main.js"></script>
-  </body>
+      <div class="modal-body">
+        <div id="modalResetMsg" class="mensagem is-hidden"></div>
+
+        <input type="hidden" id="resetUserId" />
+
+        <p class="text-muted">
+          Usuário: <strong id="resetUserLabel">—</strong>
+        </p>
+
+        <div class="form-group">
+          <label for="resetNovaSenha">Nova senha</label>
+          <input id="resetNovaSenha" type="password" class="input" autocomplete="new-password" />
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox">
+            <input id="resetAtivar" type="checkbox" checked />
+            Reativar usuário (Ativo = TRUE)
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close="modalResetSenha">Cancelar</button>
+        <button type="button" id="btnConfirmarReset" class="btn btn-primary">Confirmar reset</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: SOBRE (para link "Sobre" do menu único) -->
+  <div id="modalSobreSistema" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalSobreSistemaTitulo">
+    <div class="modal modal--lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalSobreSistemaTitulo">PRONTIO — Sobre o Sistema</h2>
+        <div class="modal-header-actions">
+          <button type="button" class="modal-close" aria-label="Fechar" data-modal-close="modalSobreSistema">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p><strong>PRONTIO — Sistema de Consultório Médico</strong><br>
+        Desenvolvido para uso pessoal do <strong>Dr. Marco Antônio Comper</strong>.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-modal-close="modalSobreSistema">Fechar</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="assets/js/main.js"></script>
+</body>
 </html>
-
