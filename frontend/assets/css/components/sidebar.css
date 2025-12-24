@@ -4,31 +4,24 @@
    - Tema claro / escuro automático
    - SISTEMA ancorado no rodapé
    - Ícones corrigidos (sem distorção)
-   - ✅ Breakpoint alinhado com JS (900px)
-   - ✅ Melhor viewport em mobile (100dvh)
-   - ✅ Botão "Sair" sem all:unset (mais estável + foco acessível)
+   - ✅ Backdrop nunca aparece no desktop
+   - ✅ Mobile alinhado com JS: 900px
 ===================================== */
 
 /* SIDEBAR CONTAINER */
 .sidebar {
   width: 240px;
-
-  /* fallback + melhora em mobile moderno */
   height: 100vh;
   height: 100dvh;
-
   background: var(--cor-fundo-card);
   border-right: 1px solid var(--cor-borda-suave);
   box-shadow: 4px 0 20px rgba(0, 0, 0, 0.06);
-
   display: flex;
   flex-direction: column;
-
   position: fixed;
   left: 0;
   top: 0;
   z-index: 20;
-
   transition: width 0.25s ease;
 }
 
@@ -73,19 +66,13 @@ body.sidebar-compact .sidebar {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-
   padding: 10px 12px;
   border-radius: var(--radius-md);
-
   font-size: 14px;
   text-decoration: none;
-
   color: var(--cor-texto-principal);
   cursor: pointer;
-
-  transition:
-    background 0.15s ease,
-    color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
 }
 
 /* ÍCONES — força tamanho correto e mata CSS externo */
@@ -116,8 +103,8 @@ body.sidebar-compact .sidebar {
 
 /* =====================================
    ATIVO
-   - compat com versões antigas: .is-active / [data-active="true"]
-   - padrão atual do ui/sidebar.js: .active
+   - compat: .is-active / [data-active="true"]
+   - padrão do ui/sidebar.js: .active
 ===================================== */
 .sidebar-nav .nav-link.is-active,
 .sidebar-nav .nav-link[data-active="true"],
@@ -139,19 +126,16 @@ body.sidebar-compact .sidebar {
 .nav-badge {
   margin-left: auto;
   padding: 2px 8px;
-
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-
   border-radius: 999px;
   border: 1px solid var(--cor-borda-suave);
   background: var(--cor-fundo-card-alt);
   color: var(--cor-texto-suave);
 }
 
-/* Esconde o badge no modo compacto */
 body.sidebar-compact .nav-badge {
   display: none;
 }
@@ -162,12 +146,12 @@ body.sidebar-compact .nav-badge {
 .sidebar-nav .nav-link[aria-disabled="true"] {
   opacity: 0.65;
   cursor: not-allowed;
-  pointer-events: none; /* bloqueia clique */
+  pointer-events: none;
 }
 
 .nav-link-soon:hover,
 .sidebar-nav .nav-link[data-soon="true"]:hover {
-  background: transparent; /* evita efeito hover */
+  background: transparent;
   color: var(--cor-texto-principal);
 }
 
@@ -196,14 +180,12 @@ body.sidebar-compact .nav-badge {
   color: var(--cor-texto-secundario);
 }
 
-/* Ajuste visual dos ícones nos sublinks */
 .sidebar-group .nav-link-sub .icon {
   width: 22px !important;
   height: 22px !important;
 }
 
 /* SAIR IGUAL A PERFIL / SOBRE */
-/* ✅ evita all: unset (menos frágil) */
 .sidebar-group .nav-link-action {
   background: none;
   border: 0;
@@ -223,7 +205,7 @@ body.sidebar-compact .nav-badge {
   cursor: pointer;
 }
 
-/* ✅ foco acessível */
+/* foco acessível */
 .sidebar-group .nav-link-action:focus-visible,
 .sidebar-nav .nav-link:focus-visible,
 .sidebar-group .nav-link-sub:focus-visible {
@@ -246,6 +228,11 @@ body.sidebar-compact .nav-badge {
   font-size: 12px;
   color: var(--cor-texto-suave);
   text-align: center;
+}
+
+/* ✅ Backdrop nunca deve aparecer no desktop */
+.sidebar-backdrop {
+  display: none;
 }
 
 /* =====================================

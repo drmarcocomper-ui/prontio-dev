@@ -10,10 +10,11 @@
   PRONTIO._mainBootstrapped = true;
 
   // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
-  const APP_VERSION = "1.0.5";
+  const APP_VERSION = "1.0.6";
 
   // ============================================================
-  // Skeleton (mantém sua versão atual; aqui só deixo o que importa pro fix)
+  // Skeleton
+  // ✅ FIX: breakpoint do skeleton alinhado com o JS (900px)
   // ============================================================
   function ensureSkeletonStyle_() {
     if (document.getElementById("prontio-skeleton-style")) return;
@@ -30,7 +31,12 @@
       .prontio-skeleton__card{height:120px;border-radius:14px;background:rgba(0,0,0,.06)}
       .prontio-skeleton__brand,.prontio-skeleton__navitem,.prontio-skeleton__card{background-image:linear-gradient(90deg,rgba(0,0,0,.06) 0%,rgba(0,0,0,.10) 40%,rgba(0,0,0,.06) 80%);background-size:220% 100%;animation:prontioShimmer 1s ease-in-out infinite}
       @keyframes prontioShimmer{0%{background-position:120% 0}100%{background-position:-120% 0}}
-      @media (max-width:768px){.prontio-skeleton{grid-template-columns:1fr}.prontio-skeleton__sidebar{display:none}}
+
+      /* ✅ antes era 768px -> agora 900px (alinha com ui/sidebar.js) */
+      @media (max-width:900px){
+        .prontio-skeleton{grid-template-columns:1fr}
+        .prontio-skeleton__sidebar{display:none}
+      }
     `;
     document.head.appendChild(style);
   }
@@ -163,6 +169,19 @@
   PRONTIO.ui.modals.bindTriggers = bindModalTriggers_;
 
   // ============================================================
+  // ✅ FIX extra: nunca manter sidebar-open no desktop
+  // (evita backdrop/escurecimento residual fora do mobile)
+  // ============================================================
+  function normalizeSidebarOpenState_() {
+    try {
+      const isMobile = global.matchMedia && global.matchMedia("(max-width: 900px)").matches;
+      if (!isMobile && document.body) {
+        document.body.classList.remove("sidebar-open");
+      }
+    } catch (_) {}
+  }
+
+  // ============================================================
   // Bootstrap
   // ============================================================
   async function bootstrap_() {
@@ -173,6 +192,9 @@
 
     try {
       if (!isLoginPage_()) {
+        // ✅ garante estado correto antes de qualquer init de UI
+        normalizeSidebarOpenState_();
+
         await loadOnce_("assets/js/ui/sidebar.js");
         await loadOnce_("assets/js/ui/sidebar-loader.js");
 
