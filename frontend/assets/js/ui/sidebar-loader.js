@@ -1,8 +1,11 @@
 // frontend/assets/js/ui/sidebar-loader.js
-// ✅ Correções:
-// - Evita DUPLO carregamento (main chama load; loader não deve auto-chamar se main já bootstrapou)
-// - load() é idempotente (reusa a mesma Promise)
-// - Cache com versionamento + fallback
+// -------------------------------------
+// ✅ FIX DEFINITIVO:
+// - Não injeta sidebar se já existir #sidebar (evita duplicação)
+// - load() idempotente: se já carregou, resolve imediatamente
+// - Auto-init só se main NÃO estiver controlando (compat)
+// - Cache com versionamento do partial
+// -------------------------------------
 
 (function (global, document) {
   "use strict";
@@ -11,10 +14,26 @@
   PRONTIO.ui = PRONTIO.ui || {};
   PRONTIO.ui.sidebarLoader = PRONTIO.ui.sidebarLoader || {};
 
-  const PARTIAL_VERSION = "1.0.4";
+  // Bump quando mudar o HTML do partial
+  const PARTIAL_VERSION = "1.0.5";
+
+  function sidebarAlreadyMounted_() {
+    return !!document.getElementById("sidebar");
+  }
 
   function loadSidebarPartial() {
-    // ✅ idempotente: se já está carregando, reaproveita
+    // ✅ Se já existe sidebar no DOM, não faz nada
+    if (sidebarAlreadyMounted_()) {
+      PRONTIO.ui.sidebarLoader._loaded = true;
+      return Promise.resolve(true);
+    }
+
+    // ✅ Se já carregou antes (nesta página), não faz nada
+    if (PRONTIO.ui.sidebarLoader._loaded) {
+      return Promise.resolve(true);
+    }
+
+    // ✅ Se já está carregando, reaproveita
     if (PRONTIO.ui.sidebarLoader._loadingPromise) {
       return PRONTIO.ui.sidebarLoader._loadingPromise;
     }
@@ -29,20 +48,23 @@
       const url = "partials/sidebar.html?v=" + encodeURIComponent(PARTIAL_VERSION);
 
       function doFetch(cacheMode) {
-        return fetch(url, { cache: cacheMode })
-          .then(function (response) {
-            if (!response.ok) {
-              throw new Error("[PRONTIO.sidebar-loader] HTTP " + response.status);
-            }
-            return response.text();
-          });
+        return fetch(url, { cache: cacheMode }).then(function (response) {
+          if (!response.ok) throw new Error("HTTP " + response.status);
+          return response.text();
+        });
       }
 
+      // ✅ tenta cache normal; se falhar, no-store
       doFetch("default")
-        .catch(function () {
-          return doFetch("no-store");
-        })
+        .catch(function () { return doFetch("no-store"); })
         .then(function (html) {
+          // ✅ Checagem final antes de injetar (evita corrida)
+          if (sidebarAlreadyMounted_()) {
+            PRONTIO.ui.sidebarLoader._loaded = true;
+            resolve(true);
+            return;
+          }
+
           const temp = document.createElement("div");
           temp.innerHTML = html;
 
@@ -57,6 +79,7 @@
           }
           parent.removeChild(placeholder);
 
+          // init sidebar
           try {
             if (PRONTIO.widgets && PRONTIO.widgets.sidebar && typeof PRONTIO.widgets.sidebar.init === "function") {
               PRONTIO.widgets.sidebar.init();
@@ -67,7 +90,7 @@
             console.warn("[PRONTIO.sidebar-loader] Erro ao inicializar sidebar:", e);
           }
 
-          // Rebind modais para elementos recém-injetados
+          // rebind modais (se existir)
           try {
             if (PRONTIO.ui && PRONTIO.ui.modals && typeof PRONTIO.ui.modals.bindTriggers === "function") {
               PRONTIO.ui.modals.bindTriggers(document);
@@ -76,14 +99,14 @@
             console.warn("[PRONTIO.sidebar-loader] Erro ao rebind modais:", e);
           }
 
+          PRONTIO.ui.sidebarLoader._loaded = true;
           resolve(true);
         })
         .catch(function (err) {
-          console.error("[PRONTIO.sidebar-loader] Falha ao carregar partial da sidebar:", err);
+          console.error("[PRONTIO.sidebar-loader] Falha ao carregar sidebar partial:", err);
           resolve(false);
         })
         .finally(function () {
-          // libera para chamadas futuras (mas já terá sidebar no DOM)
           PRONTIO.ui.sidebarLoader._loadingPromise = null;
         });
     });
@@ -93,7 +116,7 @@
 
   PRONTIO.ui.sidebarLoader.load = loadSidebarPartial;
 
-  // ✅ Auto-init só se main NÃO estiver rodando (compat)
+  // Auto-init compat (só se main NÃO estiver controlando)
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", function () {
       if (!PRONTIO._mainBootstrapped) loadSidebarPartial();

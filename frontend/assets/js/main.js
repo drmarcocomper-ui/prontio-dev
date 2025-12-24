@@ -6,61 +6,31 @@
   PRONTIO.ui = PRONTIO.ui || {};
   PRONTIO.ui.modals = PRONTIO.ui.modals || {};
 
-  // ✅ Marca cedo para loaders não auto-iniciarem em duplicidade
+  // ✅ marca cedo para impedir auto-init duplicado em loaders
   PRONTIO._mainBootstrapped = true;
 
+  // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
+  const APP_VERSION = "1.0.5";
+
   // ============================================================
-  // Skeleton (leve) + timeout de segurança
+  // Skeleton (mantém sua versão atual; aqui só deixo o que importa pro fix)
   // ============================================================
   function ensureSkeletonStyle_() {
     if (document.getElementById("prontio-skeleton-style")) return;
-
     const style = document.createElement("style");
     style.id = "prontio-skeleton-style";
     style.textContent = `
-      .prontio-skeleton {
-        position: fixed;
-        inset: 0;
-        z-index: 9999;
-        background: var(--cor-fundo-app, #f4f6fb);
-        display: grid;
-        grid-template-columns: 240px 1fr;
-        pointer-events: none;
-      }
-      .prontio-skeleton__sidebar {
-        border-right: 1px solid rgba(0,0,0,0.06);
-        background: var(--cor-fundo-card, #fff);
-        padding: 16px;
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-      .prontio-skeleton__brand { height: 18px; width: 120px; border-radius: 8px; background: rgba(0,0,0,0.08); }
-      .prontio-skeleton__navitem { height: 14px; border-radius: 8px; background: rgba(0,0,0,0.08); }
-      .prontio-skeleton__navitem:nth-child(2) { width: 85%; }
-      .prontio-skeleton__navitem:nth-child(3) { width: 75%; }
-      .prontio-skeleton__navitem:nth-child(4) { width: 90%; }
-      .prontio-skeleton__navitem:nth-child(5) { width: 70%; }
-      .prontio-skeleton__navitem:nth-child(6) { width: 88%; }
-
-      .prontio-skeleton__main { display: flex; flex-direction: column; min-width: 0; }
-      .prontio-skeleton__topbar { height: 64px; border-bottom: 1px solid rgba(0,0,0,0.06); background: var(--cor-fundo-card, #fff); }
-      .prontio-skeleton__content { padding: 24px; display: grid; gap: 14px; }
-      .prontio-skeleton__card { height: 120px; border-radius: 14px; background: rgba(0,0,0,0.06); }
-
-      .prontio-skeleton__brand,
-      .prontio-skeleton__navitem,
-      .prontio-skeleton__card {
-        background-image: linear-gradient(90deg, rgba(0,0,0,0.06) 0%, rgba(0,0,0,0.10) 40%, rgba(0,0,0,0.06) 80%);
-        background-size: 220% 100%;
-        animation: prontioShimmer 1.0s ease-in-out infinite;
-      }
-      @keyframes prontioShimmer { 0% { background-position: 120% 0; } 100% { background-position: -120% 0; } }
-
-      @media (max-width: 768px) {
-        .prontio-skeleton { grid-template-columns: 1fr; }
-        .prontio-skeleton__sidebar { display: none; }
-      }
+      .prontio-skeleton{position:fixed;inset:0;z-index:9999;background:var(--cor-fundo-app,#f4f6fb);display:grid;grid-template-columns:240px 1fr;pointer-events:none}
+      .prontio-skeleton__sidebar{border-right:1px solid rgba(0,0,0,.06);background:var(--cor-fundo-card,#fff);padding:16px;display:flex;flex-direction:column;gap:12px}
+      .prontio-skeleton__brand{height:18px;width:120px;border-radius:8px;background:rgba(0,0,0,.08)}
+      .prontio-skeleton__navitem{height:14px;border-radius:8px;background:rgba(0,0,0,.08)}
+      .prontio-skeleton__main{display:flex;flex-direction:column;min-width:0}
+      .prontio-skeleton__topbar{height:64px;border-bottom:1px solid rgba(0,0,0,.06);background:var(--cor-fundo-card,#fff)}
+      .prontio-skeleton__content{padding:24px;display:grid;gap:14px}
+      .prontio-skeleton__card{height:120px;border-radius:14px;background:rgba(0,0,0,.06)}
+      .prontio-skeleton__brand,.prontio-skeleton__navitem,.prontio-skeleton__card{background-image:linear-gradient(90deg,rgba(0,0,0,.06) 0%,rgba(0,0,0,.10) 40%,rgba(0,0,0,.06) 80%);background-size:220% 100%;animation:prontioShimmer 1s ease-in-out infinite}
+      @keyframes prontioShimmer{0%{background-position:120% 0}100%{background-position:-120% 0}}
+      @media (max-width:768px){.prontio-skeleton{grid-template-columns:1fr}.prontio-skeleton__sidebar{display:none}}
     `;
     document.head.appendChild(style);
   }
@@ -90,8 +60,8 @@
         <div class="prontio-skeleton__topbar"></div>
         <div class="prontio-skeleton__content">
           <div class="prontio-skeleton__card"></div>
-          <div class="prontio-skeleton__card" style="height: 180px;"></div>
-          <div class="prontio-skeleton__card" style="height: 140px;"></div>
+          <div class="prontio-skeleton__card" style="height:180px"></div>
+          <div class="prontio-skeleton__card" style="height:140px"></div>
         </div>
       </div>
     `;
@@ -103,9 +73,6 @@
     if (el && el.parentNode) el.parentNode.removeChild(el);
   }
 
-  // ============================================================
-  // Helpers
-  // ============================================================
   function getDataPage_() {
     try {
       const body = document.body;
@@ -117,8 +84,7 @@
   }
 
   function isLoginPage_() {
-    const p = getDataPage_();
-    return p === "login";
+    return getDataPage_() === "login";
   }
 
   function isChatStandalone_() {
@@ -134,12 +100,19 @@
   }
 
   // ============================================================
-  // Loader util
+  // Loader util (✅ cache-busting p/ GitHub Pages)
   // ============================================================
+  function withVersion_(src) {
+    // Não mexe em links externos e não duplica querystring
+    if (!src || src.includes("?")) return src;
+    if (!src.startsWith("assets/js/")) return src;
+    return src + "?v=" + encodeURIComponent(APP_VERSION);
+  }
+
   function loadScript_(src) {
     return new Promise((resolve) => {
       const s = document.createElement("script");
-      s.src = src;
+      s.src = withVersion_(src);
       s.defer = true;
       s.onload = function () { resolve(true); };
       s.onerror = function () { resolve(false); };
@@ -149,14 +122,15 @@
 
   PRONTIO._loadedScripts = PRONTIO._loadedScripts || {};
   async function loadOnce_(src) {
-    if (PRONTIO._loadedScripts[src]) return true;
+    const key = withVersion_(src);
+    if (PRONTIO._loadedScripts[key]) return true;
     const ok = await loadScript_(src);
-    if (ok) PRONTIO._loadedScripts[src] = true;
+    if (ok) PRONTIO._loadedScripts[key] = true;
     return ok;
   }
 
   // ============================================================
-  // Modais (para sidebar-loader rebind)
+  // Modais (rebind usado pelo sidebar-loader)
   // ============================================================
   function bindModalTriggers_(doc) {
     const root = doc || document;
@@ -185,54 +159,19 @@
       });
     });
   }
+
   PRONTIO.ui.modals.bindTriggers = bindModalTriggers_;
-
-  // ============================================================
-  // Tema (para widget-topbar rebind)
-  // ============================================================
-  function initThemeToggle_() {
-    const btn = document.querySelector(".js-toggle-theme");
-    if (!btn) return;
-
-    function apply(theme) {
-      document.body.setAttribute("data-theme", theme);
-      try { localStorage.setItem("prontio_theme", theme); } catch (e) {}
-
-      const sun = document.querySelector(".js-theme-icon-sun");
-      const moon = document.querySelector(".js-theme-icon-moon");
-      if (sun && moon) {
-        if (theme === "dark") { sun.style.display = "none"; moon.style.display = ""; }
-        else { sun.style.display = ""; moon.style.display = "none"; }
-      }
-      btn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
-    }
-
-    let theme = "light";
-    try { theme = localStorage.getItem("prontio_theme") || (document.body.getAttribute("data-theme") || "light"); }
-    catch (e) { theme = document.body.getAttribute("data-theme") || "light"; }
-
-    apply(theme);
-    btn.addEventListener("click", function () {
-      const cur = document.body.getAttribute("data-theme") || "light";
-      apply(cur === "dark" ? "light" : "dark");
-    });
-  }
-  PRONTIO.ui.initTheme = initThemeToggle_;
 
   // ============================================================
   // Bootstrap
   // ============================================================
   async function bootstrap_() {
-    // ✅ Skeleton aparece já
     if (!isLoginPage_()) showSkeleton_();
 
-    // ✅ Timeout de segurança: nunca fica “preso”
-    const safety = global.setTimeout(function () {
-      hideSkeleton_();
-    }, 1800);
+    // ✅ safety: nunca deixa skeleton preso
+    const safety = global.setTimeout(hideSkeleton_, 1800);
 
     try {
-      // Carrega UI (sem duplicar loader)
       if (!isLoginPage_()) {
         await loadOnce_("assets/js/ui/sidebar.js");
         await loadOnce_("assets/js/ui/sidebar-loader.js");
@@ -250,7 +189,6 @@
         }
       }
 
-      // Lazy-load da página (mantido)
       const pageId = getPageId_();
       if (pageId && !PRONTIO.pages[pageId]) {
         let ok = await loadOnce_("assets/js/pages/page-" + pageId + ".js");
@@ -261,6 +199,7 @@
       if (page && typeof page.init === "function") {
         try { page.init(); } catch (e) {}
       }
+
     } finally {
       global.clearTimeout(safety);
       hideSkeleton_();

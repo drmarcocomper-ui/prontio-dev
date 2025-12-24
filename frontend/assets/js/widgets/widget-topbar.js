@@ -1,9 +1,10 @@
 /**
  * PRONTIO - widget-topbar.js
  *
- * ✅ Correções:
+ * ✅ Correções consolidadas:
  * - NÃO usa location.origin (quebra em file:// e alguns ambientes). Usa caminho RELATIVO.
- * - Cache com versionamento, mas com fallback se falhar.
+ * - Cache com versionamento, com fallback se falhar.
+ * - ✅ Idempotente: não reinjeta se já montou (evita flicker / rebind repetido)
  */
 
 (function (global, document) {
@@ -15,8 +16,8 @@
 
   const CHAT_CSS_HREF = "assets/css/components/chat-topbar.css";
 
-  // Bump quando mudar o HTML do partial
-  const PARTIAL_VERSION = "1.0.4";
+  // ✅ alinhe com APP_VERSION do main.js quando fizer releases
+  const PARTIAL_VERSION = "1.0.5";
 
   // ✅ RELATIVO (não depende de origin)
   const PARTIAL_TOPBAR_PATH = `partials/topbar.html?v=${encodeURIComponent(PARTIAL_VERSION)}`;
@@ -42,10 +43,9 @@
   }
 
   async function fetchPartial_(path) {
-    // ✅ cache bom em navegação (com v=...), mas sem forçar demais
+    // ✅ cache bom em navegação (com v=...), mas com fallback se falhar
     let res = await fetch(path, { cache: "default" });
     if (!res.ok) {
-      // fallback: tenta sem cache
       res = await fetch(path, { cache: "no-store" });
     }
     if (!res.ok) throw new Error("Falha ao carregar partial: " + path + " (HTTP " + res.status + ")");
@@ -187,12 +187,18 @@
       const mount = document.getElementById("topbarMount");
       if (!mount) return;
 
-      if (mount.getAttribute("data-mounted") !== "1") {
-        const html = await fetchPartial_(PARTIAL_TOPBAR_PATH);
-        mount.innerHTML = html;
-        mount.setAttribute("data-mounted", "1");
-        mount.setAttribute("data-mounted-from", PARTIAL_TOPBAR_PATH);
+      // ✅ idempotência: já montado
+      if (mount.getAttribute("data-mounted") === "1") {
+        fillTopbarTexts_();
+        rebindThemeToggle_();
+        await initChatIfEnabled_();
+        return;
       }
+
+      const html = await fetchPartial_(PARTIAL_TOPBAR_PATH);
+      mount.innerHTML = html;
+      mount.setAttribute("data-mounted", "1");
+      mount.setAttribute("data-mounted-from", PARTIAL_TOPBAR_PATH);
 
       fillTopbarTexts_();
       rebindThemeToggle_();
