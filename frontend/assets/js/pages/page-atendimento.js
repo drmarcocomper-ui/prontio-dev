@@ -1,6 +1,6 @@
 // frontend/assets/js/pages/page-atendimento.js
 // Módulo: Atendimento
-// ✅ Agora prioriza Atendimento.ListarFilaHoje (Atendimento.gs).
+// ✅ Agora chama Atendimento.SyncHoje (para montar a fila) e depois Atendimento.ListarFilaHoje.
 // ✅ Mantém fallback para Agenda.ListarAFuturo (compatibilidade).
 // OBS: enquanto o backend de Atendimento não retornar nome/hora/tipo, a tabela exibe placeholders.
 
@@ -23,13 +23,11 @@
     utils.formatarDataBR ||
     function (iso) {
       if (!iso) return "";
-      // aceita YYYY-MM-DD ou ISO
       const s = String(iso);
       if (/^\d{4}-\d{2}-\d{2}$/.test(s)) {
         const [ano, mes, dia] = s.split("-");
         return `${dia}/${mes}/${ano}`;
       }
-      // tenta ISO -> YYYY-MM-DD
       try {
         const d = new Date(s);
         if (!isNaN(d.getTime())) {
@@ -68,7 +66,6 @@
   let btnRecarregar = null;
   let btnAbrirProntuario = null;
 
-  // seleção atual
   let selected = null;
 
   function setSelected_(row) {
@@ -96,23 +93,18 @@
     tbody.appendChild(tr);
   }
 
-  // Normaliza "linha" para o formato usado na tabela
-  // Saída esperada:
-  // { fonte, idAgenda, idPaciente, data, hora, pacienteNome, tipo, status }
   function normalizeRow_(raw, fonte) {
-    // 1) Atendimento (novo)
     if (fonte === "atendimento") {
       const idAgenda = raw.idAgenda || raw.ID_Agenda || "";
       const idPaciente = raw.idPaciente || raw.ID_Paciente || "";
-      const data = raw.dataRef || ""; // YYYY-MM-DD
-      const hora = raw.hora || raw.horaConsulta || ""; // (ainda não vem do backend)
+      const data = raw.dataRef || "";
+      const hora = raw.hora || raw.horaConsulta || "";
       const pacienteNome = raw.nomePaciente || raw.paciente || raw.pacienteNome || idPaciente || "";
-      const tipo = raw.tipo || ""; // (ainda não vem do backend)
+      const tipo = raw.tipo || "";
       const status = raw.status || "";
       return { fonte, idAgenda, idPaciente, data, hora, pacienteNome, tipo, status, _raw: raw };
     }
 
-    // 2) Agenda (legado)
     const idAgenda2 = raw.idAgenda || raw.ID_Agenda || "";
     const idPaciente2 = raw.idPaciente || raw.ID_Paciente || "";
     const data2 = raw.dataConsulta || raw.data || "";
@@ -136,7 +128,6 @@
     const s = String(status).toUpperCase();
     span.textContent = status;
 
-    // Atendimento (novo): AGUARDANDO | CHEGOU | CHAMADO | EM_ATENDIMENTO | CONCLUIDO | CANCELADO
     if (fonte === "atendimento") {
       if (s === "AGUARDANDO") span.classList.add("badge-outro");
       else if (s === "CHEGOU") span.classList.add("badge-confirmado");
@@ -148,7 +139,6 @@
       return span;
     }
 
-    // Agenda (legado)
     if (s === "AGENDADO") span.classList.add("badge-agendado");
     else if (s === "CONFIRMADO") span.classList.add("badge-confirmado");
     else if (s === "CANCELADO") span.classList.add("badge-cancelado");
@@ -230,8 +220,14 @@
     if (btnRecarregar) btnRecarregar.disabled = true;
 
     try {
+      // ✅ 0) Sync: cria/atualiza a fila do dia a partir da Agenda (idempotente)
+      try {
+        await callApiData({ action: "Atendimento.SyncHoje", payload: {} });
+      } catch (_) {
+        // se sync falhar, seguimos (não bloqueia a tela)
+      }
+
       // 1) NOVO: Atendimento.ListarFilaHoje
-      // Retorno esperado: { items: [...], count, dataRef }
       let dataAtd = null;
       try {
         dataAtd = await callApiData({ action: "Atendimento.ListarFilaHoje", payload: {} });

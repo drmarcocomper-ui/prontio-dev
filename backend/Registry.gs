@@ -410,3 +410,12 @@ function Registry_ListActions(ctx, payload) {
     hasUsuariosResetSenhaAdmin: keys.indexOf("Usuarios_ResetSenhaAdmin") >= 0
   };
 }
+  map["Atendimento.SyncHoje"] = {
+    action: "Atendimento.SyncHoje",
+    handler: Atendimento_Action_SyncHoje_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "ATENDIMENTO"
+  };

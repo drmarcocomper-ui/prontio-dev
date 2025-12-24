@@ -15,6 +15,7 @@
  * - idField: "idAtendimento"
  *
  * Actions:
+ * - Atendimento.SyncHoje              ✅ NOVO
  * - Atendimento.ListarFilaHoje
  * - Atendimento.MarcarChegada
  * - Atendimento.ChamarProximo
@@ -26,6 +27,9 @@
 var ATENDIMENTO_ENTITY = "Atendimento";
 var ATENDIMENTO_ID_FIELD = "idAtendimento";
 
+// Entidade da agenda (mesma usada no Migrations/Repository)
+var AGENDA_SHEET_NAME = "Agenda";
+
 var ATENDIMENTO_STATUS = {
   AGUARDANDO: "AGUARDANDO",
   CHEGOU: "CHEGOU",
@@ -34,6 +38,166 @@ var ATENDIMENTO_STATUS = {
   CONCLUIDO: "CONCLUIDO",
   CANCELADO: "CANCELADO"
 };
+
+/**
+ * ============================================================
+ * ✅ NOVO: Atendimento.SyncHoje
+ * ============================================================
+ * Cria registros na aba Atendimento a partir dos agendamentos do dia (aba Agenda),
+ * sem duplicar (idempotente por idAgenda + dataRef).
+ *
+ * payload:
+ * {
+ *   dataRef?: "YYYY-MM-DD" // default hoje
+ *   incluirBloqueios?: boolean (default false)
+ *   incluirCancelados?: boolean (default false)
+ *   resetOrdem?: boolean (default false) // se true, recalcula ordem baseado no horário
+ * }
+ *
+ * Retorno:
+ * { dataRef, created, updated, skipped, totalAgendaDia }
+ */
+function Atendimento_Action_SyncHoje_(ctx, payload) {
+  payload = payload || {};
+
+  var dataRef = _atdNormalizeDateRef_(payload.dataRef);
+  var incluirBloqueios = payload.incluirBloqueios === true;
+  var incluirCancelados = payload.incluirCancelados === true;
+  var resetOrdem = payload.resetOrdem === true;
+
+  // intervalo [00:00, 23:59:59] do dia local (Date em timezone do script)
+  var dayStart = _atdBuildDayStart_(dataRef);
+  var dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+  // Carrega agenda do dia (Repo_list_)
+  var agendaAll = Repo_list_(AGENDA_SHEET_NAME) || [];
+  var agendaDia = [];
+
+  for (var i = 0; i < agendaAll.length; i++) {
+    var e = agendaAll[i] || {};
+    var idAgenda = e.idAgenda || e.ID_Agenda || "";
+    if (!idAgenda) continue;
+
+    var status = String(e.status || "").toUpperCase();
+    var tipo = String(e.tipo || "").toUpperCase();
+
+    if (!incluirCancelados && status === "CANCELADO") continue;
+    if (!incluirBloqueios && (tipo === "BLOQUEIO")) continue;
+
+    var ini = _atdParseDate_(e.inicio);
+    var fim = _atdParseDate_(e.fim);
+
+    // se datas inválidas, ignora
+    if (!ini || !fim) continue;
+
+    // evento do dia: overlap com o dia
+    var overlaps = (ini.getTime() <= dayEnd.getTime()) && (fim.getTime() >= dayStart.getTime());
+    if (!overlaps) continue;
+
+    agendaDia.push({
+      idAgenda: String(idAgenda),
+      idPaciente: String(e.idPaciente || e.ID_Paciente || ""),
+      inicio: ini,
+      fim: fim,
+      tipo: String(e.tipo || ""),
+      status: String(e.status || "")
+    });
+  }
+
+  // Ordena agendaDia por horário de início (para definir ordem)
+  agendaDia.sort(function (a, b) {
+    return a.inicio.getTime() - b.inicio.getTime();
+  });
+
+  // Indexa atendimentos existentes do dia por idAgenda
+  var existingAll = Repo_list_(ATENDIMENTO_ENTITY) || [];
+  var existingByAgenda = {};
+  for (var j = 0; j < existingAll.length; j++) {
+    var a0 = _atdNormalizeRowToDto_(existingAll[j]);
+    if (!a0.ativo) continue;
+    if (String(a0.dataRef || "") !== dataRef) continue;
+    if (a0.idAgenda) existingByAgenda[String(a0.idAgenda)] = a0;
+  }
+
+  var created = 0;
+  var updated = 0;
+  var skipped = 0;
+
+  var nowIso = new Date().toISOString();
+
+  for (var k = 0; k < agendaDia.length; k++) {
+    var ag = agendaDia[k];
+    var ordemCalc = k + 1;
+
+    var exists = existingByAgenda[ag.idAgenda];
+
+    // Se não existe, cria
+    if (!exists) {
+      var dto = _atdBuildNew_(
+        {
+          idAgenda: ag.idAgenda,
+          idPaciente: ag.idPaciente,
+          dataRef: dataRef,
+          ordem: ordemCalc,
+          observacoes: "",
+          sala: ""
+        },
+        {
+          idAgenda: ag.idAgenda,
+          idPaciente: ag.idPaciente,
+          dataRef: dataRef,
+          status: ATENDIMENTO_STATUS.AGUARDANDO,
+          chegadaEm: "",
+          chamadoEm: "",
+          inicioAtendimentoEm: "",
+          concluidoEm: ""
+        }
+      );
+
+      // Ajuste final: timestamps coerentes
+      dto.criadoEm = nowIso;
+      dto.atualizadoEm = nowIso;
+
+      Repo_insert_(ATENDIMENTO_ENTITY, dto);
+      created++;
+      continue;
+    }
+
+    // Existe: atualiza idPaciente se veio vazio; e ordem se resetOrdem
+    var patch = {};
+    var needUpdate = false;
+
+    if (!exists.idPaciente && ag.idPaciente) {
+      patch.idPaciente = ag.idPaciente;
+      needUpdate = true;
+    }
+
+    if (resetOrdem) {
+      // só atualiza ordem se não estiver em atendimento/concluído/cancelado
+      var st = _atdNormalizeStatus_(exists.status);
+      if (st !== ATENDIMENTO_STATUS.EM_ATENDIMENTO && st !== ATENDIMENTO_STATUS.CONCLUIDO && st !== ATENDIMENTO_STATUS.CANCELADO) {
+        patch.ordem = ordemCalc;
+        needUpdate = true;
+      }
+    }
+
+    if (needUpdate) {
+      patch.atualizadoEm = nowIso;
+      Repo_update_(ATENDIMENTO_ENTITY, ATENDIMENTO_ID_FIELD, exists.idAtendimento, patch);
+      updated++;
+    } else {
+      skipped++;
+    }
+  }
+
+  return {
+    dataRef: dataRef,
+    created: created,
+    updated: updated,
+    skipped: skipped,
+    totalAgendaDia: agendaDia.length
+  };
+}
 
 /**
  * Atendimento.ListarFilaHoje
@@ -373,6 +537,32 @@ function _atdNormalizeDateRef_(dateRef) {
   var m = ("0" + (d.getMonth() + 1)).slice(-2);
   var dd = ("0" + d.getDate()).slice(-2);
   return y + "-" + m + "-" + dd;
+}
+
+function _atdBuildDayStart_(dataRef) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(dataRef || ""))) {
+    _atdThrow_("VALIDATION_ERROR", "dataRef inválida (esperado YYYY-MM-DD).", { dataRef: dataRef });
+  }
+  var p = String(dataRef).split("-");
+  var y = Number(p[0]);
+  var m = Number(p[1]) - 1;
+  var d = Number(p[2]);
+  var dt = new Date(y, m, d, 0, 0, 0, 0);
+  if (isNaN(dt.getTime())) _atdThrow_("VALIDATION_ERROR", "dataRef inválida.", { dataRef: dataRef });
+  return dt;
+}
+
+function _atdParseDate_(v) {
+  if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+  if (typeof v === "number") {
+    var dNum = new Date(v);
+    return isNaN(dNum.getTime()) ? null : dNum;
+  }
+  if (typeof v === "string") {
+    var dStr = new Date(v);
+    return isNaN(dStr.getTime()) ? null : dStr;
+  }
+  return null;
 }
 
 function _atdCompareFila_(x, y) {
