@@ -13,6 +13,10 @@
  *   action=...&payload=JSON.stringify(...)
  * - NÃO define headers custom (evita preflight/OPTIONS)
  * - Seu Api.gs já suporta form-urlencoded.
+ *
+ * ✅ Pilar I (UX sessão):
+ * - Ao detectar AUTH_REQUIRED/AUTH_EXPIRED/etc, grava motivo em localStorage
+ *   para o login exibir mensagem amigável.
  */
 
 (function (global) {
@@ -136,8 +140,12 @@
   }
 
   // ============================================================
-  // Auto-logout opcional
+  // Auto-logout opcional + Pilar I (motivo de sessão)
   // ============================================================
+
+  const UX_AUTH_KEYS = {
+    LAST_AUTH_REASON: "prontio.auth.lastAuthReason"
+  };
 
   function shouldAutoLogout_(errCode) {
     const c = String(errCode || "").toUpperCase();
@@ -145,12 +153,23 @@
       c === "AUTH_REQUIRED" ||
       c === "AUTH_EXPIRED" ||
       c === "AUTH_TOKEN_EXPIRED" ||
-      c === "AUTH_NO_TOKEN"
+      c === "AUTH_NO_TOKEN" ||
+      c === "PERMISSION_DENIED"
     );
   }
 
-  function tryAutoLogout_() {
+  function saveAuthReason_(code) {
     try {
+      if (!global.localStorage) return;
+      global.localStorage.setItem(UX_AUTH_KEYS.LAST_AUTH_REASON, String(code || "AUTH_REQUIRED"));
+    } catch (e) {}
+  }
+
+  function tryAutoLogout_(reasonCode) {
+    try {
+      // ✅ Pilar I: grava motivo para o login mostrar aviso
+      saveAuthReason_(reasonCode);
+
       if (PRONTIO.auth && typeof PRONTIO.auth.clearSession === "function") {
         PRONTIO.auth.clearSession();
       }
@@ -241,7 +260,7 @@
     const primary = getPrimaryError_(envelope);
 
     if (shouldAutoLogout_(primary.code)) {
-      tryAutoLogout_();
+      tryAutoLogout_(primary.code);
     }
 
     const msg = primary.code && primary.code !== "UNKNOWN"

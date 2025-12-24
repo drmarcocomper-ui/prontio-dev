@@ -1,0 +1,69 @@
+PRONTIO — Módulo LOGIN (Pendências / Pilares restantes)
+
+Status atual (concluído)
+- Pilar A: Login funcionando (Auth_Login / token / Auth_Me)
+- Pilar D: UX do login (login ou e-mail, lembrar último login, mensagens)
+- Mostrar/Ocultar senha + CapsLock (implementado; revisar em produção)
+- Pilar H: “Esqueci minha senha” + “Reset senha” (fluxo completo: request → token → reset)
+- Rate limit (backend) + cooldown (front) para forgot-password
+- Auditoria (Pilar G) com eventos de login/logout/reset
+
+Pendências do módulo LOGIN (o que ainda falta fazer)
+
+Pilar I — Hardening de sessão (front + backend)
+1) UX “Sessão expirada”
+   - api.js: ao detectar AUTH_REQUIRED/AUTH_EXPIRED, salvar motivo no localStorage
+   - page-login.js: ler motivo e exibir aviso (“Sua sessão expirou...”)
+   - Confirmar que isso não cria loop nem mensagens duplicadas
+
+2) Logout global / Invalidação robusta
+   - Já existe: invalidar sessões ao reset de senha (Auth_destroyAllSessionsForUser_)
+   - Falta: garantir comportamento no front quando token é invalidado (ex.: forçar redirect + mensagem)
+   - Opcional: ação “Auth_LogoutAll” / “Auth_LogoutMeAllDevices” (decidir)
+
+3) Timeout / Inatividade (UX)
+   - Definir padrão (ex.: 30 min)
+   - Usar Session.js (front) para detectar inatividade e efetuar logout UI
+   - Garantir que backend continua sendo fonte da verdade (Auth_Me)
+
+Pilar H — Ajustes finais de recuperação de senha (produção)
+4) Link absoluto no e-mail
+   - Definir PRONTIO_PUBLIC_BASE_URL (temporário DEV e futuro PROD)
+   - Garantir que o link seja clicável em qualquer cliente de e-mail (sempre https://...)
+   - Confirmar “Deploy New Version” após alterar base URL
+
+5) Melhorias de UX nas telas públicas
+   - forgot-password:
+     - mensagem genérica de sucesso sempre
+     - cooldown visível (contador no botão)
+   - reset-password:
+     - “Validando link...”
+     - desabilitar formulário se token inválido/expirado
+     - mensagem genérica (não vazar)
+   - Verificar que os IDs do HTML batem com os IDs do JS (sem quebra)
+
+Segurança / Produção (limpeza DEV)
+6) Remover DEV reset
+   - Remover Auth_ResetSenhaDev do Registry e do projeto em PROD
+   - Garantir que só existam:
+     - Usuarios_ResetSenhaAdmin (admin)
+     - Auth_ForgotPassword_* (público)
+     - Usuarios_AlterarMinhaSenha (logado)
+
+Checklist final do módulo login (teste ponta a ponta)
+- Login com usuário válido funciona
+- Login inválido mostra mensagem amigável
+- Caps Lock aparece só quando ativo
+- Mostrar/Ocultar senha funciona
+- Esqueci senha:
+  - gera token na PasswordRecovery
+  - registra Audit (REQUEST)
+  - envia e-mail com link absoluto
+- Reset senha:
+  - token válido permite reset
+  - token usado/expirado bloqueia
+  - invalida sessões existentes
+  - registra Audit (RESET + invalidateSessions)
+- Sessão expirada:
+  - app redireciona ao login
+  - login mostra aviso “sessão expirada”

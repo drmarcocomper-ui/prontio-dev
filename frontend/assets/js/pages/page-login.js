@@ -2,29 +2,17 @@
 // PRONTIO - pages/page-login.js
 // Página de Login (FRONT-END)
 // Pilar D: UX do Login (login ou e-mail)
+// + Pilar I: mensagem amigável em sessão expirada
 // =====================================
-//
-// Responsabilidades:
-// - Capturar usuário e senha do formulário
-// - Normalizar identificador (trim + lower) para reduzir erro humano
-// - Chamar Auth_Login via PRONTIO.auth.login (centralizado)
-// - Redirecionar (prioridade: destino salvo; fallback: HOME do sistema)
-// - Melhorias UX:
-//   - Placeholder: "Login ou e-mail" (se estiver vazio)
-//   - Autocomplete correto
-//   - Lembrar último login digitado (localStorage)
-//   - Detectar Caps Lock (só aparece quando realmente ativo)
-//   - Mostrar/Ocultar senha (botão toggleSenha)
 
 (function (global, document) {
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
 
-  // ✅ Defina aqui a "home" pós-login (módulo principal)
   const DEFAULT_HOME = "atendimento.html";
 
-  // UX: lembrar último identificador
   const UX_KEYS = {
-    LAST_IDENTIFIER: "prontio.login.lastIdentifier"
+    LAST_IDENTIFIER: "prontio.login.lastIdentifier",
+    LAST_AUTH_REASON: "prontio.auth.lastAuthReason"
   };
 
   function qs(id) {
@@ -105,7 +93,6 @@
   }
 
   function cleanLoginErrorMessage_(msg) {
-    // Opcional: remove prefixo "[CODE]" se vier do api.js
     const s = String(msg || "").trim();
     const m = s.match(/^\[[A-Z0-9_\-]+\]\s+(.*)$/);
     return m ? m[1] : s;
@@ -134,7 +121,6 @@
     }
   }
 
-  // ✅ CapsLock: não usa "focus(ev)" (pode dar falso positivo). Só decide via keydown/keyup.
   function bindCapsLockDetector_() {
     const input = qs("loginSenha");
     const hint = qs("loginCapsLockHint");
@@ -143,7 +129,6 @@
     if (hint.dataset.boundCaps === "1") return;
     hint.dataset.boundCaps = "1";
 
-    // sempre começa escondido
     hint.classList.add("is-hidden");
 
     function updateFromKeyEvent(ev) {
@@ -157,13 +142,10 @@
 
     input.addEventListener("keydown", updateFromKeyEvent);
     input.addEventListener("keyup", updateFromKeyEvent);
-
-    // Ao focar/desfocar, esconde (evita ficar preso ligado)
     input.addEventListener("focus", () => hint.classList.add("is-hidden"));
     input.addEventListener("blur", () => hint.classList.add("is-hidden"));
   }
 
-  // ✅ Mostrar/Ocultar senha: bind robusto e idempotente
   function bindTogglePassword_() {
     const input = qs("loginSenha");
     const btn = qs("toggleSenha");
@@ -186,6 +168,17 @@
       syncLabel_();
       try { input.focus(); } catch (_) {}
     });
+  }
+
+  // ✅ Pilar I: mensagem amigável quando veio de sessão expirada/inválida
+  function showAuthReasonIfAny_() {
+    const reason = String(lsGet(UX_KEYS.LAST_AUTH_REASON) || "").trim();
+    if (!reason) return;
+
+    // one-shot
+    lsSet(UX_KEYS.LAST_AUTH_REASON, "");
+
+    showMessage("Sua sessão expirou. Faça login novamente.", "warning");
   }
 
   async function handleSubmit(ev) {
@@ -215,7 +208,7 @@
       await PRONTIO.auth.login({ login: identifier, senha: senha });
       global.location.href = resolvePostLoginUrl_();
     } catch (err) {
-      try { console.warn("[PRONTIO.login] erro:", err); } catch (e) {}
+      try { console.warn("[PRONTIO.login] erro:", err); } catch (_) {}
 
       const msgRaw = err && err.message ? err.message : "Falha no login.";
       const msg = cleanLoginErrorMessage_(msgRaw);
@@ -235,6 +228,9 @@
     applyUxHints_();
     bindCapsLockDetector_();
     bindTogglePassword_();
+
+    // ✅ Pilar I
+    showAuthReasonIfAny_();
 
     try {
       if (PRONTIO.auth && typeof PRONTIO.auth.isAuthenticated === "function" && PRONTIO.auth.isAuthenticated()) {
