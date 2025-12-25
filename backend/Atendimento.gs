@@ -15,7 +15,7 @@
  * - idField: "idAtendimento"
  *
  * Actions:
- * - Atendimento.SyncHoje              ✅ NOVO
+ * - Atendimento.SyncHoje
  * - Atendimento.ListarFilaHoje
  * - Atendimento.MarcarChegada
  * - Atendimento.ChamarProximo
@@ -30,6 +30,11 @@ var ATENDIMENTO_ID_FIELD = "idAtendimento";
 // Entidade da agenda (mesma usada no Migrations/Repository)
 var AGENDA_SHEET_NAME = "Agenda";
 
+// Entidade de pacientes (para enriquecer nome do paciente)
+// Se no seu Schema/Repo a entidade tiver outro nome, ajuste aqui.
+var PACIENTES_ENTITY = "Pacientes";
+var PACIENTES_ID_FIELD = "idPaciente";
+
 var ATENDIMENTO_STATUS = {
   AGUARDANDO: "AGUARDANDO",
   CHEGOU: "CHEGOU",
@@ -41,21 +46,8 @@ var ATENDIMENTO_STATUS = {
 
 /**
  * ============================================================
- * ✅ NOVO: Atendimento.SyncHoje
+ * Atendimento.SyncHoje
  * ============================================================
- * Cria registros na aba Atendimento a partir dos agendamentos do dia (aba Agenda),
- * sem duplicar (idempotente por idAgenda + dataRef).
- *
- * payload:
- * {
- *   dataRef?: "YYYY-MM-DD" // default hoje
- *   incluirBloqueios?: boolean (default false)
- *   incluirCancelados?: boolean (default false)
- *   resetOrdem?: boolean (default false) // se true, recalcula ordem baseado no horário
- * }
- *
- * Retorno:
- * { dataRef, created, updated, skipped, totalAgendaDia }
  */
 function Atendimento_Action_SyncHoje_(ctx, payload) {
   payload = payload || {};
@@ -65,11 +57,9 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
   var incluirCancelados = payload.incluirCancelados === true;
   var resetOrdem = payload.resetOrdem === true;
 
-  // intervalo [00:00, 23:59:59] do dia local (Date em timezone do script)
   var dayStart = _atdBuildDayStart_(dataRef);
   var dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000 - 1);
 
-  // Carrega agenda do dia (Repo_list_)
   var agendaAll = Repo_list_(AGENDA_SHEET_NAME) || [];
   var agendaDia = [];
 
@@ -87,10 +77,8 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
     var ini = _atdParseDate_(e.inicio);
     var fim = _atdParseDate_(e.fim);
 
-    // se datas inválidas, ignora
     if (!ini || !fim) continue;
 
-    // evento do dia: overlap com o dia
     var overlaps = (ini.getTime() <= dayEnd.getTime()) && (fim.getTime() >= dayStart.getTime());
     if (!overlaps) continue;
 
@@ -104,12 +92,10 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
     });
   }
 
-  // Ordena agendaDia por horário de início (para definir ordem)
   agendaDia.sort(function (a, b) {
     return a.inicio.getTime() - b.inicio.getTime();
   });
 
-  // Indexa atendimentos existentes do dia por idAgenda
   var existingAll = Repo_list_(ATENDIMENTO_ENTITY) || [];
   var existingByAgenda = {};
   for (var j = 0; j < existingAll.length; j++) {
@@ -131,7 +117,6 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
 
     var exists = existingByAgenda[ag.idAgenda];
 
-    // Se não existe, cria
     if (!exists) {
       var dto = _atdBuildNew_(
         {
@@ -154,7 +139,6 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
         }
       );
 
-      // Ajuste final: timestamps coerentes
       dto.criadoEm = nowIso;
       dto.atualizadoEm = nowIso;
 
@@ -163,7 +147,6 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
       continue;
     }
 
-    // Existe: atualiza idPaciente se veio vazio; e ordem se resetOrdem
     var patch = {};
     var needUpdate = false;
 
@@ -173,7 +156,6 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
     }
 
     if (resetOrdem) {
-      // só atualiza ordem se não estiver em atendimento/concluído/cancelado
       var st = _atdNormalizeStatus_(exists.status);
       if (st !== ATENDIMENTO_STATUS.EM_ATENDIMENTO && st !== ATENDIMENTO_STATUS.CONCLUIDO && st !== ATENDIMENTO_STATUS.CANCELADO) {
         patch.ordem = ordemCalc;
@@ -200,7 +182,13 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
 }
 
 /**
+ * ============================================================
  * Atendimento.ListarFilaHoje
+ * ============================================================
+ * ✅ Agora enriquece cada item com:
+ * - hora (HH:MM) e tipo (da Agenda)
+ * - nomePaciente (do Pacientes, se disponível)
+ *
  * payload: { dataRef?: "YYYY-MM-DD", incluirConcluidos?: boolean, incluirCancelados?: boolean }
  */
 function Atendimento_Action_ListarFilaHoje_(ctx, payload) {
@@ -213,6 +201,10 @@ function Atendimento_Action_ListarFilaHoje_(ctx, payload) {
   var all = Repo_list_(ATENDIMENTO_ENTITY) || [];
   var out = [];
 
+  // Cache simples por execução (evita N chamadas iguais no Repo)
+  var agendaCache = {};
+  var pacienteCache = {};
+
   for (var i = 0; i < all.length; i++) {
     var a = _atdNormalizeRowToDto_(all[i]);
     if (!a.ativo) continue;
@@ -223,6 +215,40 @@ function Atendimento_Action_ListarFilaHoje_(ctx, payload) {
 
     if (!incluirCancelados && st === ATENDIMENTO_STATUS.CANCELADO) continue;
     if (!incluirConcluidos && st === ATENDIMENTO_STATUS.CONCLUIDO) continue;
+
+    // Enriquecimento via Agenda
+    if (a.idAgenda) {
+      var ag = agendaCache[a.idAgenda];
+      if (ag === undefined) {
+        ag = Repo_getById_(AGENDA_SHEET_NAME, "idAgenda", a.idAgenda);
+        agendaCache[a.idAgenda] = ag || null;
+      }
+
+      if (ag) {
+        var ini = _atdParseDate_(ag.inicio);
+        if (ini) a.hora = _atdFormatHHMM_(ini);
+        a.tipo = ag.tipo || a.tipo || "";
+        // Se dataRef vier vazia/inconsistente, preserva a do atendimento (não reescreve).
+      }
+    }
+
+    // Enriquecimento via Pacientes (se existir entidade no Repo)
+    if (a.idPaciente) {
+      var p = pacienteCache[a.idPaciente];
+      if (p === undefined) {
+        // pode não existir no seu Repo; se não existir, fica null e seguimos
+        try {
+          p = Repo_getById_(PACIENTES_ENTITY, PACIENTES_ID_FIELD, a.idPaciente);
+        } catch (_) {
+          p = null;
+        }
+        pacienteCache[a.idPaciente] = p || null;
+      }
+
+      if (p) {
+        a.nomePaciente = p.nome || p.Nome || p.nomePaciente || a.nomePaciente || "";
+      }
+    }
 
     out.push(a);
   }
@@ -306,7 +332,6 @@ function Atendimento_Action_ChamarProximo_(ctx, payload) {
     return { item: null, dataRef: dataRef, message: "Fila vazia." };
   }
 
-  // Prefer CHEGOU antes de AGUARDANDO
   candidates.sort(function (x, y) {
     var px = (x.status === ATENDIMENTO_STATUS.CHEGOU) ? 0 : 1;
     var py = (y.status === ATENDIMENTO_STATUS.CHEGOU) ? 0 : 1;
@@ -462,6 +487,11 @@ function _atdBuildNew_(payload, overrides) {
     sala: (overrides.sala !== undefined) ? String(overrides.sala || "") : (payload.sala ? String(payload.sala) : ""),
     observacoes: (overrides.observacoes !== undefined) ? String(overrides.observacoes || "") : (payload.observacoes ? String(payload.observacoes) : ""),
 
+    // Campos enriquecidos (opcionais; podem ser gravados ou só retornados)
+    hora: "",
+    tipo: "",
+    nomePaciente: "",
+
     criadoEm: nowIso,
     atualizadoEm: nowIso,
     ativo: true
@@ -489,6 +519,11 @@ function _atdNormalizeRowToDto_(rowObj) {
 
     sala: rowObj.sala || "",
     observacoes: rowObj.observacoes || "",
+
+    // Enriquecidos (podem existir ou não)
+    hora: rowObj.hora || "",
+    tipo: rowObj.tipo || "",
+    nomePaciente: rowObj.nomePaciente || "",
 
     criadoEm: rowObj.criadoEm || "",
     atualizadoEm: rowObj.atualizadoEm || "",
@@ -595,6 +630,16 @@ function _atdNormalizeNumberOrBlank_(v) {
   if (v === undefined || v === null || v === "") return "";
   var n = Number(v);
   return isNaN(n) ? "" : n;
+}
+
+function _atdFormatHHMM_(d) {
+  try {
+    var hh = ("0" + d.getHours()).slice(-2);
+    var mm = ("0" + d.getMinutes()).slice(-2);
+    return hh + ":" + mm;
+  } catch (_) {
+    return "";
+  }
 }
 
 function _atdThrow_(code, message, details) {

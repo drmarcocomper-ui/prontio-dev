@@ -324,8 +324,18 @@ function _Registry_build_() {
   };
 
   // =========================
-  // ATENDIMENTO (novo)
+  // ATENDIMENTO (fila)
   // =========================
+  map["Atendimento.SyncHoje"] = {
+    action: "Atendimento.SyncHoje",
+    handler: Atendimento_Action_SyncHoje_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "ATENDIMENTO"
+  };
+
   map["Atendimento.ListarFilaHoje"] = {
     action: "Atendimento.ListarFilaHoje",
     handler: Atendimento_Action_ListarFilaHoje_,
@@ -410,12 +420,3 @@ function Registry_ListActions(ctx, payload) {
     hasUsuariosResetSenhaAdmin: keys.indexOf("Usuarios_ResetSenhaAdmin") >= 0
   };
 }
-  map["Atendimento.SyncHoje"] = {
-    action: "Atendimento.SyncHoje",
-    handler: Atendimento_Action_SyncHoje_,
-    requiresAuth: true,
-    roles: [],
-    validations: [],
-    requiresLock: true,
-    lockKey: "ATENDIMENTO"
-  };
