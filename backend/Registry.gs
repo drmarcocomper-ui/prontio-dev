@@ -289,7 +289,7 @@ function _Registry_build_() {
   };
 
   // =========================================================
-  // ATENDIMENTO
+  // ATENDIMENTO (inclui fila do dia + faixa)
   // =========================================================
   map["Atendimento.SyncHoje"] = {
     action: "Atendimento.SyncHoje",
@@ -304,6 +304,27 @@ function _Registry_build_() {
   map["Atendimento.ListarFilaHoje"] = {
     action: "Atendimento.ListarFilaHoje",
     handler: Atendimento_Action_ListarFilaHoje_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  // ✅ NOVO (a partir de hoje)
+  map["Atendimento.SyncAPartirDeHoje"] = {
+    action: "Atendimento.SyncAPartirDeHoje",
+    handler: Atendimento_Action_SyncAPartirDeHoje_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "ATENDIMENTO"
+  };
+
+  map["Atendimento.ListarFilaAPartirDeHoje"] = {
+    action: "Atendimento.ListarFilaAPartirDeHoje",
+    handler: Atendimento_Action_ListarFilaAPartirDeHoje_,
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -488,11 +509,7 @@ function _Registry_build_() {
   };
 
   // =========================================================
-  // PACIENTES - Typeahead da Agenda
-  // IMPORTANTE:
-  // - Agora deve apontar para a função Repo-based que você
-  //   adicionou no final do Pacientes.gs:
-  //   Pacientes_BuscarSimples_Repo_(payload)
+  // PACIENTES - typeahead da Agenda (Repo-based)
   // =========================================================
   map["Pacientes_BuscarSimples"] = {
     action: "Pacientes_BuscarSimples",
