@@ -5,6 +5,19 @@
  * Responsabilidade:
  * - Registrar actions disponíveis na API.
  * - Definir metadados: requiresAuth, roles, validations, locks.
+ *
+ * Contrato:
+ * - Api.gs chama: Registry_getAction_(action)
+ * - Retorna:
+ *   {
+ *     action: string,
+ *     handler: function(ctx, payload) -> any,
+ *     requiresAuth: boolean,
+ *     roles: string[],
+ *     validations: array,
+ *     requiresLock: boolean,
+ *     lockKey: string|null
+ *   }
  */
 
 var REGISTRY_ACTIONS = null;
@@ -78,10 +91,7 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  if (
-    String(PRONTIO_ENV).toUpperCase() === "DEV" &&
-    typeof Auth_ResetSenhaDev === "function"
-  ) {
+  if (String(PRONTIO_ENV).toUpperCase() === "DEV" && typeof Auth_ResetSenhaDev === "function") {
     map["Auth_ResetSenhaDev"] = {
       action: "Auth_ResetSenhaDev",
       handler: Auth_ResetSenhaDev,
@@ -352,6 +362,49 @@ function _Registry_build_() {
   };
 
   // =========================================================
+  // ✅ AGENDA - NOVA (API-first, estável)
+  // =========================================================
+  map["Agenda.ListarPorPeriodo"] = {
+    action: "Agenda.ListarPorPeriodo",
+    handler: Agenda_Action_ListarPorPeriodo_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Agenda.Criar"] = {
+    action: "Agenda.Criar",
+    handler: Agenda_Action_Criar_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda.Atualizar"] = {
+    action: "Agenda.Atualizar",
+    handler: Agenda_Action_Atualizar_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda.Cancelar"] = {
+    action: "Agenda.Cancelar",
+    handler: Agenda_Action_Cancelar_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  // =========================================================
   // ✅ AGENDA - LEGACY (para o front atual page-agenda.js)
   // =========================================================
   map["Agenda_ListarDia"] = {
@@ -437,6 +490,11 @@ function _Registry_build_() {
   return map;
 }
 
+/**
+ * ============================================================
+ * Handler de diagnóstico: retorna as actions registradas.
+ * ============================================================
+ */
 function Registry_ListActions(ctx, payload) {
   if (!REGISTRY_ACTIONS) REGISTRY_ACTIONS = _Registry_build_();
 
