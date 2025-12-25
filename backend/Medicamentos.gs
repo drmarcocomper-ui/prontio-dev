@@ -2,13 +2,23 @@
  * PRONTIO - Medicamentos.gs (Apps Script)
  *
  * PADRÃO PRONTIO:
- * - ESTE módulo retorna SOMENTE "data" (objeto puro).
- * - Em erro, lança (throw) { code, message, details }.
+ * - Este módulo retorna SOMENTE "data" (objeto puro).
+ * - Em erro, lança Error com err.code/err.details.
  * - Quem envelopa { success, data, errors } é o Api.gs.
  *
  * Alias:
  * - Aceita Remedios.* e Medicamentos.* (mesmo módulo).
+ *
+ * Ajuste retrocompatível:
+ * - Substitui "throw { ... }" por Error com err.code/err.details.
  */
+
+function _medThrow_(code, message, details) {
+  var err = new Error(String(message || "Erro."));
+  err.code = String(code || "INTERNAL_ERROR");
+  err.details = (details === undefined ? null : details);
+  throw err;
+}
 
 function handleMedicamentosAction(action, payload) {
   payload = payload || {};
@@ -33,11 +43,11 @@ function handleMedicamentosAction(action, payload) {
       return (payload.somenteAtivos !== false) ? Medicamentos_ListarAtivos_(payload) : Medicamentos_ListarTodos_(payload);
 
     default:
-      throw {
-        code: "MEDICAMENTOS_UNKNOWN_ACTION",
-        message: "Ação não reconhecida em Medicamentos.gs: " + act,
-        details: { action: act }
-      };
+      _medThrow_(
+        "MEDICAMENTOS_UNKNOWN_ACTION",
+        "Ação não reconhecida em Medicamentos.gs: " + act,
+        { action: act }
+      );
   }
 }
 
@@ -45,7 +55,7 @@ function Medicamentos_ListarAtivos_(payload) {
   try {
     payload = payload || {};
 
-    var sh = _medGetOrCreateMedicamentosSheet_(); // aqui é onde normalmente quebra se DB/aba errado
+    var sh = _medGetOrCreateMedicamentosSheet_();
     var rows = _medReadAll_(sh);
 
     var q = String(payload.q || payload.termo || "").trim().toLowerCase();
@@ -68,13 +78,13 @@ function Medicamentos_ListarAtivos_(payload) {
       var fa = _medToBool_(a.Favorito, false) ? 1 : 0;
       var fb = _medToBool_(b.Favorito, false) ? 1 : 0;
       if (fa !== fb) return fb - fa;
-      return String(a.Nome_Medicacao || "").toLowerCase().localeCompare(String(b.Nome_Medicacao || "").toLowerCase());
+      return String(a.Nome_Medicacao || "").toLowerCase()
+        .localeCompare(String(b.Nome_Medicacao || "").toLowerCase());
     });
 
     var total = ativos.length;
     var sliced = ativos.slice(0, limit);
 
-    // retorno legado (front entende)
     var medicamentos = sliced.map(function (r) {
       var nome = String(r.Nome_Medicacao || "").trim();
       return {
@@ -91,7 +101,6 @@ function Medicamentos_ListarAtivos_(payload) {
       };
     });
 
-    // retorno canônico (se quiser usar no front depois)
     var remedios = medicamentos.map(function (m) {
       return {
         ID_Remedio: m.ID_Medicamento,
@@ -115,15 +124,14 @@ function Medicamentos_ListarAtivos_(payload) {
       retornados: medicamentos.length
     };
   } catch (err) {
-    // ✅ devolve o erro real no details (para você enxergar no console)
-    throw {
-      code: "MEDICAMENTOS_LISTAR_ATIVOS_ERROR",
-      message: "Falha ao listar medicamentos ativos.",
-      details: {
+    _medThrow_(
+      "MEDICAMENTOS_LISTAR_ATIVOS_ERROR",
+      "Falha ao listar medicamentos ativos.",
+      {
         err: String(err && err.message ? err.message : err),
         stack: (err && err.stack) ? String(err.stack) : null
       }
-    };
+    );
   }
 }
 
@@ -134,11 +142,11 @@ function Medicamentos_ListarTodos_(payload) {
     var rows = _medReadAll_(sh);
     return { medicamentos: rows, total: rows.length, retornados: rows.length };
   } catch (err) {
-    throw {
-      code: "MEDICAMENTOS_LISTAR_TODOS_ERROR",
-      message: "Falha ao listar todos os medicamentos.",
-      details: String(err && err.message ? err.message : err)
-    };
+    _medThrow_(
+      "MEDICAMENTOS_LISTAR_TODOS_ERROR",
+      "Falha ao listar todos os medicamentos.",
+      String(err && err.message ? err.message : err)
+    );
   }
 }
 

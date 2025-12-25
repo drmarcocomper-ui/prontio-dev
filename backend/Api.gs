@@ -3,12 +3,15 @@
  * PRONTIO - Api.gs
  * ============================================================
  * Mantém doPost como API principal.
- * ✅ NOVO: doGet passa a aceitar ?action=...&payload=...&callback=...
+ * ✅ doGet aceita ?action=...&payload=...&callback=...
  * - Se action estiver presente, executa a action (via Registry) e responde:
  *   - JSONP (callback(...)) se callback existir
  *   - JSON normal caso contrário
  *
- * Isso resolve CORS no GitHub Pages sem preflight.
+ * Melhorias (retrocompatíveis):
+ * - Headers no-cache (reduz risco de cachear JSONP/GET)
+ * - meta inclui duration_ms
+ * - higiene extra do JSONP (sem alterar contrato)
  */
 
 var PRONTIO_API_VERSION = typeof PRONTIO_API_VERSION !== "undefined" ? PRONTIO_API_VERSION : "1.0.0-DEV";
@@ -53,7 +56,7 @@ function doGet(e) {
       if (!action) {
         return _respondMaybeJsonp_(e, _err_(requestId, [
           { code: "VALIDATION_ERROR", message: 'Campo "action" é obrigatório.', details: { field: "action" } }
-        ], { action: "GET(action)" }));
+        ], { action: "GET(action)", startedAt: startedAt }));
       }
 
       var ctx = {
@@ -70,7 +73,7 @@ function doGet(e) {
       if (!entry) {
         return _respondMaybeJsonp_(e, _err_(requestId, [
           { code: "NOT_FOUND", message: "Action não registrada.", details: { action: action } }
-        ], { action: action }));
+        ], { action: action, startedAt: startedAt }));
       }
 
       // Resolve user (token vem no payload)
@@ -84,11 +87,11 @@ function doGet(e) {
       if (entry.requiresAuth) {
         if (typeof Auth_requireAuth_ === "function" && typeof Errors !== "undefined" && Errors) {
           var authRes = Auth_requireAuth_(ctx, payload);
-          if (!authRes.success) return _respondMaybeJsonp_(e, authRes);
+          if (!authRes.success) return _respondMaybeJsonp_(e, _withMetaDuration_(authRes, startedAt));
         } else {
           return _respondMaybeJsonp_(e, _err_(requestId, [
             { code: "INTERNAL_ERROR", message: "Auth requerido, mas Auth.gs/Errors.gs não disponível.", details: { action: action } }
-          ], { action: action }));
+          ], { action: action, startedAt: startedAt }));
         }
       }
 
@@ -96,18 +99,18 @@ function doGet(e) {
       if (entry.roles && entry.roles.length) {
         if (typeof Auth_requireRoles_ === "function" && typeof Errors !== "undefined" && Errors) {
           var roleRes = Auth_requireRoles_(ctx, entry.roles);
-          if (!roleRes.success) return _respondMaybeJsonp_(e, roleRes);
+          if (!roleRes.success) return _respondMaybeJsonp_(e, _withMetaDuration_(roleRes, startedAt));
         } else {
           return _respondMaybeJsonp_(e, _err_(requestId, [
             { code: "INTERNAL_ERROR", message: "Roles requeridas, mas Auth.gs/Errors.gs não disponível.", details: { action: action, roles: entry.roles } }
-          ], { action: action }));
+          ], { action: action, startedAt: startedAt }));
         }
       }
 
       // Validations
       if (entry.validations && entry.validations.length && typeof Validators_run_ === "function") {
         var vRes = Validators_run_(ctx, entry.validations, payload);
-        if (!vRes.success) return _respondMaybeJsonp_(e, vRes);
+        if (!vRes.success) return _respondMaybeJsonp_(e, _withMetaDuration_(vRes, startedAt));
       }
 
       // Locks
@@ -120,7 +123,7 @@ function doGet(e) {
         data = entry.handler(ctx, payload);
       }
 
-      return _respondMaybeJsonp_(e, _ok_(requestId, data, { action: action }));
+      return _respondMaybeJsonp_(e, _ok_(requestId, data, { action: action, startedAt: startedAt }));
     }
   } catch (err) {
     var rid = _makeRequestId_();
@@ -150,7 +153,7 @@ function doPost(e) {
     if (!action) {
       return _withCors_(_jsonOutput_(_err_(requestId, [
         { code: "VALIDATION_ERROR", message: 'Campo "action" é obrigatório.', details: { field: "action" } }
-      ])));
+      ], { startedAt: startedAt })));
     }
 
     var ctx = {
@@ -168,13 +171,13 @@ function doPost(e) {
     if (!entry) {
       if (typeof routeAction_ === "function") {
         var legacyData = routeAction_(action, payload);
-        var okLegacy = _ok_(requestId, legacyData, { action: action, legacy: true });
+        var okLegacy = _ok_(requestId, legacyData, { action: action, legacy: true, startedAt: startedAt });
         return _withCors_(_jsonOutput_(okLegacy));
       }
 
       return _withCors_(_jsonOutput_(_err_(requestId, [
         { code: "NOT_FOUND", message: "Action não registrada.", details: { action: action } }
-      ], { action: action })));
+      ], { action: action, startedAt: startedAt })));
     }
 
     if (typeof Auth_getUserContext_ === "function") {
@@ -186,28 +189,28 @@ function doPost(e) {
     if (entry.requiresAuth) {
       if (typeof Auth_requireAuth_ === "function" && typeof Errors !== "undefined" && Errors) {
         var authRes = Auth_requireAuth_(ctx, payload);
-        if (!authRes.success) return _withCors_(_jsonOutput_(authRes));
+        if (!authRes.success) return _withCors_(_jsonOutput_(_withMetaDuration_(authRes, startedAt)));
       } else {
         return _withCors_(_jsonOutput_(_err_(requestId, [
           { code: "INTERNAL_ERROR", message: "Auth requerido, mas Auth.gs/Errors.gs não disponível.", details: { action: action } }
-        ], { action: action })));
+        ], { action: action, startedAt: startedAt })));
       }
     }
 
     if (entry.roles && entry.roles.length) {
       if (typeof Auth_requireRoles_ === "function" && typeof Errors !== "undefined" && Errors) {
         var roleRes = Auth_requireRoles_(ctx, entry.roles);
-        if (!roleRes.success) return _withCors_(_jsonOutput_(roleRes));
+        if (!roleRes.success) return _withCors_(_jsonOutput_(_withMetaDuration_(roleRes, startedAt)));
       } else {
         return _withCors_(_jsonOutput_(_err_(requestId, [
           { code: "INTERNAL_ERROR", message: "Roles requeridas, mas Auth.gs/Errors.gs não disponível.", details: { action: action, roles: entry.roles } }
-        ], { action: action })));
+        ], { action: action, startedAt: startedAt })));
       }
     }
 
     if (entry.validations && entry.validations.length && typeof Validators_run_ === "function") {
       var vRes2 = Validators_run_(ctx, entry.validations, payload);
-      if (!vRes2.success) return _withCors_(_jsonOutput_(vRes2));
+      if (!vRes2.success) return _withCors_(_jsonOutput_(_withMetaDuration_(vRes2, startedAt)));
     }
 
     var data;
@@ -219,7 +222,7 @@ function doPost(e) {
       data = entry.handler(ctx, payload);
     }
 
-    var ok = _ok_(requestId, data, { action: action });
+    var ok = _ok_(requestId, data, { action: action, startedAt: startedAt });
     return _withCors_(_jsonOutput_(ok));
 
   } catch (err) {
@@ -241,16 +244,19 @@ function _respondMaybeJsonp_(e, obj) {
 }
 
 function _jsonpOutput_(callbackName, obj) {
+  // Permite callbacks com "." e "$" (padrão JSONP), remove o resto.
   var cb = String(callbackName || "").replace(/[^\w.$]/g, "");
   if (!cb) cb = "__cb";
   var js = cb + "(" + JSON.stringify(obj) + ");";
-  return ContentService
-    .createTextOutput(js)
-    .setMimeType(ContentService.MimeType.JAVASCRIPT);
+  return _withCors_(
+    ContentService
+      .createTextOutput(js)
+      .setMimeType(ContentService.MimeType.JAVASCRIPT)
+  );
 }
 
 // ======================
-// Parsing + Response helpers (mantidos)
+// Parsing + Response helpers (mantidos + pequenos reforços)
 // ======================
 
 function _makeRequestId_() {
@@ -347,13 +353,31 @@ function _withCors_(textOutput) {
     textOutput.setHeader("Access-Control-Allow-Origin", CORS_ALLOW_ORIGIN);
     textOutput.setHeader("Access-Control-Allow-Methods", CORS_ALLOW_METHODS);
     textOutput.setHeader("Access-Control-Allow-Headers", CORS_ALLOW_HEADERS);
+
+    // Anti-cache (importante para JSONP/GET em alguns cenários)
+    textOutput.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+    textOutput.setHeader("Pragma", "no-cache");
+    textOutput.setHeader("Expires", "0");
   } catch (e) {}
   return textOutput;
 }
 
+function _withMetaDuration_(envelope, startedAt) {
+  try {
+    if (!envelope || typeof envelope !== "object") return envelope;
+    if (!envelope.meta) envelope.meta = {};
+    if (startedAt && startedAt.getTime) {
+      envelope.meta.duration_ms = new Date().getTime() - startedAt.getTime();
+    }
+  } catch (_) {}
+  return envelope;
+}
+
 function _ok_(requestId, data, meta) {
   meta = meta || {};
-  return {
+  var startedAt = meta.startedAt || null;
+
+  var out = {
     success: true,
     data: (data === undefined ? null : data),
     errors: [],
@@ -366,11 +390,19 @@ function _ok_(requestId, data, meta) {
       legacy: meta.legacy === true
     }
   };
+
+  if (startedAt && startedAt.getTime) {
+    out.meta.duration_ms = new Date().getTime() - startedAt.getTime();
+  }
+
+  return out;
 }
 
 function _err_(requestId, errors, meta) {
   meta = meta || {};
-  return {
+  var startedAt = meta.startedAt || null;
+
+  var out = {
     success: false,
     data: null,
     errors: errors || [],
@@ -382,6 +414,12 @@ function _err_(requestId, errors, meta) {
       env: PRONTIO_ENV
     }
   };
+
+  if (startedAt && startedAt.getTime) {
+    out.meta.duration_ms = new Date().getTime() - startedAt.getTime();
+  }
+
+  return out;
 }
 
 function _exceptionToErrorResponse_(requestId, err) {

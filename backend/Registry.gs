@@ -2,22 +2,20 @@
  * ============================================================
  * PRONTIO - Registry.gs
  * ============================================================
- * Responsabilidade:
- * - Registrar actions disponíveis na API.
- * - Definir metadados: requiresAuth, roles, validations, locks.
+ * Registry central de actions para Api.gs (doPost e doGet/JSONP).
  *
- * Contrato:
- * - Api.gs chama: Registry_getAction_(action)
- * - Retorna:
- *   {
- *     action: string,
- *     handler: function(ctx, payload) -> any,
- *     requiresAuth: boolean,
- *     roles: string[],
- *     validations: array,
- *     requiresLock: boolean,
- *     lockKey: string|null
- *   }
+ * Inclui:
+ * - Auth / Recovery / Usuarios / Clinica / Profissionais / Meta
+ * - Atendimento
+ * - Agenda (novo + aliases + legados)
+ * - AgendaConfig (oficial)
+ * - Agenda_ValidarConflito (oficial)
+ * - Pacientes (oficial + aliases)
+ * - Receita (oficial + aliases)
+ * - Medicamentos (oficial + aliases)
+ * - Prontuário (fachada)
+ * - Chat (chat.*) ✅
+ * - Compat do Chat (usuarios.listAll / agenda.*Patient) ✅
  */
 
 var REGISTRY_ACTIONS = null;
@@ -42,25 +40,42 @@ function _Registry_missingHandler_(fnName) {
   };
 }
 
+/**
+ * Fallback LEGADO via routeAction_ (para actions antigas não migradas).
+ * Útil porque doGet(JSONP) não tem fallback.
+ */
+function _Registry_legacyHandler_(legacyActionName) {
+  var actionName = String(legacyActionName || "").trim();
+  return function (ctx, payload) {
+    if (typeof routeAction_ === "function") {
+      return routeAction_(actionName, payload || {});
+    }
+    var err = new Error("Action legada não disponível (routeAction_ ausente).");
+    err.code = "NOT_FOUND";
+    err.details = { action: actionName };
+    throw err;
+  };
+}
+
 function _Registry_build_() {
   var map = {};
 
-  // =========================================================
+  // =========================
   // DIAGNÓSTICO (DEV)
-  // =========================================================
+  // =========================
   map["Registry_ListActions"] = {
     action: "Registry_ListActions",
     handler: Registry_ListActions,
-    requiresAuth: false,
+    requiresAuth: false, // DEV: false. (Em PROD, sugiro true + roles:["admin"])
     roles: [],
     validations: [],
     requiresLock: false,
     lockKey: null
   };
 
-  // =========================================================
+  // =========================
   // AUTH
-  // =========================================================
+  // =========================
   map["Auth_Login"] = {
     action: "Auth_Login",
     handler: Auth_Login,
@@ -91,7 +106,10 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  if (String(PRONTIO_ENV).toUpperCase() === "DEV" && typeof Auth_ResetSenhaDev === "function") {
+  if (
+    String(PRONTIO_ENV).toUpperCase() === "DEV" &&
+    typeof Auth_ResetSenhaDev === "function"
+  ) {
     map["Auth_ResetSenhaDev"] = {
       action: "Auth_ResetSenhaDev",
       handler: Auth_ResetSenhaDev,
@@ -103,9 +121,9 @@ function _Registry_build_() {
     };
   }
 
-  // =========================================================
-  // AUTH RECOVERY
-  // =========================================================
+  // =========================
+  // AUTH RECOVERY (públicas)
+  // =========================
   map["Auth_ForgotPassword_Request"] = {
     action: "Auth_ForgotPassword_Request",
     handler: Auth_ForgotPassword_Request,
@@ -136,9 +154,9 @@ function _Registry_build_() {
     lockKey: "Auth_ForgotPassword_Reset"
   };
 
-  // =========================================================
-  // USUÁRIOS (admin)
-  // =========================================================
+  // =========================
+  // USUÁRIOS (admin / self-service)
+  // =========================
   map["Usuarios_Listar"] = {
     action: "Usuarios_Listar",
     handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_Listar", payload); },
@@ -199,9 +217,9 @@ function _Registry_build_() {
     lockKey: "Usuarios_AlterarMinhaSenha"
   };
 
-  // =========================================================
+  // =========================
   // CLÍNICA
-  // =========================================================
+  // =========================
   map["Clinica_Get"] = {
     action: "Clinica_Get",
     handler: Clinica_Get,
@@ -222,9 +240,9 @@ function _Registry_build_() {
     lockKey: "Clinica_Update"
   };
 
-  // =========================================================
+  // =========================
   // PROFISSIONAIS
-  // =========================================================
+  // =========================
   map["Profissionais_List"] = {
     action: "Profissionais_List",
     handler: Profissionais_List,
@@ -265,9 +283,9 @@ function _Registry_build_() {
     lockKey: "Profissionais_SetActive"
   };
 
-  // =========================================================
+  // =========================
   // META / MIGRATIONS (admin)
-  // =========================================================
+  // =========================
   map["Meta_BootstrapDb"] = {
     action: "Meta_BootstrapDb",
     handler: Meta_BootstrapDb,
@@ -288,43 +306,12 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // =========================================================
-  // ATENDIMENTO (inclui fila do dia + faixa)
-  // =========================================================
-  map["Atendimento.SyncHoje"] = {
-    action: "Atendimento.SyncHoje",
-    handler: Atendimento_Action_SyncHoje_,
-    requiresAuth: true,
-    roles: [],
-    validations: [],
-    requiresLock: true,
-    lockKey: "ATENDIMENTO"
-  };
-
+  // =========================
+  // ATENDIMENTO
+  // =========================
   map["Atendimento.ListarFilaHoje"] = {
     action: "Atendimento.ListarFilaHoje",
     handler: Atendimento_Action_ListarFilaHoje_,
-    requiresAuth: true,
-    roles: [],
-    validations: [],
-    requiresLock: false,
-    lockKey: null
-  };
-
-  // ✅ NOVO (a partir de hoje)
-  map["Atendimento.SyncAPartirDeHoje"] = {
-    action: "Atendimento.SyncAPartirDeHoje",
-    handler: Atendimento_Action_SyncAPartirDeHoje_,
-    requiresAuth: true,
-    roles: [],
-    validations: [],
-    requiresLock: true,
-    lockKey: "ATENDIMENTO"
-  };
-
-  map["Atendimento.ListarFilaAPartirDeHoje"] = {
-    action: "Atendimento.ListarFilaAPartirDeHoje",
-    handler: Atendimento_Action_ListarFilaAPartirDeHoje_,
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -382,12 +369,24 @@ function _Registry_build_() {
     lockKey: "ATENDIMENTO"
   };
 
-  // =========================================================
-  // AGENDA - NOVA (API-first)
-  // =========================================================
+  map["Atendimento.SyncHoje"] = {
+    action: "Atendimento.SyncHoje",
+    handler: Atendimento_Action_SyncHoje_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "ATENDIMENTO"
+  };
+
+  // =========================
+  // AGENDA (novo + aliases + legados)
+  // =========================
   map["Agenda.ListarPorPeriodo"] = {
     action: "Agenda.ListarPorPeriodo",
-    handler: Agenda_Action_ListarPorPeriodo_,
+    handler: (typeof Agenda_Action_ListarPorPeriodo_ === "function")
+      ? Agenda_Action_ListarPorPeriodo_
+      : _Registry_missingHandler_("Agenda_Action_ListarPorPeriodo_"),
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -397,7 +396,9 @@ function _Registry_build_() {
 
   map["Agenda.Criar"] = {
     action: "Agenda.Criar",
-    handler: Agenda_Action_Criar_,
+    handler: (typeof Agenda_Action_Criar_ === "function")
+      ? Agenda_Action_Criar_
+      : _Registry_missingHandler_("Agenda_Action_Criar_"),
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -407,7 +408,9 @@ function _Registry_build_() {
 
   map["Agenda.Atualizar"] = {
     action: "Agenda.Atualizar",
-    handler: Agenda_Action_Atualizar_,
+    handler: (typeof Agenda_Action_Atualizar_ === "function")
+      ? Agenda_Action_Atualizar_
+      : _Registry_missingHandler_("Agenda_Action_Atualizar_"),
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -417,7 +420,9 @@ function _Registry_build_() {
 
   map["Agenda.Cancelar"] = {
     action: "Agenda.Cancelar",
-    handler: Agenda_Action_Cancelar_,
+    handler: (typeof Agenda_Action_Cancelar_ === "function")
+      ? Agenda_Action_Cancelar_
+      : _Registry_missingHandler_("Agenda_Action_Cancelar_"),
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -425,32 +430,9 @@ function _Registry_build_() {
     lockKey: "AGENDA"
   };
 
-  // =========================================================
-  // AGENDA - LEGACY (page-agenda.js)
-  // =========================================================
-  map["Agenda_ListarDia"] = {
-    action: "Agenda_ListarDia",
-    handler: Agenda_Legacy_ListarDia_,
-    requiresAuth: true,
-    roles: [],
-    validations: [],
-    requiresLock: false,
-    lockKey: null
-  };
-
-  map["Agenda_ListarSemana"] = {
-    action: "Agenda_ListarSemana",
-    handler: Agenda_Legacy_ListarSemana_,
-    requiresAuth: true,
-    roles: [],
-    validations: [],
-    requiresLock: false,
-    lockKey: null
-  };
-
   map["Agenda_Criar"] = {
     action: "Agenda_Criar",
-    handler: Agenda_Legacy_Criar_,
+    handler: map["Agenda.Criar"].handler,
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -460,7 +442,7 @@ function _Registry_build_() {
 
   map["Agenda_Atualizar"] = {
     action: "Agenda_Atualizar",
-    handler: Agenda_Legacy_Atualizar_,
+    handler: map["Agenda.Atualizar"].handler,
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -468,39 +450,35 @@ function _Registry_build_() {
     lockKey: "AGENDA"
   };
 
-  map["Agenda_BloquearHorario"] = {
-    action: "Agenda_BloquearHorario",
-    handler: Agenda_Legacy_BloquearHorario_,
+  map["AgendaConfig_Obter"] = {
+    action: "AgendaConfig_Obter",
+    handler: (typeof handleAgendaConfigAction === "function")
+      ? function (ctx, payload) { return handleAgendaConfigAction("AgendaConfig_Obter", payload || {}); }
+      : _Registry_missingHandler_("handleAgendaConfigAction"),
     requiresAuth: true,
     roles: [],
     validations: [],
-    requiresLock: true,
-    lockKey: "AGENDA"
+    requiresLock: false,
+    lockKey: null
   };
 
-  map["Agenda_RemoverBloqueio"] = {
-    action: "Agenda_RemoverBloqueio",
-    handler: Agenda_Legacy_RemoverBloqueio_,
+  map["AgendaConfig_Salvar"] = {
+    action: "AgendaConfig_Salvar",
+    handler: (typeof handleAgendaConfigAction === "function")
+      ? function (ctx, payload) { return handleAgendaConfigAction("AgendaConfig_Salvar", payload || {}); }
+      : _Registry_missingHandler_("handleAgendaConfigAction"),
     requiresAuth: true,
     roles: [],
     validations: [],
     requiresLock: true,
-    lockKey: "AGENDA"
-  };
-
-  map["Agenda_MudarStatus"] = {
-    action: "Agenda_MudarStatus",
-    handler: Agenda_Legacy_MudarStatus_,
-    requiresAuth: true,
-    roles: [],
-    validations: [],
-    requiresLock: true,
-    lockKey: "AGENDA"
+    lockKey: "AGENDA_CONFIG"
   };
 
   map["Agenda_ValidarConflito"] = {
     action: "Agenda_ValidarConflito",
-    handler: Agenda_Legacy_ValidarConflito_,
+    handler: (typeof Agenda_Action_ValidarConflito === "function")
+      ? function (ctx, payload) { return Agenda_Action_ValidarConflito(payload || {}); }
+      : _Registry_missingHandler_("Agenda_Action_ValidarConflito"),
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -508,29 +486,482 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // =========================================================
-  // PACIENTES - typeahead da Agenda (Repo-based)
-  // =========================================================
-  map["Pacientes_BuscarSimples"] = {
-    action: "Pacientes_BuscarSimples",
-    handler: function (ctx, payload) {
-      return Pacientes_BuscarSimples_Repo_(payload);
-    },
+  // ============================================================
+  // PRONTUÁRIO (fachada) ✅
+  // ============================================================
+  function _prontuarioHandler_(actionName) {
+    return function (ctx, payload) {
+      if (typeof handleProntuarioAction !== "function") {
+        var e = new Error("handleProntuarioAction não disponível.");
+        e.code = "INTERNAL_ERROR";
+        e.details = { action: actionName };
+        throw e;
+      }
+      return handleProntuarioAction(actionName, payload || {});
+    };
+  }
+
+  map["Prontuario.Ping"] = {
+    action: "Prontuario.Ping",
+    handler: _prontuarioHandler_("Prontuario.Ping"),
     requiresAuth: true,
     roles: [],
     validations: [],
     requiresLock: false,
     lockKey: null
   };
+
+  map["Prontuario.Receita.ListarPorPaciente"] = {
+    action: "Prontuario.Receita.ListarPorPaciente",
+    handler: _prontuarioHandler_("Prontuario.Receita.ListarPorPaciente"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Prontuario.Receita.GerarPdf"] = {
+    action: "Prontuario.Receita.GerarPdf",
+    handler: _prontuarioHandler_("Prontuario.Receita.GerarPdf"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Prontuario.Receita.GerarPDF"] = {
+    action: "Prontuario.Receita.GerarPDF",
+    handler: map["Prontuario.Receita.GerarPdf"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  // =========================
+  // CHAT ✅ (casando com page-chat.js)
+  // =========================
+  map["chat.sendMessage"] = {
+    action: "chat.sendMessage",
+    handler: (typeof Chat_Action_SendMessage_ === "function")
+      ? Chat_Action_SendMessage_
+      : _Registry_missingHandler_("Chat_Action_SendMessage_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "CHAT"
+  };
+
+  map["chat.listMessages"] = {
+    action: "chat.listMessages",
+    handler: (typeof Chat_Action_ListMessages_ === "function")
+      ? Chat_Action_ListMessages_
+      : _Registry_missingHandler_("Chat_Action_ListMessages_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["chat.listMessagesSince"] = {
+    action: "chat.listMessagesSince",
+    handler: (typeof Chat_Action_ListMessagesSince_ === "function")
+      ? Chat_Action_ListMessagesSince_
+      : _Registry_missingHandler_("Chat_Action_ListMessagesSince_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["chat.markAsRead"] = {
+    action: "chat.markAsRead",
+    handler: (typeof Chat_Action_MarkAsRead_ === "function")
+      ? Chat_Action_MarkAsRead_
+      : _Registry_missingHandler_("Chat_Action_MarkAsRead_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "CHAT"
+  };
+
+  map["chat.getUnreadSummary"] = {
+    action: "chat.getUnreadSummary",
+    handler: (typeof Chat_Action_GetUnreadSummary_ === "function")
+      ? Chat_Action_GetUnreadSummary_
+      : _Registry_missingHandler_("Chat_Action_GetUnreadSummary_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  // Usadas no prontuário:
+  map["chat.listByPaciente"] = {
+    action: "chat.listByPaciente",
+    handler: (typeof Chat_Action_ListByPaciente_ === "function")
+      ? Chat_Action_ListByPaciente_
+      : _Registry_missingHandler_("Chat_Action_ListByPaciente_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["chat.sendByPaciente"] = {
+    action: "chat.sendByPaciente",
+    handler: (typeof Chat_Action_SendByPaciente_ === "function")
+      ? Chat_Action_SendByPaciente_
+      : _Registry_missingHandler_("Chat_Action_SendByPaciente_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "CHAT"
+  };
+
+  // =========================
+  // COMPAT DO CHAT ✅ (para não quebrar chat.html)
+  // =========================
+  map["usuarios.listAll"] = {
+    action: "usuarios.listAll",
+    handler: (typeof ChatCompat_Usuarios_ListAll_ === "function")
+      ? ChatCompat_Usuarios_ListAll_
+      : _Registry_missingHandler_("ChatCompat_Usuarios_ListAll_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["agenda.peekNextPatient"] = {
+    action: "agenda.peekNextPatient",
+    handler: (typeof ChatCompat_Agenda_PeekNextPatient_ === "function")
+      ? ChatCompat_Agenda_PeekNextPatient_
+      : _Registry_missingHandler_("ChatCompat_Agenda_PeekNextPatient_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["agenda.nextPatient"] = {
+    action: "agenda.nextPatient",
+    handler: (typeof ChatCompat_Agenda_NextPatient_ === "function")
+      ? ChatCompat_Agenda_NextPatient_
+      : _Registry_missingHandler_("ChatCompat_Agenda_NextPatient_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "ATENDIMENTO"
+  };
+
+  // =========================
+  // PACIENTES
+  // =========================
+  function _pacientesHandler_(actionName) {
+    return function (ctx, payload) {
+      if (typeof handlePacientesAction !== "function") {
+        var e = new Error("handlePacientesAction não disponível.");
+        e.code = "INTERNAL_ERROR";
+        e.details = { action: actionName };
+        throw e;
+      }
+      return handlePacientesAction(actionName, payload || {});
+    };
+  }
+
+  map["Pacientes_Listar"] = {
+    action: "Pacientes_Listar",
+    handler: _pacientesHandler_("Pacientes_Listar"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Pacientes_BuscarSimples"] = {
+    action: "Pacientes_BuscarSimples",
+    handler: _pacientesHandler_("Pacientes_BuscarSimples"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Pacientes_AlterarStatusAtivo"] = {
+    action: "Pacientes_AlterarStatusAtivo",
+    handler: _pacientesHandler_("Pacientes_AlterarStatus"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "PACIENTES"
+  };
+
+  map["Pacientes.Listar"] = {
+    action: "Pacientes.Listar",
+    handler: map["Pacientes_Listar"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Pacientes.BuscarSimples"] = {
+    action: "Pacientes.BuscarSimples",
+    handler: map["Pacientes_BuscarSimples"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Pacientes.AlterarStatusAtivo"] = {
+    action: "Pacientes.AlterarStatusAtivo",
+    handler: map["Pacientes_AlterarStatusAtivo"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "PACIENTES"
+  };
+
+  // =========================
+  // RECEITA
+  // =========================
+  function _receitaHandler_(actionName) {
+    return function (ctx, payload) {
+      if (typeof handleReceitaAction !== "function") {
+        var e = new Error("handleReceitaAction não disponível.");
+        e.code = "INTERNAL_ERROR";
+        e.details = { action: actionName };
+        throw e;
+      }
+      return handleReceitaAction(actionName, payload || {});
+    };
+  }
+
+  map["Receita.GerarPdf"] = {
+    action: "Receita.GerarPdf",
+    handler: _receitaHandler_("Receita.GerarPdf"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Receita.SalvarRascunho"] = {
+    action: "Receita.SalvarRascunho",
+    handler: _receitaHandler_("Receita.SalvarRascunho"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "RECEITA"
+  };
+
+  map["Receita.SalvarFinal"] = {
+    action: "Receita.SalvarFinal",
+    handler: _receitaHandler_("Receita.SalvarFinal"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "RECEITA"
+  };
+
+  map["Receita.ListarPorPaciente"] = {
+    action: "Receita.ListarPorPaciente",
+    handler: _receitaHandler_("Receita.ListarPorPaciente"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Receita.GerarPDF"] = {
+    action: "Receita.GerarPDF",
+    handler: map["Receita.GerarPdf"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Receita_ListarPorPaciente"] = {
+    action: "Receita_ListarPorPaciente",
+    handler: map["Receita.ListarPorPaciente"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Receita_SalvarRascunho"] = {
+    action: "Receita_SalvarRascunho",
+    handler: map["Receita.SalvarRascunho"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "RECEITA"
+  };
+
+  map["Receita_SalvarFinal"] = {
+    action: "Receita_SalvarFinal",
+    handler: map["Receita.SalvarFinal"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "RECEITA"
+  };
+
+  // =========================
+  // MEDICAMENTOS
+  // =========================
+  function _medHandler_(actionName) {
+    return function (ctx, payload) {
+      if (typeof handleMedicamentosAction !== "function") {
+        var e = new Error("handleMedicamentosAction não disponível.");
+        e.code = "INTERNAL_ERROR";
+        e.details = { action: actionName };
+        throw e;
+      }
+      return handleMedicamentosAction(actionName, payload || {});
+    };
+  }
+
+  map["Medicamentos.ListarAtivos"] = {
+    action: "Medicamentos.ListarAtivos",
+    handler: _medHandler_("Medicamentos.ListarAtivos"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Medicamentos_ListarAtivos"] = {
+    action: "Medicamentos_ListarAtivos",
+    handler: map["Medicamentos.ListarAtivos"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Remedios.ListarAtivos"] = {
+    action: "Remedios.ListarAtivos",
+    handler: map["Medicamentos.ListarAtivos"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Remedios_ListarAtivos"] = {
+    action: "Remedios_ListarAtivos",
+    handler: map["Medicamentos.ListarAtivos"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Medicamentos.ListarTodos"] = {
+    action: "Medicamentos.ListarTodos",
+    handler: _medHandler_("Medicamentos.ListarTodos"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Medicamentos_ListarTodos"] = {
+    action: "Medicamentos_ListarTodos",
+    handler: map["Medicamentos.ListarTodos"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Medicamentos.Listar"] = {
+    action: "Medicamentos.Listar",
+    handler: _medHandler_("Medicamentos.Listar"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Medicamentos_Listar"] = {
+    action: "Medicamentos_Listar",
+    handler: map["Medicamentos.Listar"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  // =========================
+  // AGENDA (legados ainda não migrados)
+  // =========================
+  var agendaLegacy = [
+    "Agenda_ListarDia",
+    "Agenda_ListarSemana",
+    "Agenda_MudarStatus",
+    "Agenda_RemoverBloqueio",
+    "Agenda_BloquearHorario",
+    "Agenda_ListarAFuturo",
+    "Agenda.ListarAFuturo"
+  ];
+
+  for (var i = 0; i < agendaLegacy.length; i++) {
+    var a = agendaLegacy[i];
+    map[a] = {
+      action: a,
+      handler: _Registry_legacyHandler_(a),
+      requiresAuth: true,
+      roles: [],
+      validations: [],
+      requiresLock: true,
+      lockKey: "AGENDA_LEGACY"
+    };
+  }
 
   return map;
 }
 
-/**
- * ============================================================
- * Handler de diagnóstico: retorna as actions registradas.
- * ============================================================
- */
 function Registry_ListActions(ctx, payload) {
   if (!REGISTRY_ACTIONS) REGISTRY_ACTIONS = _Registry_build_();
 
@@ -544,6 +975,15 @@ function Registry_ListActions(ctx, payload) {
     hasProfissionais: keys.indexOf("Profissionais_List") >= 0,
     hasMetaBootstrap: keys.indexOf("Meta_BootstrapDb") >= 0,
     hasAuthResetSenhaDev: keys.indexOf("Auth_ResetSenhaDev") >= 0,
-    hasUsuariosResetSenhaAdmin: keys.indexOf("Usuarios_ResetSenhaAdmin") >= 0
+    hasUsuariosResetSenhaAdmin: keys.indexOf("Usuarios_ResetSenhaAdmin") >= 0,
+    hasAgendaNew: keys.indexOf("Agenda.Criar") >= 0 && keys.indexOf("Agenda.Atualizar") >= 0,
+    hasAgendaConfig: keys.indexOf("AgendaConfig_Obter") >= 0 && keys.indexOf("AgendaConfig_Salvar") >= 0,
+    hasAgendaValidarConflito: keys.indexOf("Agenda_ValidarConflito") >= 0,
+    hasProntuario: keys.indexOf("Prontuario.Ping") >= 0 && keys.indexOf("Prontuario.Receita.GerarPdf") >= 0,
+    hasChat: keys.indexOf("chat.sendMessage") >= 0 && keys.indexOf("chat.listMessages") >= 0,
+    hasChatCompat: keys.indexOf("usuarios.listAll") >= 0 && keys.indexOf("agenda.nextPatient") >= 0,
+    hasPacientes: keys.indexOf("Pacientes_Listar") >= 0 && keys.indexOf("Pacientes_BuscarSimples") >= 0,
+    hasReceita: keys.indexOf("Receita.GerarPdf") >= 0,
+    hasMedicamentos: keys.indexOf("Medicamentos.ListarAtivos") >= 0
   };
 }

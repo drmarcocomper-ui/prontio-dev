@@ -3,8 +3,18 @@
 // - Recebe payload.itens[] (com remedio/posologia/via/quantidade/observacao/idRemedio)
 // - Salva na aba "Receitas"
 // - Retorna DATA PURO (Api.gs envelopa success/data/errors)
+//
+// Ajuste retrocompatível:
+// - Substitui "throw { ... }" por Error com err.code/err.details.
 
 var RECEITA_SHEET_NAME = "Receitas";
+
+function _receitaThrow_(code, message, details) {
+  var err = new Error(String(message || "Erro."));
+  err.code = String(code || "INTERNAL_ERROR");
+  err.details = (details === undefined ? null : details);
+  throw err;
+}
 
 function handleReceitaAction(action, payload) {
   payload = payload || {};
@@ -30,18 +40,18 @@ function handleReceitaAction(action, payload) {
       return receitaGerarPdf_(payload);
 
     default:
-      throw {
-        code: "RECEITA_UNKNOWN_ACTION",
-        message: "Ação não reconhecida em Receita.gs: " + act,
-        details: { action: act }
-      };
+      _receitaThrow_(
+        "RECEITA_UNKNOWN_ACTION",
+        "Ação não reconhecida em Receita.gs: " + act,
+        { action: act }
+      );
   }
 }
 
 function getReceitaSheet_() {
   var ss = PRONTIO_getDb_(); // ✅ usa openById via Utils.gs
   if (!ss) {
-    throw { code: "RECEITA_DB_NULL", message: "PRONTIO_getDb_ retornou null/undefined.", details: null };
+    _receitaThrow_("RECEITA_DB_NULL", "PRONTIO_getDb_ retornou null/undefined.", null);
   }
 
   var sheet = ss.getSheetByName(RECEITA_SHEET_NAME);
@@ -194,16 +204,16 @@ function receitaSalvar_(payload, status) {
     var observacoes = String(payload.observacoes || payload.Observacoes || "").trim();
 
     var itensRaw = Array.isArray(payload.itens) ? payload.itens : (Array.isArray(payload.Itens) ? payload.Itens : []);
-    if (!idPaciente) throw { code: "RECEITA_MISSING_ID_PACIENTE", message: "idPaciente é obrigatório.", details: null };
-    if (!itensRaw.length) throw { code: "RECEITA_MISSING_ITENS", message: "Informe ao menos 1 item.", details: null };
+    if (!idPaciente) _receitaThrow_("RECEITA_MISSING_ID_PACIENTE", "idPaciente é obrigatório.", null);
+    if (!itensRaw.length) _receitaThrow_("RECEITA_MISSING_ITENS", "Informe ao menos 1 item.", null);
 
     var itensCanonicos = itensRaw.map(normalizarItemRemedio_).filter(function (x) {
       return x && x.ativo && (x.nomeRemedio || x.posologia);
     });
-    if (!itensCanonicos.length) throw { code: "RECEITA_ITENS_INVALIDOS", message: "Itens inválidos/sem nome.", details: null };
+    if (!itensCanonicos.length) _receitaThrow_("RECEITA_ITENS_INVALIDOS", "Itens inválidos/sem nome.", null);
 
     var texto = montarTextoMedicamentos_(itensCanonicos);
-    if (!texto) throw { code: "RECEITA_TEXTO_VAZIO", message: "Texto de medicamentos vazio.", details: null };
+    if (!texto) _receitaThrow_("RECEITA_TEXTO_VAZIO", "Texto de medicamentos vazio.", null);
 
     var sheet = getReceitaSheet_();
     var headerMap = getReceitaHeaderMap_();
@@ -237,14 +247,18 @@ function receitaSalvar_(payload, status) {
     return { idReceita: idReceita, receita: receitaObj };
   } catch (err) {
     if (err && err.code) throw err;
-    throw { code: "RECEITA_SAVE_ERROR", message: "Falha ao salvar receita.", details: String(err && err.message ? err.message : err) };
+    _receitaThrow_(
+      "RECEITA_SAVE_ERROR",
+      "Falha ao salvar receita.",
+      String(err && err.message ? err.message : err)
+    );
   }
 }
 
 function receitaListarPorPaciente_(payload) {
   payload = payload || {};
   var idPaciente = String(payload.idPaciente || payload.ID_Paciente || "").trim();
-  if (!idPaciente) throw { code: "RECEITA_MISSING_ID_PACIENTE", message: "idPaciente é obrigatório.", details: null };
+  if (!idPaciente) _receitaThrow_("RECEITA_MISSING_ID_PACIENTE", "idPaciente é obrigatório.", null);
 
   var sheet = getReceitaSheet_();
   var headerMap = getReceitaHeaderMap_();
@@ -274,26 +288,25 @@ function receitaListarPorPaciente_(payload) {
 }
 
 /* ============================================================
- * PDF/HTML (Impressão) - IMPLEMENTADO
+ * PDF/HTML (Impressão)
  * ============================================================ */
 
 function receitaGerarPdf_(payload) {
   payload = payload || {};
   var idReceita = String(payload.idReceita || payload.ID_Receita || "").trim();
   if (!idReceita) {
-    throw { code: "RECEITA_MISSING_ID_RECEITA", message: "idReceita é obrigatório.", details: null };
+    _receitaThrow_("RECEITA_MISSING_ID_RECEITA", "idReceita é obrigatório.", null);
   }
 
   // busca receita
   var receita = receitaBuscarPorId_(idReceita);
   if (!receita || !receita.idReceita) {
-    throw { code: "RECEITA_NOT_FOUND", message: "Receita não encontrada: " + idReceita, details: { idReceita: idReceita } };
+    _receitaThrow_("RECEITA_NOT_FOUND", "Receita não encontrada: " + idReceita, { idReceita: idReceita });
   }
 
-  // dados “opcionais” (se você tiver como buscar do Pacientes.gs no futuro, pluga aqui)
+  // dados “opcionais”
   var pacienteNome = "";
   try {
-    // se um dia você criar um helper próprio, pode aproveitar:
     if (typeof PRONTIO_getPacienteNomeById_ === "function") {
       pacienteNome = String(PRONTIO_getPacienteNomeById_(receita.idPaciente) || "");
     }
@@ -301,7 +314,7 @@ function receitaGerarPdf_(payload) {
     pacienteNome = "";
   }
 
-  // cabeçalho médico (placeholder seguro; depois ligamos no DocsCabecalho)
+  // cabeçalho médico
   var cab = receitaObterCabecalhoMedico_();
 
   // data (preferir DataReceita; fallback criadoEm)
@@ -339,7 +352,6 @@ function receitaBuscarPorId_(idReceita) {
 }
 
 function receitaObterCabecalhoMedico_() {
-  // padrão safe (não depende de outros módulos)
   var out = {
     nomeMedico: "Dr. Marco Antônio Comper",
     crm: "CRM —",
@@ -349,11 +361,9 @@ function receitaObterCabecalhoMedico_() {
     email: "",
     enderecoLinha1: "",
     enderecoLinha2: "",
-    logoDataUrl: "" // se você tiver base64/dataURL no futuro
+    logoDataUrl: ""
   };
 
-  // Se no futuro você expuser um getter no DocsCabecalho.gs, dá para ligar aqui.
-  // Exemplo (se existir): PRONTIO_getDocsCabecalhoAtivo_()
   try {
     if (typeof PRONTIO_getDocsCabecalhoAtivo_ === "function") {
       var cab = PRONTIO_getDocsCabecalhoAtivo_();
@@ -481,7 +491,6 @@ function receitaRenderHtml_(receita, opts) {
 function receitaFormatarDataBR_(value) {
   if (!value) return "";
   try {
-    // se vier ISO date (YYYY-MM-DD)
     var s = String(value);
     if (s.indexOf("T") === -1 && s.indexOf("-") > -1 && s.length >= 10) {
       var parts = s.split("T")[0].split("-");
@@ -489,7 +498,6 @@ function receitaFormatarDataBR_(value) {
     }
   } catch (e) {}
 
-  // tenta parse geral (ISO datetime ou Date)
   var d = null;
   try {
     d = new Date(value);
@@ -515,6 +523,5 @@ function receitaEscapeHtml_(s) {
 }
 
 function receitaEscapeAttr_(s) {
-  // para atributos (src, etc.)
   return receitaEscapeHtml_(s).replace(/`/g, "&#096;");
 }

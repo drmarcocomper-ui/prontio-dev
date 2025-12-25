@@ -11,7 +11,17 @@
  * - Prontuario.Receita.ListarPorPaciente
  * - Prontuario.Receita.GerarPDF (alias)
  * - Prontuario.Receita.GerarPdf
+ *
+ * Ajuste retrocompatível:
+ * - Substitui "throw { ... }" por Error com err.code/err.details.
  */
+
+function _prontuarioThrow_(code, message, details) {
+  var err = new Error(String(message || "Erro."));
+  err.code = String(code || "INTERNAL_ERROR");
+  err.details = (details === undefined ? null : details);
+  throw err;
+}
 
 function handleProntuarioAction(action, payload) {
   payload = payload || {};
@@ -26,8 +36,8 @@ function handleProntuarioAction(action, payload) {
       return _prontuarioDelegarReceita_("Receita.ListarPorPaciente", payload);
 
     case "Prontuario.Receita.GerarPDF":
-      // Receita.gs já converte Receita.GerarPDF => Receita.GerarPdf internamente
       _prontuarioAssertRequired_(payload, ["idReceita"]);
+      // Receita.gs já converte Receita.GerarPDF => Receita.GerarPdf internamente
       return _prontuarioDelegarReceita_("Receita.GerarPDF", payload);
 
     case "Prontuario.Receita.GerarPdf":
@@ -35,21 +45,21 @@ function handleProntuarioAction(action, payload) {
       return _prontuarioDelegarReceita_("Receita.GerarPdf", payload);
 
     default:
-      throw {
-        code: "PRONTUARIO_UNKNOWN_ACTION",
-        message: "Ação não reconhecida em Prontuario.gs: " + act,
-        details: { action: act }
-      };
+      _prontuarioThrow_(
+        "PRONTUARIO_UNKNOWN_ACTION",
+        "Ação não reconhecida em Prontuario.gs: " + act,
+        { action: act }
+      );
   }
 }
 
 function _prontuarioDelegarReceita_(receitaAction, payload) {
   if (typeof handleReceitaAction !== "function") {
-    throw {
-      code: "PRONTUARIO_RECEITA_HANDLER_MISSING",
-      message: "handleReceitaAction não encontrado. Verifique se Receita.gs está no projeto.",
-      details: { wantedAction: receitaAction }
-    };
+    _prontuarioThrow_(
+      "PRONTUARIO_RECEITA_HANDLER_MISSING",
+      "handleReceitaAction não encontrado. Verifique se Receita.gs está no projeto.",
+      { wantedAction: receitaAction }
+    );
   }
   return handleReceitaAction(receitaAction, payload || {});
 }
@@ -66,10 +76,10 @@ function _prontuarioAssertRequired_(obj, fields) {
   }
 
   if (missing.length) {
-    throw {
-      code: "PRONTUARIO_VALIDATION_ERROR",
-      message: "Campos obrigatórios ausentes.",
-      details: { missing: missing }
-    };
+    _prontuarioThrow_(
+      "PRONTUARIO_VALIDATION_ERROR",
+      "Campos obrigatórios ausentes.",
+      { missing: missing }
+    );
   }
 }

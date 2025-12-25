@@ -4,6 +4,11 @@
  * ✅ Transporte CORS-free (GitHub Pages + Apps Script):
  * - Usa JSONP via <script> com callback=
  * - Requer Api.gs suportando callback no doGet quando action estiver presente.
+ *
+ * Melhorias (retrocompatíveis):
+ * - Anti-cache no JSONP (evita respostas cacheadas)
+ * - Timeout configurável via PRONTIO.config.apiTimeoutMs
+ * - Proteção se JSON.stringify(payload) falhar
  */
 
 (function (global) {
@@ -24,6 +29,14 @@
     if (meta && meta.content) return meta.content;
 
     return "";
+  }
+
+  function getTimeoutMs_() {
+    const t = PRONTIO.config && typeof PRONTIO.config.apiTimeoutMs === "number"
+      ? PRONTIO.config.apiTimeoutMs
+      : null;
+    // default conservador (mantém o comportamento atual)
+    return (t && t > 0) ? t : 20000;
   }
 
   function normalizeError_(err) {
@@ -118,12 +131,16 @@
     } catch (_) {}
   }
 
+  // ✅ FIX: evita TDZ/ReferenceError se timeout ocorrer antes do <script> existir.
   function jsonp_(url, timeoutMs) {
-    timeoutMs = typeof timeoutMs === "number" ? timeoutMs : 20000;
+    timeoutMs = typeof timeoutMs === "number" ? timeoutMs : getTimeoutMs_();
 
     return new Promise((resolve, reject) => {
       const cbName = "__prontio_jsonp_cb_" + Date.now() + "_" + Math.floor(Math.random() * 1e6);
       let done = false;
+
+      let script = null;
+      let timer = null;
 
       const cleanup = () => {
         try { delete global[cbName]; } catch (_) { global[cbName] = undefined; }
@@ -131,7 +148,7 @@
         if (timer) clearTimeout(timer);
       };
 
-      const timer = setTimeout(() => {
+      timer = setTimeout(() => {
         if (done) return;
         done = true;
         cleanup();
@@ -145,7 +162,7 @@
         resolve(data);
       };
 
-      const script = document.createElement("script");
+      script = document.createElement("script");
       script.async = true;
       script.src = url + (url.indexOf("?") >= 0 ? "&" : "?") + "callback=" + encodeURIComponent(cbName);
 
@@ -160,6 +177,24 @@
     });
   }
 
+  function safeStringify_(obj) {
+    try {
+      return JSON.stringify(obj || {});
+    } catch (e) {
+      // Mantém contrato: ainda chama API, mas com erro explícito do lado cliente
+      const err = new Error("Falha ao serializar payload (JSON.stringify).");
+      err.code = "CLIENT_PAYLOAD_SERIALIZE_ERROR";
+      err.details = { message: normalizeError_(e) };
+      throw err;
+    }
+  }
+
+  function withNoCacheParam_(url) {
+    // Evita cache de GET/JSONP em browsers/CDNs
+    const nonce = Date.now().toString(36) + "_" + Math.floor(Math.random() * 1e9).toString(36);
+    return url + (url.indexOf("?") >= 0 ? "&" : "?") + "_nc=" + encodeURIComponent(nonce);
+  }
+
   async function callApiEnvelope(args) {
     const apiUrl = getApiUrl_();
     if (!apiUrl) throw new Error("URL da API não configurada (apiUrl).");
@@ -171,15 +206,19 @@
     const payloadRaw = (args && args.payload) || {};
     const payload = withAuthToken_(payloadRaw);
 
-    const url =
+    const payloadStr = safeStringify_(payload || {});
+
+    let url =
       apiUrl +
       (apiUrl.indexOf("?") >= 0 ? "&" : "?") +
       "action=" + encodeURIComponent(action) +
-      "&payload=" + encodeURIComponent(JSON.stringify(payload || {}));
+      "&payload=" + encodeURIComponent(payloadStr);
+
+    url = withNoCacheParam_(url);
 
     let json;
     try {
-      json = await jsonp_(url, 20000);
+      json = await jsonp_(url, getTimeoutMs_());
     } catch (e) {
       throw new Error("Falha de rede ao chamar API: " + normalizeError_(e));
     }

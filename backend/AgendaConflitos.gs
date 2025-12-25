@@ -18,8 +18,11 @@
  *
  * API exposta:
  * - Agenda_ValidarConflitos_(args) -> { ok, conflitos, intervalo, erro }
- * - Agenda_AssertSemConflitos_(args) -> retorna { ok:true,... } ou lança {code,message,details}
- * - Agenda_Action_ValidarConflito(payload) -> para uso via API (handleAgendaAction)
+ * - Agenda_AssertSemConflitos_(args) -> retorna { ok:true,... } ou lança Error(code/message/details)
+ * - Agenda_Action_ValidarConflito(payload) -> para uso via API (handleAgendaAction/Registry)
+ *
+ * Ajuste retrocompatível:
+ * - Substitui "throw { ... }" por Error com err.code/err.details.
  */
 
 // =======================
@@ -84,7 +87,6 @@ function Agenda_NormalizeEvento_(ev) {
   if (!dur || dur <= 0) return null;
 
   // Nota: não tratamos virar dia (>=1440) como válido aqui.
-  // Se quiser permitir atravessar meia-noite, deve ser regra do negócio.
   var fimMinCalc = inicioMin + dur;
 
   return {
@@ -178,7 +180,7 @@ function Agenda_ValidarConflitos_(args) {
 }
 
 /**
- * Lança erro padronizado (objeto) se houver conflito.
+ * Lança erro padronizado se houver conflito.
  * Assim o Api.gs consegue transformar em JSON com code/message/details.
  */
 function Agenda_AssertSemConflitos_(args) {
@@ -187,27 +189,27 @@ function Agenda_AssertSemConflitos_(args) {
 
   // Se falhou por integração/parâmetro inválido: erro de validação
   if (r.erro && (!r.conflitos || !r.conflitos.length)) {
-    throw {
-      code: "AGENDA_CONFLITOS_INVALID_ARGS",
-      message: r.erro,
-      details: { intervalo: r.intervalo || null }
-    };
+    var e1 = new Error(r.erro);
+    e1.code = "AGENDA_CONFLITOS_INVALID_ARGS";
+    e1.details = { intervalo: r.intervalo || null };
+    throw e1;
   }
 
   // Conflito real
   var c = (r.conflitos && r.conflitos.length) ? r.conflitos[0] : null;
   var tipo = c && c.bloqueio ? "bloqueio" : "agendamento";
 
-  throw {
-    code: "AGENDA_CONFLITO_HORARIO",
-    message:
-      "Conflito de horário detectado" +
-      (c ? (": conflito com " + tipo + " (" + c.hora_inicio + "–" + c.hora_fim + ").") : "."),
-    details: {
-      intervalo: r.intervalo || null,
-      conflitos: r.conflitos || []
-    }
+  var msg =
+    "Conflito de horário detectado" +
+    (c ? (": conflito com " + tipo + " (" + c.hora_inicio + "–" + c.hora_fim + ").") : ".");
+
+  var e2 = new Error(msg);
+  e2.code = "AGENDA_CONFLITO_HORARIO";
+  e2.details = {
+    intervalo: r.intervalo || null,
+    conflitos: r.conflitos || []
   };
+  throw e2;
 }
 
 /**

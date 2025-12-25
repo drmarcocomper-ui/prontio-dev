@@ -63,13 +63,18 @@
  *   - Planilha usa CHAVES em MAIÚSCULAS
  *   - JSON para o front usa nomes camelCase
  *   - dias_ativos é SEMPRE ARRAY no JSON
+ *
+ * Ajuste retrocompatível:
+ * - Substitui "throw { ... }" por Error com err.code/err.details.
  */
 
 var AGENDA_CONFIG_SHEET_NAME = 'AgendaConfig';
 
 /**
  * Roteador interno da AgendaConfig.
- * Chamado a partir de Api.gs -> handleAgendaConfigAction(action, payload)
+ * Chamado via Registry:
+ * - AgendaConfig_Obter
+ * - AgendaConfig_Salvar
  */
 function handleAgendaConfigAction(action, payload) {
   switch (action) {
@@ -80,32 +85,13 @@ function handleAgendaConfigAction(action, payload) {
       return agendaConfigSalvar_(payload);
 
     default:
-      throw {
-        code: 'AGENDA_CONFIG_UNKNOWN_ACTION',
-        message: 'Ação de configuração de agenda desconhecida: ' + action
-      };
+      var err = new Error('Ação de configuração de agenda desconhecida: ' + action);
+      err.code = 'AGENDA_CONFIG_UNKNOWN_ACTION';
+      err.details = { action: String(action || '') };
+      throw err;
   }
 }
 
-/**
- * Retorna o objeto de configuração da Agenda / Sistema.
- *
- * Retorno (JSON para o front):
- * {
- *   medicoNomeCompleto: "...",
- *   medicoCRM: "...",
- *   medicoEspecialidade: "...",
- *   clinicaNome: "...",
- *   clinicaEndereco: "...",
- *   clinicaTelefone: "...",
- *   clinicaEmail: "...",
- *   logoUrl: "...",
- *   hora_inicio_padrao: "08:00",
- *   hora_fim_padrao: "18:00",
- *   duracao_grade_minutos: 15,
- *   dias_ativos: ["SEG","TER","QUA","QUI","SEX"]
- * }
- */
 function agendaConfigObter_() {
   var defaults = {
     medicoNomeCompleto: '',
@@ -165,7 +151,6 @@ function agendaConfigObter_() {
   }
 
   var cfg = {
-    // Nomes camelCase, conforme o front espera:
     medicoNomeCompleto: String(map.MEDICO_NOME_COMPLETO || defaults.medicoNomeCompleto),
     medicoCRM: String(map.MEDICO_CRM || defaults.medicoCRM),
     medicoEspecialidade: String(map.MEDICO_ESPECIALIDADE || defaults.medicoEspecialidade),
@@ -186,25 +171,6 @@ function agendaConfigObter_() {
   return cfg;
 }
 
-/**
- * Salva configurações na aba AgendaConfig.
- *
- * payload (do front) pode conter qualquer subset das chaves de configuração:
- * {
- *   medicoNomeCompleto,
- *   medicoCRM,
- *   medicoEspecialidade,
- *   clinicaNome,
- *   clinicaEndereco,
- *   clinicaTelefone,
- *   clinicaEmail,
- *   logoUrl,
- *   hora_inicio_padrao,
- *   hora_fim_padrao,
- *   duracao_grade_minutos,
- *   dias_ativos: ["SEG","TER",...]
- * }
- */
 function agendaConfigSalvar_(payload) {
   payload = payload || {};
 
@@ -229,7 +195,7 @@ function agendaConfigSalvar_(payload) {
   for (var i = 0; i < values.length; i++) {
     var chave = String(values[i][0] || '').trim();
     if (!chave) continue;
-    rowByKey[chave] = i + 2; // linha real (contando cabeçalho)
+    rowByKey[chave] = i + 2; // linha real
   }
 
   function upsert(key, value) {
