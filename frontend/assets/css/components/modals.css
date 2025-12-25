@@ -35,6 +35,9 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
+
+  /* ✅ NOVO: garante que o modal nunca estoure a altura da tela */
+  max-height: 90vh;
 }
 
 /* VARIAÇÃO MENOR (para confirmações simples) */
@@ -103,6 +106,10 @@
   font-size: 14px;
   color: var(--cor-texto-principal, #111827);
   background: var(--cor-fundo-card, #ffffff);
+
+  /* ✅ NOVO: quando o conteúdo for grande, rola só o corpo */
+  overflow: auto;
+  max-height: calc(90vh - 120px); /* header+footer aproximados */
 }
 
 /* RODAPÉ (botões de ação) */
@@ -151,10 +158,12 @@
 @media (max-width: 480px) {
   .modal {
     margin: 0 8px;
+    max-height: 92vh; /* ✅ ligeiramente mais alto no mobile */
   }
 
   .modal-body {
     padding: 12px 12px;
+    max-height: calc(92vh - 120px);
   }
 
   .modal-footer {
