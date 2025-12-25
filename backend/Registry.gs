@@ -5,24 +5,6 @@
  * Responsabilidade:
  * - Registrar actions disponíveis na API.
  * - Definir metadados: requiresAuth, roles, validations, locks.
- *
- * Contrato:
- * - Api.gs chama: Registry_getAction_(action)
- * - Retorna:
- *   {
- *     action: string,
- *     handler: function(ctx, payload) -> any,
- *     requiresAuth: boolean,
- *     roles: string[],
- *     validations: array,
- *     requiresLock: boolean,
- *     lockKey: string|null
- *   }
- *
- * Observações:
- * - Este Registry é construído sob demanda (lazy) na primeira chamada.
- * - Em DEV, algumas actions auxiliares podem existir.
- * - Em PROD, actions DEV NÃO devem ser registradas.
  */
 
 var REGISTRY_ACTIONS = null;
@@ -38,13 +20,6 @@ function Registry_getAction_(action) {
   return REGISTRY_ACTIONS[action] || null;
 }
 
-/**
- * Utilitário opcional:
- * Cria um handler seguro para quando uma função não existe no deploy.
- * Isso evita que o Registry "quebre" durante a construção do map.
- *
- * (Mantido para compatibilidade e uso futuro.)
- */
 function _Registry_missingHandler_(fnName) {
   return function (ctx, payload) {
     var err = new Error("Handler não disponível no deploy: " + String(fnName));
@@ -63,7 +38,7 @@ function _Registry_build_() {
   map["Registry_ListActions"] = {
     action: "Registry_ListActions",
     handler: Registry_ListActions,
-    requiresAuth: false, // DEV: false. (Em PROD, sugiro true + roles:["admin"])
+    requiresAuth: false,
     roles: [],
     validations: [],
     requiresLock: false,
@@ -103,14 +78,6 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  /**
-   * ============================================================
-   * DEV ONLY — Reset de senha
-   * ============================================================
-   * - Só existe em DEV
-   * - Só registra se a função existir
-   * - Em PROD, essa action NÃO EXISTE (não aparece no Registry)
-   */
   if (
     String(PRONTIO_ENV).toUpperCase() === "DEV" &&
     typeof Auth_ResetSenhaDev === "function"
@@ -127,7 +94,7 @@ function _Registry_build_() {
   }
 
   // =========================
-  // AUTH RECOVERY (Pilar H) - públicas
+  // AUTH RECOVERY
   // =========================
   map["Auth_ForgotPassword_Request"] = {
     action: "Auth_ForgotPassword_Request",
@@ -192,7 +159,6 @@ function _Registry_build_() {
     lockKey: "Usuarios_Atualizar"
   };
 
-  // ✅ Já existia: altera senha por ID (admin)
   map["Usuarios_AlterarSenha"] = {
     action: "Usuarios_AlterarSenha",
     handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_AlterarSenha", payload); },
@@ -203,11 +169,6 @@ function _Registry_build_() {
     lockKey: "Usuarios_AlterarSenha"
   };
 
-  /**
-   * ============================================================
-   * Pilar C — Reset de senha em PRODUÇÃO (admin-only)
-   * ============================================================
-   */
   map["Usuarios_ResetSenhaAdmin"] = {
     action: "Usuarios_ResetSenhaAdmin",
     handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_ResetSenhaAdmin", payload, ctx); },
@@ -218,17 +179,11 @@ function _Registry_build_() {
     lockKey: "Usuarios_ResetSenhaAdmin"
   };
 
-  /**
-   * ============================================================
-   * Pilar E — Alterar senha do PRÓPRIO usuário
-   * ============================================================
-   * Aqui é obrigatório passar ctx, para garantir "self-service" real.
-   */
   map["Usuarios_AlterarMinhaSenha"] = {
     action: "Usuarios_AlterarMinhaSenha",
     handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_AlterarMinhaSenha", payload, ctx); },
     requiresAuth: true,
-    roles: [], // qualquer usuário autenticado
+    roles: [],
     validations: [],
     requiresLock: true,
     lockKey: "Usuarios_AlterarMinhaSenha"
@@ -396,14 +351,92 @@ function _Registry_build_() {
     lockKey: "ATENDIMENTO"
   };
 
+  // =========================================================
+  // ✅ AGENDA - LEGACY (para o front atual page-agenda.js)
+  // =========================================================
+  map["Agenda_ListarDia"] = {
+    action: "Agenda_ListarDia",
+    handler: Agenda_Legacy_ListarDia_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Agenda_ListarSemana"] = {
+    action: "Agenda_ListarSemana",
+    handler: Agenda_Legacy_ListarSemana_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Agenda_Criar"] = {
+    action: "Agenda_Criar",
+    handler: Agenda_Legacy_Criar_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda_Atualizar"] = {
+    action: "Agenda_Atualizar",
+    handler: Agenda_Legacy_Atualizar_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda_BloquearHorario"] = {
+    action: "Agenda_BloquearHorario",
+    handler: Agenda_Legacy_BloquearHorario_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda_RemoverBloqueio"] = {
+    action: "Agenda_RemoverBloqueio",
+    handler: Agenda_Legacy_RemoverBloqueio_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda_MudarStatus"] = {
+    action: "Agenda_MudarStatus",
+    handler: Agenda_Legacy_MudarStatus_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda_ValidarConflito"] = {
+    action: "Agenda_ValidarConflito",
+    handler: Agenda_Legacy_ValidarConflito_,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
   return map;
 }
 
-/**
- * ============================================================
- * Handler de diagnóstico: retorna as actions registradas.
- * ============================================================
- */
 function Registry_ListActions(ctx, payload) {
   if (!REGISTRY_ACTIONS) REGISTRY_ACTIONS = _Registry_build_();
 
