@@ -26,18 +26,7 @@
 //
 // OBSERVAÇÕES IMPORTANTES:
 // - O FRONT NÃO SABE DOS NOMES/ORDENS DAS COLUNAS.
-// - O FRONT conversa APENAS via ações de API, por exemplo:
-//
-//   Leves (agenda, seleção):
-//   - Pacientes_ListarSelecao      (ou Pacientes.ListarSelecao)
-//   - Pacientes_CriarBasico        (ou Pacientes.CriarBasico / Pacientes.Criar)
-//   - Pacientes_BuscarSimples
-//
-//   CRUD mais completo (tela de pacientes):
-//   - Pacientes_Listar             (ou Pacientes.Listar / Pacientes.ListarTodos)
-//   - Pacientes_ObterPorId         (ou Pacientes.ObterPorId)
-//   - Pacientes_Atualizar          (ou Pacientes.Atualizar)
-//   - Pacientes_AlterarStatus      (ou Pacientes.AlterarStatusAtivo)
+// - O FRONT conversa APENAS via ações de API.
 //
 // ESTE MÓDULO:
 // - devolve APENAS o "data" (objeto / array);
@@ -45,7 +34,11 @@
 // - Api.gs é quem monta { success, data, errors }.
 //
 // Ajuste retrocompatível:
-/// - Substitui "throw { ... }" por Error com err.code/err.details.
+// - Substitui "throw { ... }" por Error com err.code/err.details.
+//
+// FIX (WebApp):
+// - Não usar SpreadsheetApp.getActive() como fonte principal.
+// - Preferir PRONTIO_getDb_() (openById) quando disponível.
 // ---------------------------------------------------------------------------
 
 /** Nome da aba de pacientes na planilha */
@@ -58,9 +51,34 @@ function _pacientesThrow_(code, message, details) {
   throw err;
 }
 
+/**
+ * ✅ Fonte de DB correta para WebApp:
+ * - Preferência: PRONTIO_getDb_() (Utils.gs) -> Spreadsheet por ID
+ * - Fallback: getActiveSpreadsheet / getActive
+ */
+function _pacientesGetDb_() {
+  try {
+    if (typeof PRONTIO_getDb_ === "function") {
+      var ss = PRONTIO_getDb_();
+      if (ss) return ss;
+    }
+  } catch (_) {}
+
+  try {
+    return SpreadsheetApp.getActiveSpreadsheet();
+  } catch (_) {
+    return SpreadsheetApp.getActive();
+  }
+}
+
 /** Obtém (ou cria) a aba Pacientes */
 function getPacientesSheet_() {
-  var ss = SpreadsheetApp.getActive();
+  // ✅ FIX: não usar SpreadsheetApp.getActive() diretamente
+  var ss = _pacientesGetDb_();
+  if (!ss) {
+    _pacientesThrow_("PACIENTES_DB_NULL", "Não foi possível obter a planilha do banco (PRONTIO_getDb_/getActive).", null);
+  }
+
   var sh = ss.getSheetByName(PACIENTES_SHEET_NAME);
   if (!sh) {
     var header = [
