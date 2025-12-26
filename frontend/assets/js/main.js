@@ -107,7 +107,6 @@
   // ============================================================
   function withVersion_(src) {
     if (!src || src.includes("?")) return src;
-    // versiona só o que é seu
     if (!src.startsWith("assets/js/")) return src;
     return src + "?v=" + encodeURIComponent(APP_VERSION);
   }
@@ -133,25 +132,32 @@
   }
 
   // ============================================================
-  // ✅ Core: garante API antes de rodar pages (FIX do callApiData indefinido)
+  // ✅ Core: garante API e AUTH antes de rodar pages
   // ============================================================
   async function ensureCoreLoaded_() {
-    // api precisa existir antes das páginas
     const hasApi =
       PRONTIO.api &&
       typeof PRONTIO.api.callApiEnvelope === "function" &&
       typeof PRONTIO.api.callApiData === "function";
 
-    if (hasApi) return true;
+    const hasAuth =
+      PRONTIO.auth &&
+      typeof PRONTIO.auth.getToken === "function";
 
-    // Carrega base do core. (ordem segura)
+    if (hasApi && hasAuth) return true;
+
+    // Base do core (ordem segura)
     await loadOnce_("assets/js/core/config.js");
     await loadOnce_("assets/js/core/dom.js");
     await loadOnce_("assets/js/core/utils.js");
     await loadOnce_("assets/js/core/state.js");
+
     const okApi = await loadOnce_("assets/js/core/api.js");
 
-    // app.js é compat (registerPageInitializer etc.)
+    // ✅ FIX: auth.js precisa existir antes do login/page scripts
+    await loadOnce_("assets/js/core/auth.js");
+
+    // app.js (compat)
     await loadOnce_("assets/js/core/app.js");
 
     const hasApiAfter =
@@ -160,7 +166,11 @@
       typeof PRONTIO.api.callApiEnvelope === "function" &&
       typeof PRONTIO.api.callApiData === "function";
 
-    return !!hasApiAfter;
+    const hasAuthAfter =
+      PRONTIO.auth &&
+      typeof PRONTIO.auth.getToken === "function";
+
+    return !!(hasApiAfter && hasAuthAfter);
   }
 
   // ============================================================
@@ -197,7 +207,7 @@
   PRONTIO.ui.modals.bindTriggers = bindModalTriggers_;
 
   // ============================================================
-  // ✅ Tema: inicializa botão sol/lua (FIX)
+  // ✅ Tema: inicializa botão sol/lua (mantido)
   // ============================================================
   function initThemeToggle_() {
     const btn = document.querySelector(".js-toggle-theme");
@@ -230,7 +240,6 @@
 
     apply(theme);
 
-    // evita bind duplicado
     if (btn.getAttribute("data-theme-bound") === "1") return;
     btn.setAttribute("data-theme-bound", "1");
 
@@ -240,25 +249,20 @@
     });
   }
 
-  // ✅ para o widget-topbar chamar rebind
   PRONTIO.ui.initTheme = initThemeToggle_;
 
   // ============================================================
   // ✅ Chat Widget global: carrega depois que topbar existir
   // ============================================================
   async function ensureChatWidgetLoaded_() {
-    // Não carrega chat no modo standalone da página chat
     if (isChatStandalone_()) return true;
 
-    // Se não existe topbar mount, não tenta (páginas sem shell)
     const hasTopbar = !!document.getElementById("topbarMount") || !!document.querySelector(".topbar");
     if (!hasTopbar) return true;
 
-    // Carrega script do widget
     const ok = await loadOnce_("assets/js/widgets/widget-chat.js");
     if (!ok) return false;
 
-    // Inicializa uma única vez
     PRONTIO.widgets = PRONTIO.widgets || {};
     if (PRONTIO.widgets.chat && typeof PRONTIO.widgets.chat.init === "function") {
       if (PRONTIO.widgets.chat._inited === true) return true;
@@ -277,15 +281,13 @@
   async function bootstrap_() {
     if (!isLoginPage_()) showSkeleton_();
 
-    // safety: nunca deixa skeleton preso
     const safety = global.setTimeout(hideSkeleton_, 1800);
 
     try {
-      // ✅ garante core/api antes de qualquer page script
+      // ✅ garante core/api/auth antes de qualquer page script
       await ensureCoreLoaded_();
 
       if (!isLoginPage_()) {
-        // UI: sidebar + loader
         await loadOnce_("assets/js/ui/sidebar.js");
         await loadOnce_("assets/js/ui/sidebar-loader.js");
 
@@ -293,25 +295,19 @@
           await PRONTIO.ui.sidebarLoader.load();
         }
 
-        // UI: topbar via widget (exceto chat standalone)
         if (!isChatStandalone_()) {
           await loadOnce_("assets/js/widgets/widget-topbar.js");
           if (PRONTIO.widgets && PRONTIO.widgets.topbar && typeof PRONTIO.widgets.topbar.init === "function") {
             await PRONTIO.widgets.topbar.init();
           }
 
-          // garante que o tema está OK mesmo se widget não chamar
           initThemeToggle_();
-
-          // modais
           bindModalTriggers_(document);
 
-          // ✅ Agora que a topbar está montada, carrega o chat widget
           await ensureChatWidgetLoaded_();
         }
       }
 
-      // Lazy load da página
       const pageId = getPageId_();
       if (pageId && !PRONTIO.pages[pageId]) {
         let ok = await loadOnce_("assets/js/pages/page-" + pageId + ".js");
