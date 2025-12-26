@@ -99,6 +99,15 @@
             console.warn("[PRONTIO.sidebar-loader] Erro ao rebind modais:", e);
           }
 
+          // ✅ REBIND LOGOUT (Sair) — sidebar é injetado dinamicamente
+          try {
+            if (PRONTIO.auth && typeof PRONTIO.auth.bindLogoutButtons === "function") {
+              PRONTIO.auth.bindLogoutButtons(document);
+            }
+          } catch (e) {
+            console.warn("[PRONTIO.sidebar-loader] Erro ao rebind logout:", e);
+          }
+
           PRONTIO.ui.sidebarLoader._loaded = true;
           resolve(true);
         })
