@@ -10,7 +10,7 @@
  * - Agenda (novo + aliases + legados)
  * - AgendaConfig (oficial)
  * - Agenda_ValidarConflito (oficial)
- * - Pacientes (oficial + aliases)
+ * - Pacientes (oficial + aliases) + Pacientes_DebugInfo ✅
  * - Receita (oficial + aliases)
  * - Medicamentos (oficial + aliases)
  * - Prontuário (fachada)
@@ -487,7 +487,7 @@ function _Registry_build_() {
   };
 
   // ============================================================
-  // PRONTUÁRIO (fachada) ✅
+  // PRONTUÁRIO (fachada)
   // ============================================================
   function _prontuarioHandler_(actionName) {
     return function (ctx, payload) {
@@ -542,7 +542,7 @@ function _Registry_build_() {
   };
 
   // =========================
-  // CHAT ✅ (casando com page-chat.js)
+  // CHAT ✅
   // =========================
   map["chat.sendMessage"] = {
     action: "chat.sendMessage",
@@ -604,7 +604,6 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // Usadas no prontuário:
   map["chat.listByPaciente"] = {
     action: "chat.listByPaciente",
     handler: (typeof Chat_Action_ListByPaciente_ === "function")
@@ -630,7 +629,7 @@ function _Registry_build_() {
   };
 
   // =========================
-  // COMPAT DO CHAT ✅ (para não quebrar chat.html)
+  // COMPAT DO CHAT ✅
   // =========================
   map["usuarios.listAll"] = {
     action: "usuarios.listAll",
@@ -669,7 +668,7 @@ function _Registry_build_() {
   };
 
   // =========================
-  // PACIENTES
+  // PACIENTES ✅ (inclui DebugInfo)
   // =========================
   function _pacientesHandler_(actionName) {
     return function (ctx, payload) {
@@ -682,6 +681,16 @@ function _Registry_build_() {
       return handlePacientesAction(actionName, payload || {});
     };
   }
+
+  map["Pacientes_DebugInfo"] = {
+    action: "Pacientes_DebugInfo",
+    handler: _pacientesHandler_("Pacientes_DebugInfo"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
 
   map["Pacientes_Listar"] = {
     action: "Pacientes_Listar",
@@ -983,6 +992,7 @@ function Registry_ListActions(ctx, payload) {
     hasChat: keys.indexOf("chat.sendMessage") >= 0 && keys.indexOf("chat.listMessages") >= 0,
     hasChatCompat: keys.indexOf("usuarios.listAll") >= 0 && keys.indexOf("agenda.nextPatient") >= 0,
     hasPacientes: keys.indexOf("Pacientes_Listar") >= 0 && keys.indexOf("Pacientes_BuscarSimples") >= 0,
+    hasPacientesDebug: keys.indexOf("Pacientes_DebugInfo") >= 0,
     hasReceita: keys.indexOf("Receita.GerarPdf") >= 0,
     hasMedicamentos: keys.indexOf("Medicamentos.ListarAtivos") >= 0
   };
