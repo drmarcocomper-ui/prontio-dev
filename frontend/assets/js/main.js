@@ -244,6 +244,34 @@
   PRONTIO.ui.initTheme = initThemeToggle_;
 
   // ============================================================
+  // ✅ Chat Widget global: carrega depois que topbar existir
+  // ============================================================
+  async function ensureChatWidgetLoaded_() {
+    // Não carrega chat no modo standalone da página chat
+    if (isChatStandalone_()) return true;
+
+    // Se não existe topbar mount, não tenta (páginas sem shell)
+    const hasTopbar = !!document.getElementById("topbarMount") || !!document.querySelector(".topbar");
+    if (!hasTopbar) return true;
+
+    // Carrega script do widget
+    const ok = await loadOnce_("assets/js/widgets/widget-chat.js");
+    if (!ok) return false;
+
+    // Inicializa uma única vez
+    PRONTIO.widgets = PRONTIO.widgets || {};
+    if (PRONTIO.widgets.chat && typeof PRONTIO.widgets.chat.init === "function") {
+      if (PRONTIO.widgets.chat._inited === true) return true;
+      try {
+        await PRONTIO.widgets.chat.init();
+        PRONTIO.widgets.chat._inited = true;
+      } catch (e) {}
+    }
+
+    return true;
+  }
+
+  // ============================================================
   // Bootstrap
   // ============================================================
   async function bootstrap_() {
@@ -271,11 +299,15 @@
           if (PRONTIO.widgets && PRONTIO.widgets.topbar && typeof PRONTIO.widgets.topbar.init === "function") {
             await PRONTIO.widgets.topbar.init();
           }
+
           // garante que o tema está OK mesmo se widget não chamar
           initThemeToggle_();
 
           // modais
           bindModalTriggers_(document);
+
+          // ✅ Agora que a topbar está montada, carrega o chat widget
+          await ensureChatWidgetLoaded_();
         }
       }
 

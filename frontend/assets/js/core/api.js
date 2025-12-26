@@ -35,7 +35,6 @@
     const t = PRONTIO.config && typeof PRONTIO.config.apiTimeoutMs === "number"
       ? PRONTIO.config.apiTimeoutMs
       : null;
-    // default conservador (mantém o comportamento atual)
     return (t && t > 0) ? t : 20000;
   }
 
@@ -131,7 +130,7 @@
     } catch (_) {}
   }
 
-  // ✅ FIX: evita TDZ/ReferenceError se timeout ocorrer antes do <script> existir.
+  // JSONP
   function jsonp_(url, timeoutMs) {
     timeoutMs = typeof timeoutMs === "number" ? timeoutMs : getTimeoutMs_();
 
@@ -181,7 +180,6 @@
     try {
       return JSON.stringify(obj || {});
     } catch (e) {
-      // Mantém contrato: ainda chama API, mas com erro explícito do lado cliente
       const err = new Error("Falha ao serializar payload (JSON.stringify).");
       err.code = "CLIENT_PAYLOAD_SERIALIZE_ERROR";
       err.details = { message: normalizeError_(e) };
@@ -190,7 +188,6 @@
   }
 
   function withNoCacheParam_(url) {
-    // Evita cache de GET/JSONP em browsers/CDNs
     const nonce = Date.now().toString(36) + "_" + Math.floor(Math.random() * 1e9).toString(36);
     return url + (url.indexOf("?") >= 0 ? "&" : "?") + "_nc=" + encodeURIComponent(nonce);
   }
@@ -257,35 +254,5 @@
 
   global.callApi = callApiEnvelope;
   global.callApiData = callApiData;
-
-})(window);
-
-// frontend/assets/js/core/app.js
-// (mantém seu conteúdo existente; abaixo está a adição de init do widget)
-
-(function (global) {
-  "use strict";
-
-  const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
-  PRONTIO.core = PRONTIO.core || {};
-
-  // ... seu código existente ...
-
-  function initWidgets_() {
-    try {
-      if (PRONTIO.widgets && PRONTIO.widgets.chat && typeof PRONTIO.widgets.chat.init === "function") {
-        PRONTIO.widgets.chat.init();
-      }
-    } catch (e) {
-      console.warn("[PRONTIO] Falha ao inicializar widget de chat:", e);
-    }
-  }
-
-  // ✅ garante inicialização quando DOM estiver pronto
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initWidgets_);
-  } else {
-    initWidgets_();
-  }
 
 })(window);

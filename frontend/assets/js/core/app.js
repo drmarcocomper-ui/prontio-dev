@@ -1,71 +1,95 @@
-// =====================================
-// PRONTIO - core/app.js
-// - Cria/garante o namespace global PRONTIO
-// - Compatibilidade com o modelo antigo de
-//   registro de páginas (registerPageInitializer)
-// - NÃO define mais PRONTIO.initPage aqui;
-//   o main.js é o responsável por isso.
-// =====================================
+// frontend/assets/js/core/app.js
+// ============================================================
+// PRONTIO - App bootstrap (Front-end)
+// ============================================================
+// Objetivos:
+// - Inicializar widgets globais (Chat no topo)
+// - Não quebrar páginas que ainda não tenham todos os módulos carregados
+//
+// ✅ Importante: este arquivo NÃO deve ficar dentro do api.js.
+// ============================================================
 
-(function (global) {
+(function (global, document) {
+  "use strict";
+
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
-
-  // Garante subnamespaces
   PRONTIO.core = PRONTIO.core || {};
-  PRONTIO.pages = PRONTIO.pages || {};
 
-  /**
-   * Compatibilidade: registra função que inicializa uma página.
-   *
-   * Uso legado:
-   *   PRONTIO.registerPageInitializer("agenda", function initAgenda() { ... });
-   *
-   * Agora:
-   *   - Salva em PRONTIO.pages[pageName] (modelo antigo).
-   *   - Se PRONTIO.registerPage existir (definido em main.js),
-   *     também registra no novo modelo, que espera um initFn.
-   *
-   * @param {string} pageName - nome lógico da página (ex: "pacientes", "agenda")
-   * @param {Function} initFn - função sem argumentos que inicializa a página
-   */
-  function registerPageInitializer(pageName, initFn) {
-    if (!pageName || typeof pageName !== "string") {
-      console.warn(
-        "[PRONTIO.core.app] registerPageInitializer: pageName inválido:",
-        pageName
-      );
-      return;
-    }
-    if (typeof initFn !== "function") {
-      console.warn(
-        "[PRONTIO.core.app] registerPageInitializer: initFn deve ser função. pageName=",
-        pageName
-      );
-      return;
-    }
+  function log_(...args) {
+    try { console.log("[PRONTIO.app]", ...args); } catch (_) {}
+  }
 
-    // Modelo antigo: PRONTIO.pages[pageName] = initFn
-    PRONTIO.pages[pageName] = initFn;
+  function warn_(...args) {
+    try { console.warn("[PRONTIO.app]", ...args); } catch (_) {}
+  }
 
-    // Modelo novo (main.js): PRONTIO.registerPage("agenda", initFn)
-    if (typeof PRONTIO.registerPage === "function") {
+  function ensureScript_(src) {
+    return new Promise((resolve, reject) => {
       try {
-        PRONTIO.registerPage(pageName, initFn);
-      } catch (err) {
-        console.error(
-          "[PRONTIO.core.app] Erro ao registrar página via registerPage:",
-          pageName,
-          err
-        );
+        // já carregado?
+        const existing = document.querySelector(`script[data-prontio-src="${src}"]`);
+        if (existing) return resolve(true);
+
+        const s = document.createElement("script");
+        s.async = true;
+        s.src = src;
+        s.dataset.prontioSrc = src;
+
+        s.onload = () => resolve(true);
+        s.onerror = () => reject(new Error("Falha ao carregar script: " + src));
+
+        document.head.appendChild(s);
+      } catch (e) {
+        reject(e);
       }
+    });
+  }
+
+  async function initChatWidget_() {
+    // Se o widget já estiver carregado, só inicializa
+    if (PRONTIO.widgets && PRONTIO.widgets.chat && typeof PRONTIO.widgets.chat.init === "function") {
+      PRONTIO.widgets.chat.init();
+      return;
+    }
+
+    // Caso não esteja carregado, tenta carregar automaticamente.
+    // Caminho padrão no PRONTIO:
+    const src = "assets/js/widgets/widget-chat.js";
+
+    try {
+      await ensureScript_(src);
+    } catch (e) {
+      warn_("Widget chat não carregou:", e && e.message ? e.message : String(e));
+      return;
+    }
+
+    if (PRONTIO.widgets && PRONTIO.widgets.chat && typeof PRONTIO.widgets.chat.init === "function") {
+      PRONTIO.widgets.chat.init();
+    } else {
+      warn_("Widget chat carregou, mas PRONTIO.widgets.chat.init não encontrado.");
     }
   }
 
-  // Expõe no namespace (para páginas antigas que ainda usam isso)
-  PRONTIO.registerPageInitializer = registerPageInitializer;
+  async function init_() {
+    // Widgets globais (não depende do router)
+    await initChatWidget_();
 
-  // IMPORTANTE:
-  // NÃO definimos PRONTIO.initPage aqui.
-  // O main.js já define PRONTIO.initPage(pageName)
-  // no formato novo, que procura PRONTIO.pages[pageName].init.
-})(window);
+    // Se existir router do PRONTIO, inicia
+    try {
+      if (PRONTIO.core && PRONTIO.core.router && typeof PRONTIO.core.router.start === "function") {
+        PRONTIO.core.router.start();
+      }
+    } catch (e) {
+      warn_("Falha ao iniciar router:", e && e.message ? e.message : String(e));
+    }
+
+    log_("init ok");
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () => { init_(); });
+  } else {
+    init_();
+  }
+
+})(window, document);
