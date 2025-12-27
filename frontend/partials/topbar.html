@@ -31,6 +31,19 @@
   <div class="topbar-col-right">
     <div class="topbar-actions">
       <div class="topbar-extra">
+        <!-- ✅ Botão de tema (sol/lua) — requerido pelo main.js (.js-toggle-theme) -->
+        <button
+          id="btn-theme-toggle"
+          class="topbar__icon-btn js-toggle-theme"
+          type="button"
+          aria-label="Alternar tema"
+          aria-pressed="false"
+          title="Tema"
+        >
+          <span class="js-theme-icon-sun" aria-hidden="true">☀️</span>
+          <span class="js-theme-icon-moon" aria-hidden="true" style="display:none;">🌙</span>
+        </button>
+
         <!-- ✅ Chat no topo (mantido) -->
         <button
           id="prontio-chat-topbtn"
