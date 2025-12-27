@@ -391,9 +391,15 @@ function Auth_Login(ctx, payload) {
 
   try { if (typeof Usuarios_markUltimoLogin_ === "function") Usuarios_markUltimoLogin_(u.id); } catch (_) {}
 
+  // ✅ Ajuste: carregar NomeCompleto (sem quebrar quem só tem "nome")
+  var nomeCompleto = (u.nomeCompleto || u.NomeCompleto || u.nome || u.Nome || "").toString().trim();
+
   var session = Auth_createSession_({
     id: u.id,
+    // mantém compat
     nome: u.nome,
+    // ✅ novo: preferível para UI
+    nomeCompleto: nomeCompleto,
     login: u.login,
     email: u.email,
     perfil: u.perfil
@@ -442,9 +448,16 @@ function _authNormalizeUser_(user) {
   var perfil = (user.perfil !== undefined ? user.perfil : (user.Perfil || user.role || "usuario"));
   perfil = (perfil || "usuario").toString().trim().toLowerCase();
 
+  // ✅ Ajuste: normalizar NomeCompleto também
+  var nomeCompleto = (user.nomeCompleto || user.NomeCompleto || user.nome || user.Nome || "").toString().trim();
+
   return {
     id: user.id !== undefined ? user.id : (user.ID_Usuario || user.idUsuario || null),
     nome: user.nome !== undefined ? user.nome : (user.Nome || null),
+
+    // ✅ novo (para UI): NomeCompleto
+    nomeCompleto: nomeCompleto || null,
+
     login: user.login !== undefined ? user.login : (user.Login || null),
     email: user.email !== undefined ? user.email : (user.Email || null),
     perfil: perfil
