@@ -5,17 +5,17 @@
  * IMPORTANTE:
  * - NÃO usa SpreadsheetApp diretamente (Sheets só via Repository).
  * - NÃO usa colunas/abas no front.
- * - NÃO lança "throw { }" (causa logs [object Object] e pode travar o editor).
+ * - NÃO lança "throw { }".
  * - IDs são gerados no backend via Ids.gs
- * - Locks: aplicados no Api.gs via Registry.requiresLock (este módulo NÃO trava aqui)
+ * - Locks: aplicados no Api.gs via Registry.requiresLock
  *
- * Actions (para registrar no Registry.gs) - NOVAS:
+ * Actions NOVAS (Registry):
  * - Agenda.ListarPorPeriodo
  * - Agenda.Criar
  * - Agenda.Atualizar
  * - Agenda.Cancelar
  *
- * ✅ LEGACY (para manter front atual intacto):
+ * ✅ LEGACY (front atual):
  * - Agenda_ListarDia
  * - Agenda_ListarSemana
  * - Agenda_Criar
@@ -24,32 +24,11 @@
  * - Agenda_MudarStatus
  * - Agenda_RemoverBloqueio
  * - Agenda_ValidarConflito
- *
- * DTO interno (alinhado ao Schema.gs + Migrations.gs v1):
- * Agenda:
- *  idAgenda, idPaciente?, inicio, fim, titulo?, notas?, tipo?, status, origem?, criadoEm, atualizadoEm,
- *  canceladoEm?, canceladoMotivo?
  */
 
-/**
- * ============================================================
- * Router do módulo (LEGADO do Api.gs)
- * ============================================================
- * O Api.gs (fallback PRONTIO_routeAction_) chama:
- *   handleAgendaAction(action, payload)
- *
- * Este roteador garante compatibilidade:
- * - Actions NOVAS (com ponto): "Agenda.ListarPorPeriodo", "Agenda.Criar", ...
- * - Actions LEGACY (com underscore): "Agenda_ListarDia", "Agenda_Criar", ...
- *
- * Observação:
- * - O Registry (se existir) pode chamar diretamente as handlers Agenda_Action_*.
- * - Aqui mantemos o "switch" para cobrir o modo legado.
- */
 function handleAgendaAction(action, payload) {
   payload = payload || {};
 
-  // ctx mínimo para compatibilidade (algumas handlers usam env/apiVersion)
   var ctx = {
     action: String(action || ""),
     user: null,
@@ -59,13 +38,13 @@ function handleAgendaAction(action, payload) {
 
   var a = String(action || "").trim();
 
-  // ===== Actions NOVAS (API-first) =====
+  // Actions NOVAS
   if (a === "Agenda.ListarPorPeriodo") return Agenda_Action_ListarPorPeriodo_(ctx, payload);
   if (a === "Agenda.Criar") return Agenda_Action_Criar_(ctx, payload);
   if (a === "Agenda.Atualizar") return Agenda_Action_Atualizar_(ctx, payload);
   if (a === "Agenda.Cancelar") return Agenda_Action_Cancelar_(ctx, payload);
 
-  // ===== Actions LEGACY (front atual) =====
+  // Actions LEGACY
   if (a === "Agenda_ListarDia") return Agenda_Legacy_ListarDia_(ctx, payload);
   if (a === "Agenda_ListarSemana") return Agenda_Legacy_ListarSemana_(ctx, payload);
   if (a === "Agenda_Criar") return Agenda_Legacy_Criar_(ctx, payload);
@@ -75,7 +54,6 @@ function handleAgendaAction(action, payload) {
   if (a === "Agenda_RemoverBloqueio") return Agenda_Legacy_RemoverBloqueio_(ctx, payload);
   if (a === "Agenda_ValidarConflito") return Agenda_Legacy_ValidarConflito_(ctx, payload);
 
-  // Adapter direto (alguns front/debug podem chamar isso como action)
   if (a === "Agenda_ListarEventosDiaParaValidacao") {
     var ds = payload && payload.data ? String(payload.data) : "";
     return { items: Agenda_ListarEventosDiaParaValidacao_(ds) };
@@ -84,11 +62,9 @@ function handleAgendaAction(action, payload) {
   _agendaThrow_("NOT_FOUND", "Action de Agenda não reconhecida.", { action: a });
 }
 
-// Nome interno da entidade/aba (backend-only)
 var AGENDA_ENTITY = "Agenda";
 var AGENDA_ID_FIELD = "idAgenda";
 
-// Status permitidos (alinhado ao Schema)
 var AGENDA_STATUS = {
   AGENDADO: "AGENDADO",
   CANCELADO: "CANCELADO",
@@ -110,22 +86,10 @@ var AGENDA_ORIGEM = {
   SISTEMA: "SISTEMA"
 };
 
-/**
- * ============================================================
- * Handlers (NOVOS) - para Registry
- * ============================================================
- */
+// ============================================================
+// Handlers NOVOS
+// ============================================================
 
-/**
- * Agenda.ListarPorPeriodo
- * payload:
- * {
- *   inicio: "2025-12-01T00:00:00-03:00" | Date | number,
- *   fim:    "2025-12-31T23:59:59-03:00" | Date | number,
- *   incluirCancelados?: boolean,
- *   idPaciente?: string
- * }
- */
 function Agenda_Action_ListarPorPeriodo_(ctx, payload) {
   payload = payload || {};
 
@@ -139,7 +103,6 @@ function Agenda_Action_ListarPorPeriodo_(ctx, payload) {
   var incluirCancelados = payload.incluirCancelados === true;
   var idPaciente = payload.idPaciente ? String(payload.idPaciente) : null;
 
-  // Lê tudo e filtra (otimização futura: índices/cache)
   var all = Repo_list_(AGENDA_ENTITY);
 
   var out = [];
@@ -157,36 +120,21 @@ function Agenda_Action_ListarPorPeriodo_(ctx, payload) {
     var evFim = _agendaParseDate_(e.fim);
     if (!evIni || !evFim) continue;
 
-    // overlap com [ini, fim]
     var overlaps = (evIni.getTime() <= fim.getTime()) && (evFim.getTime() >= ini.getTime());
     if (!overlaps) continue;
 
     out.push(e);
   }
 
-  // Ordena por início
   out.sort(function (a, b) {
     var da = _agendaParseDate_(a.inicio);
     var db = _agendaParseDate_(b.inicio);
-    var ta = da ? da.getTime() : 0;
-    var tb = db ? db.getTime() : 0;
-    return ta - tb;
+    return (da ? da.getTime() : 0) - (db ? db.getTime() : 0);
   });
 
-  return {
-    items: out,
-    count: out.length
-  };
+  return { items: out, count: out.length };
 }
 
-/**
- * Agenda.Criar
- * payload suportado:
- * A) padrão novo:
- * { idPaciente?, inicio, fim, titulo?, notas?, tipo?, status?, origem?, permitirEncaixe? }
- * B) compatível com legado:
- * { idPaciente?, data:"YYYY-MM-DD", hora_inicio:"HH:MM", duracao_minutos:number, ... }
- */
 function Agenda_Action_Criar_(ctx, payload) {
   payload = payload || {};
 
@@ -196,16 +144,13 @@ function Agenda_Action_Criar_(ctx, payload) {
     permiteSobreposicao: false
   };
 
-  // Normaliza entrada (novo ou legado)
   var norm = _agendaNormalizeCreateInput_(payload, params);
 
-  // Regras adicionais: BLOQUEIO não deve amarrar paciente
   if (norm.tipo === AGENDA_TIPO.BLOQUEIO) {
     norm.idPaciente = "";
-    norm.status = AGENDA_STATUS.AGENDADO; // Bloqueio é um "evento" marcado
+    norm.status = AGENDA_STATUS.AGENDADO;
   }
 
-  // Valida conflitos conforme política
   _agendaAssertSemConflitos_(ctx, {
     inicio: norm.inicio,
     fim: norm.fim,
@@ -214,7 +159,6 @@ function Agenda_Action_Criar_(ctx, payload) {
     ignoreIdAgenda: null
   }, params);
 
-  // Gera ID estável
   var idAgenda = Ids_nextId_("AGENDA");
   var now = new Date();
 
@@ -238,16 +182,6 @@ function Agenda_Action_Criar_(ctx, payload) {
   return { item: dto };
 }
 
-/**
- * Agenda.Atualizar
- * payload:
- * {
- *   idAgenda: string (obrigatório)
- *   patch: { ...campos permitidos... }
- *   // compatibilidade: também aceita campos no topo (data/hora_inicio/duracao_minutos etc.)
- *   permitirEncaixe?: boolean
- * }
- */
 function Agenda_Action_Atualizar_(ctx, payload) {
   payload = payload || {};
 
@@ -269,11 +203,8 @@ function Agenda_Action_Atualizar_(ctx, payload) {
   };
 
   var patchIn = (payload.patch && typeof payload.patch === "object") ? payload.patch : {};
-  var topCompat = payload;
+  var mergedPatch = _agendaBuildUpdatePatch_(existing, patchIn, payload, params);
 
-  var mergedPatch = _agendaBuildUpdatePatch_(existing, patchIn, topCompat, params);
-
-  // Regra: cancelar deve ser via Agenda.Cancelar
   if (mergedPatch.status !== undefined) {
     var s = _agendaNormalizeStatus_(mergedPatch.status);
     if (s === AGENDA_STATUS.CANCELADO) {
@@ -304,9 +235,7 @@ function Agenda_Action_Atualizar_(ctx, payload) {
   var tipoFinal = mergedPatch.tipo ? String(_agendaNormalizeTipo_(mergedPatch.tipo)) : String(existing.tipo || AGENDA_TIPO.CONSULTA);
   mergedPatch.tipo = (mergedPatch.tipo !== undefined) ? _agendaNormalizeTipo_(mergedPatch.tipo) : undefined;
 
-  if (tipoFinal === AGENDA_TIPO.BLOQUEIO) {
-    mergedPatch.idPaciente = "";
-  }
+  if (tipoFinal === AGENDA_TIPO.BLOQUEIO) mergedPatch.idPaciente = "";
 
   var permitirEncaixe = (typeof payload.permitirEncaixe !== "undefined") ? (payload.permitirEncaixe === true) : false;
 
@@ -327,11 +256,6 @@ function Agenda_Action_Atualizar_(ctx, payload) {
   return { item: _agendaNormalizeRowToDto_(after) };
 }
 
-/**
- * Agenda.Cancelar
- * payload:
- * { idAgenda: string (obrigatório), motivo?: string }
- */
 function Agenda_Action_Cancelar_(ctx, payload) {
   payload = payload || {};
   var idAgenda = payload.idAgenda ? String(payload.idAgenda) : "";
@@ -342,9 +266,7 @@ function Agenda_Action_Cancelar_(ctx, payload) {
 
   existing = _agendaNormalizeRowToDto_(existing);
   existing.status = _agendaNormalizeStatus_(existing.status);
-  if (existing.status === AGENDA_STATUS.CANCELADO) {
-    return { item: existing };
-  }
+  if (existing.status === AGENDA_STATUS.CANCELADO) return { item: existing };
 
   var nowIso = new Date().toISOString();
   var patch = {
@@ -361,11 +283,9 @@ function Agenda_Action_Cancelar_(ctx, payload) {
   return { item: _agendaNormalizeRowToDto_(after) };
 }
 
-/**
- * ============================================================
- * Regras de negócio: conflito / normalização
- * ============================================================
- */
+// ============================================================
+// Regras de conflito / normalização
+// ============================================================
 
 function _agendaAssertSemConflitos_(ctx, args, params) {
   params = params || {};
@@ -378,7 +298,6 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
   if (!(fim instanceof Date) || isNaN(fim.getTime())) _agendaThrow_("VALIDATION_ERROR", "fim inválido.", {});
 
   var ignoreId = args.ignoreIdAgenda ? String(args.ignoreIdAgenda) : null;
-
   var isBloqueioNovo = args.modoBloqueio === true;
 
   var cfgPermiteSobreposicao = params.permiteSobreposicao === true;
@@ -388,7 +307,6 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
 
   for (var i = 0; i < all.length; i++) {
     var e = _agendaNormalizeRowToDto_(all[i]);
-
     if (ignoreId && String(e.idAgenda || "") === ignoreId) continue;
 
     var evIni = _agendaParseDate_(e.inicio);
@@ -401,7 +319,6 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
     var evTipo = _agendaNormalizeTipo_(e.tipo || AGENDA_TIPO.CONSULTA);
     var evStatus = _agendaNormalizeStatus_(e.status || AGENDA_STATUS.AGENDADO);
 
-    // ✅ FIX: cancelados NÃO geram conflito, inclusive bloqueios cancelados
     if (evStatus === AGENDA_STATUS.CANCELADO) continue;
 
     var evIsBloqueio = (evTipo === AGENDA_TIPO.BLOQUEIO);
@@ -433,7 +350,10 @@ function _agendaNormalizeCreateInput_(payload, params) {
   params = params || {};
   payload = payload || {};
 
+  // ✅ padrão oficial: idPaciente (camelCase)
+  // ✅ compat: ID_Paciente
   var idPaciente = payload.idPaciente ? String(payload.idPaciente) : (payload.ID_Paciente ? String(payload.ID_Paciente) : "");
+
   var titulo = payload.titulo || payload.motivo || "";
   var notas = payload.notas || "";
   var tipo = payload.tipo ? String(payload.tipo) : (payload.Bloqueio === true ? AGENDA_TIPO.BLOQUEIO : AGENDA_TIPO.CONSULTA);
@@ -496,6 +416,7 @@ function _agendaBuildUpdatePatch_(existing, patch, topCompat, params) {
     if (patch[f] !== undefined) out[f] = patch[f];
   }
 
+  // compat: ID_Paciente -> idPaciente
   if (topCompat.ID_Paciente !== undefined) out.idPaciente = topCompat.ID_Paciente;
 
   if (out.tipo !== undefined) out.tipo = _agendaNormalizeTipo_(out.tipo);
@@ -557,6 +478,442 @@ function _agendaNormalizeRowToDto_(rowObj) {
   };
 }
 
+// ============================================================
+// Adapter usado pela validação de conflitos do front
+// ============================================================
+
+function Agenda_ListarEventosDiaParaValidacao_(dataStr) {
+  dataStr = String(dataStr || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return [];
+
+  var ini = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 0, 0, 0, 0);
+  var fim = new Date(ini.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+  var res = Agenda_Action_ListarPorPeriodo_(
+    { action: "Agenda_ListarEventosDiaParaValidacao_", user: null, env: (typeof PRONTIO_ENV !== "undefined" ? PRONTIO_ENV : "DEV"), apiVersion: (typeof PRONTIO_API_VERSION !== "undefined" ? PRONTIO_API_VERSION : "1.0.0-DEV") },
+    { inicio: ini, fim: fim, incluirCancelados: true }
+  );
+
+  var items = (res && res.items) ? res.items : [];
+  var out = [];
+
+  for (var i = 0; i < items.length; i++) {
+    var dto = _agendaNormalizeRowToDto_(items[i]);
+    var status = _agendaNormalizeStatus_(dto.status);
+    if (status === AGENDA_STATUS.CANCELADO) continue;
+
+    var dtIni = _agendaParseDate_(dto.inicio);
+    var dtFim = _agendaParseDate_(dto.fim);
+    if (!dtIni || !dtFim) continue;
+
+    if (_agendaFormatDate_(dtIni) !== dataStr) continue;
+
+    var dur = Math.max(1, Math.round((dtFim.getTime() - dtIni.getTime()) / 60000));
+    var tipo = _agendaNormalizeTipo_(dto.tipo);
+
+    out.push({
+      ID_Agenda: String(dto.idAgenda || ""),
+      data: dataStr,
+      hora_inicio: _agendaFormatHHMM_(dtIni),
+      hora_fim: _agendaFormatHHMM_(dtFim),
+      duracao_minutos: dur,
+      bloqueio: (tipo === AGENDA_TIPO.BLOQUEIO)
+    });
+  }
+
+  return out;
+}
+
+// ============================================================
+// LEGACY API (front atual)
+// ============================================================
+
+function Agenda_Legacy_ListarDia_(ctx, payload) {
+  payload = payload || {};
+  var dataStr = String(payload.data || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida (YYYY-MM-DD).', { field: "data" });
+
+  var ini = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 0, 0, 0, 0);
+  var fim = new Date(ini.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+  var res = Agenda_Action_ListarPorPeriodo_(ctx, { inicio: ini, fim: fim, incluirCancelados: false });
+  var items = (res && res.items) ? res.items : [];
+
+  var ags = items.map(function (dto) { return _agendaLegacyDtoToFront_(dto); });
+
+  var map = {};
+  for (var i = 0; i < ags.length; i++) {
+    var h = String(ags[i].hora_inicio || "");
+    if (!map[h]) map[h] = [];
+    map[h].push(ags[i]);
+  }
+
+  var horas = Object.keys(map).sort(function (a, b) { return a.localeCompare(b); });
+  var horarios = horas.map(function (h) { return { hora: h, agendamentos: map[h] }; });
+
+  return { resumo: _agendaLegacyBuildResumo_(ags), horarios: horarios };
+}
+
+function Agenda_Legacy_ListarSemana_(ctx, payload) {
+  payload = payload || {};
+  var refStr = String(payload.data_referencia || payload.data || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(refStr)) _agendaThrow_("VALIDATION_ERROR", '"data_referencia" inválida (YYYY-MM-DD).', { field: "data_referencia" });
+
+  var ref = new Date(Number(refStr.slice(0, 4)), Number(refStr.slice(5, 7)) - 1, Number(refStr.slice(8, 10)), 0, 0, 0, 0);
+  var day = ref.getDay();
+  var diffToMon = (day === 0) ? -6 : (1 - day);
+  var mon = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + diffToMon, 0, 0, 0, 0);
+
+  var dias = [];
+  for (var d = 0; d < 7; d++) {
+    var cur = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + d, 0, 0, 0, 0);
+    var curEnd = new Date(cur.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+    var r = Agenda_Action_ListarPorPeriodo_(ctx, { inicio: cur, fim: curEnd, incluirCancelados: false });
+    var items = (r && r.items) ? r.items : [];
+    var ags = items.map(function (dto) { return _agendaLegacyDtoToFront_(dto); });
+
+    var map = {};
+    for (var i = 0; i < ags.length; i++) {
+      var h = String(ags[i].hora_inicio || "");
+      if (!map[h]) map[h] = [];
+      map[h].push(ags[i]);
+    }
+
+    var horas = Object.keys(map).sort(function (a, b) { return a.localeCompare(b); });
+    var horarios = horas.map(function (h) { return { hora: h, agendamentos: map[h] }; });
+
+    dias.push({ data: _agendaFormatDate_(cur), horarios: horarios });
+  }
+
+  return { dias: dias };
+}
+
+function Agenda_Legacy_Criar_(ctx, payload) {
+  payload = payload || {};
+  var packedNotas = _agendaLegacyPackNotas_(payload);
+
+  var createPayload = {
+    data: payload.data,
+    hora_inicio: payload.hora_inicio,
+    duracao_minutos: payload.duracao_minutos,
+    ID_Paciente: payload.ID_Paciente || "",
+    tipo: payload.tipo || "",
+    motivo: payload.motivo || payload.titulo || "",
+    origem: payload.origem || "",
+    permite_encaixe: payload.permite_encaixe === true,
+    notas: packedNotas
+  };
+
+  var r = Agenda_Action_Criar_(ctx, createPayload);
+  var dto = r && r.item ? r.item : null;
+  return { ok: true, item: dto ? _agendaLegacyDtoToFront_(dto) : null };
+}
+
+function Agenda_Legacy_Atualizar_(ctx, payload) {
+  payload = payload || {};
+  var idAgenda = String(payload.ID_Agenda || payload.idAgenda || "").trim();
+  if (!idAgenda) _agendaThrow_("VALIDATION_ERROR", '"ID_Agenda" é obrigatório.', { field: "ID_Agenda" });
+
+  var existing = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
+  if (!existing) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado.", { idAgenda: idAgenda });
+
+  var packedNotas = _agendaLegacyMergeNotas_(existing.notas, payload);
+
+  var updatePayload = {
+    idAgenda: idAgenda,
+    data: payload.data,
+    hora_inicio: payload.hora_inicio,
+    duracao_minutos: payload.duracao_minutos,
+    ID_Paciente: (payload.ID_Paciente !== undefined) ? payload.ID_Paciente : undefined,
+    tipo: payload.tipo,
+    origem: payload.origem,
+    titulo: payload.motivo || payload.titulo,
+    notas: packedNotas,
+    permitirEncaixe: payload.permite_encaixe === true
+  };
+
+  var r = Agenda_Action_Atualizar_(ctx, updatePayload);
+  return { ok: true, item: r && r.item ? _agendaLegacyDtoToFront_(r.item) : null };
+}
+
+function Agenda_Legacy_BloquearHorario_(ctx, payload) {
+  payload = payload || {};
+  var dataStr = String(payload.data || "").trim();
+  var horaStr = String(payload.hora_inicio || "").trim();
+  var dur = Number(payload.duracao_minutos || 0);
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida.', { field: "data" });
+  if (!/^\d{2}:\d{2}$/.test(horaStr)) _agendaThrow_("VALIDATION_ERROR", '"hora_inicio" inválida.', { field: "hora_inicio" });
+  if (!dur || isNaN(dur) || dur <= 0) _agendaThrow_("VALIDATION_ERROR", '"duracao_minutos" inválida.', { field: "duracao_minutos" });
+
+  var createPayload = {
+    data: dataStr,
+    hora_inicio: horaStr,
+    duracao_minutos: dur,
+    tipo: "BLOQUEIO",
+    motivo: "BLOQUEIO",
+    origem: "SISTEMA",
+    notas: _agendaLegacyPackNotas_({ bloqueio: true })
+  };
+
+  var r = Agenda_Action_Criar_(ctx, createPayload);
+  return { ok: true, item: r && r.item ? _agendaLegacyDtoToFront_(r.item) : null };
+}
+
+function Agenda_Legacy_RemoverBloqueio_(ctx, payload) {
+  payload = payload || {};
+  var idAgenda = String(payload.ID_Agenda || "").trim();
+  if (!idAgenda) _agendaThrow_("VALIDATION_ERROR", '"ID_Agenda" é obrigatório.', { field: "ID_Agenda" });
+
+  Agenda_Action_Cancelar_(ctx, { idAgenda: idAgenda, motivo: "Remover bloqueio" });
+  return { ok: true };
+}
+
+function Agenda_Legacy_MudarStatus_(ctx, payload) {
+  payload = payload || {};
+  var idAgenda = String(payload.ID_Agenda || "").trim();
+  var novo = String(payload.novo_status || "").trim();
+
+  if (!idAgenda) _agendaThrow_("VALIDATION_ERROR", '"ID_Agenda" é obrigatório.', { field: "ID_Agenda" });
+  if (!novo) _agendaThrow_("VALIDATION_ERROR", '"novo_status" é obrigatório.', { field: "novo_status" });
+
+  var existing = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
+  if (!existing) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado.", { idAgenda: idAgenda });
+
+  var core = _agendaLegacyMapUiStatusToCore_(novo);
+  var packedNotas = _agendaLegacyMergeNotas_(existing.notas, { status_label: novo });
+
+  if (core === AGENDA_STATUS.CANCELADO) {
+    Agenda_Action_Cancelar_(ctx, { idAgenda: idAgenda, motivo: "Cancelado pela Agenda" });
+    return { ok: true };
+  }
+
+  var upd = { idAgenda: idAgenda, patch: { status: core, notas: packedNotas } };
+  Agenda_Action_Atualizar_(ctx, upd);
+  return { ok: true };
+}
+
+function Agenda_Legacy_ValidarConflito_(ctx, payload) {
+  payload = payload || {};
+  var dataStr = String(payload.data || "").trim();
+  var horaStr = String(payload.hora_inicio || "").trim();
+  var dur = Number(payload.duracao_minutos || 0);
+  var ignoreId = String(payload.ignoreIdAgenda || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida.', { field: "data" });
+  if (!/^\d{2}:\d{2}$/.test(horaStr)) _agendaThrow_("VALIDATION_ERROR", '"hora_inicio" inválida.', { field: "hora_inicio" });
+  if (!dur || isNaN(dur) || dur <= 0) _agendaThrow_("VALIDATION_ERROR", '"duracao_minutos" inválida.', { field: "duracao_minutos" });
+
+  var params = (typeof Config_getAgendaParams_ === "function") ? Config_getAgendaParams_() : {
+    duracaoPadraoMin: 30,
+    slotMin: 10,
+    permiteSobreposicao: false
+  };
+
+  var ini = _agendaBuildDateTime_(dataStr, horaStr);
+  var fim = new Date(ini.getTime() + dur * 60000);
+
+  try {
+    _agendaAssertSemConflitos_(ctx, {
+      inicio: ini,
+      fim: fim,
+      permitirEncaixe: false,
+      modoBloqueio: false,
+      ignoreIdAgenda: ignoreId || null
+    }, params);
+
+    return { ok: true, conflitos: [], intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur } };
+
+  } catch (err) {
+    var conflitos = [];
+    try {
+      var det = err && err.details ? err.details : null;
+      var c = det && det.conflito ? det.conflito : null;
+      if (c) {
+        var ci = _agendaParseDate_(c.inicio);
+        var cf = _agendaParseDate_(c.fim);
+        conflitos.push({
+          ID_Agenda: c.idAgenda || "",
+          bloqueio: String(c.tipo || "").toUpperCase().indexOf("BLOQ") >= 0,
+          hora_inicio: ci ? _agendaFormatHHMM_(ci) : "",
+          hora_fim: cf ? _agendaFormatHHMM_(cf) : ""
+        });
+      }
+    } catch (_) {}
+
+    return {
+      ok: false,
+      erro: (err && err.message) ? String(err.message) : "Conflito de horário.",
+      conflitos: conflitos,
+      intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur }
+    };
+  }
+}
+
+// ============================================================
+// Helpers LEGACY internos (inclui ENRIQUECIMENTO por Pacientes)
+// ============================================================
+
+function _agendaLegacyDtoToFront_(dto) {
+  dto = _agendaNormalizeRowToDto_(dto);
+
+  var ini = _agendaParseDate_(dto.inicio);
+  var fim = _agendaParseDate_(dto.fim);
+
+  var dataStr = ini ? _agendaFormatDate_(ini) : "";
+  var horaIni = ini ? _agendaFormatHHMM_(ini) : "";
+  var horaFim = fim ? _agendaFormatHHMM_(fim) : "";
+  var durMin = (ini && fim) ? Math.max(1, Math.round((fim.getTime() - ini.getTime()) / 60000)) : 0;
+
+  var legacyExtra = _agendaLegacyTryParseNotas_(dto.notas);
+
+  // ✅ ENRIQUECIMENTO PADRONIZADO (sua aba Pacientes):
+  // idPaciente, nomeCompleto, cpf, telefonePrincipal, dataNascimento
+  var nomePaciente = "";
+  var docPaciente = "";
+  var telPaciente = "";
+  var nasc = "";
+
+  if (dto.idPaciente) {
+    try {
+      // Padrão oficial: "idPaciente"
+      var p = Repo_getById_("Pacientes", "idPaciente", dto.idPaciente);
+
+      if (p) {
+        nomePaciente = String(p.nomeCompleto || p.nomeSocial || "");
+        docPaciente = String(p.cpf || "");
+        telPaciente = String(p.telefonePrincipal || p.telefoneSecundario || "");
+        nasc = String(p.dataNascimento || "");
+      }
+    } catch (_) {}
+  }
+
+  var statusLabel = legacyExtra.status_label ? String(legacyExtra.status_label) : "";
+  if (!statusLabel) {
+    var s = String(dto.status || "").toUpperCase();
+    if (s === "CANCELADO") statusLabel = "Cancelado";
+    else if (s === "CONCLUIDO") statusLabel = "Concluído";
+    else if (s === "FALTOU") statusLabel = "Faltou";
+    else statusLabel = "Agendado";
+  }
+
+  var tipo = legacyExtra.tipo_ui ? String(legacyExtra.tipo_ui) : String(dto.tipo || "");
+  var motivo = legacyExtra.motivo ? String(legacyExtra.motivo) : String(dto.titulo || "");
+  var canal = legacyExtra.canal ? String(legacyExtra.canal) : "";
+  var nomeLivre = legacyExtra.nome_paciente ? String(legacyExtra.nome_paciente) : "";
+
+  var finalNome = nomePaciente || nomeLivre || "";
+
+  var out = {
+    ID_Agenda: dto.idAgenda,
+    ID_Paciente: dto.idPaciente || "",
+    data: dataStr,
+    hora_inicio: horaIni,
+    hora_fim: horaFim,
+    duracao_minutos: durMin,
+    tipo: tipo || "",
+    motivo: motivo || "",
+    origem: dto.origem || "",
+    canal: canal || "",
+    status: statusLabel,
+
+    // ✅ o front usa isso para renderizar o nome; se vazio vira "(sem nome)"
+    nome_paciente: finalNome,
+    documento_paciente: docPaciente || (legacyExtra.documento_paciente || ""),
+    telefone_paciente: telPaciente || (legacyExtra.telefone_paciente || ""),
+    data_nascimento: nasc || (legacyExtra.data_nascimento || "")
+  };
+
+  if (String(dto.tipo || "").toUpperCase().indexOf("BLOQ") >= 0) out.bloqueio = true;
+  else if (legacyExtra.bloqueio === true) out.bloqueio = true;
+  else out.bloqueio = false;
+
+  out.permite_encaixe = legacyExtra.permite_encaixe === true;
+
+  return out;
+}
+
+function _agendaLegacyBuildResumo_(ags) {
+  ags = ags || [];
+  var resumo = { total: ags.length, confirmados: 0, faltas: 0, cancelados: 0, concluidos: 0, em_atendimento: 0 };
+
+  for (var i = 0; i < ags.length; i++) {
+    var s = String(ags[i].status || "").toLowerCase();
+    if (s.indexOf("confirm") >= 0) resumo.confirmados++;
+    else if (s.indexOf("falt") >= 0) resumo.faltas++;
+    else if (s.indexOf("cancel") >= 0) resumo.cancelados++;
+    else if (s.indexOf("concl") >= 0) resumo.concluidos++;
+    else if (s.indexOf("atend") >= 0) resumo.em_atendimento++;
+  }
+
+  return resumo;
+}
+
+function _agendaLegacyPackNotas_(payload) {
+  payload = payload || {};
+  var obj = {
+    __legacy: true,
+    motivo: payload.motivo || payload.titulo || "",
+    canal: payload.canal || "",
+    nome_paciente: payload.nome_paciente || "",
+    documento_paciente: payload.documento_paciente || "",
+    telefone_paciente: payload.telefone_paciente || "",
+    data_nascimento: payload.data_nascimento || "",
+    permite_encaixe: payload.permite_encaixe === true,
+    status_label: payload.status_label || "",
+    tipo_ui: payload.tipo || ""
+  };
+
+  if (payload.bloqueio === true) obj.bloqueio = true;
+
+  try { return JSON.stringify(obj); } catch (e) { return ""; }
+}
+
+function _agendaLegacyTryParseNotas_(notas) {
+  var s = String(notas || "").trim();
+  if (!s) return {};
+  if (s[0] !== "{") return {};
+  try {
+    var obj = JSON.parse(s);
+    if (obj && typeof obj === "object") return obj;
+  } catch (_) {}
+  return {};
+}
+
+function _agendaLegacyMergeNotas_(existingNotas, payload) {
+  var base = _agendaLegacyTryParseNotas_(existingNotas);
+  if (!base || typeof base !== "object") base = {};
+  base.__legacy = true;
+
+  payload = payload || {};
+
+  if (payload.motivo !== undefined) base.motivo = String(payload.motivo || "");
+  if (payload.canal !== undefined) base.canal = String(payload.canal || "");
+  if (payload.nome_paciente !== undefined) base.nome_paciente = String(payload.nome_paciente || "");
+  if (payload.documento_paciente !== undefined) base.documento_paciente = String(payload.documento_paciente || "");
+  if (payload.telefone_paciente !== undefined) base.telefone_paciente = String(payload.telefone_paciente || "");
+  if (payload.data_nascimento !== undefined) base.data_nascimento = String(payload.data_nascimento || "");
+  if (payload.permite_encaixe !== undefined) base.permite_encaixe = payload.permite_encaixe === true;
+  if (payload.status_label !== undefined) base.status_label = String(payload.status_label || "");
+  if (payload.tipo !== undefined) base.tipo_ui = String(payload.tipo || "");
+  if (payload.bloqueio === true) base.bloqueio = true;
+
+  try { return JSON.stringify(base); } catch (e) { return String(existingNotas || ""); }
+}
+
+function _agendaLegacyMapUiStatusToCore_(label) {
+  var s = String(label || "").trim().toLowerCase();
+  if (s.indexOf("cancel") >= 0) return AGENDA_STATUS.CANCELADO;
+  if (s.indexOf("concl") >= 0) return AGENDA_STATUS.CONCLUIDO;
+  if (s.indexOf("falt") >= 0) return AGENDA_STATUS.FALTOU;
+  return AGENDA_STATUS.AGENDADO;
+}
+
+// ============================================================
+// Utils
+// ============================================================
+
 function _agendaNormalizeStatus_(status) {
   var s = String(status || "").trim().toUpperCase();
   if (!s) return AGENDA_STATUS.AGENDADO;
@@ -567,7 +924,6 @@ function _agendaNormalizeStatus_(status) {
   if (s.indexOf("AGEND") >= 0) return AGENDA_STATUS.AGENDADO;
 
   if (s === AGENDA_STATUS.AGENDADO || s === AGENDA_STATUS.CANCELADO || s === AGENDA_STATUS.CONCLUIDO || s === AGENDA_STATUS.FALTOU) return s;
-
   return AGENDA_STATUS.AGENDADO;
 }
 
@@ -581,7 +937,6 @@ function _agendaNormalizeTipo_(tipo) {
   if (t.indexOf("CONS") >= 0) return AGENDA_TIPO.CONSULTA;
 
   if (t === AGENDA_TIPO.CONSULTA || t === AGENDA_TIPO.RETORNO || t === AGENDA_TIPO.PROCEDIMENTO || t === AGENDA_TIPO.BLOQUEIO || t === AGENDA_TIPO.OUTRO) return t;
-
   return AGENDA_TIPO.OUTRO;
 }
 
@@ -616,7 +971,6 @@ function _agendaParseDate_(v) {
       var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 0, 0, 0);
       return isNaN(d.getTime()) ? null : d;
     }
-
     return null;
   }
   return null;
@@ -662,495 +1016,4 @@ function _agendaThrow_(code, message, details) {
   err.code = String(code || "INTERNAL_ERROR");
   err.details = (details === undefined ? null : details);
   throw err;
-}
-
-/**
- * ============================================================
- * Integração com AgendaConflitos.gs (pré-validação do front)
- * ============================================================
- * O front chama "Agenda_ValidarConflito" (Registry -> AgendaConflitos.gs).
- * O helper espera esta função no Agenda.gs:
- *   Agenda_ListarEventosDiaParaValidacao_(dataStr)
- *
- * ✅ Aqui implementamos um adapter que lê a Agenda nova e devolve no formato legado.
- * - Ignora CANCELADOS (para não travar encaixes/bloqueios removidos).
- * - Converte ISO -> YYYY-MM-DD / HH:MM / duracao_minutos / bloqueio.
- */
-function Agenda_ListarEventosDiaParaValidacao_(dataStr) {
-  dataStr = String(dataStr || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return [];
-
-  var ini = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 0, 0, 0, 0);
-  var fim = new Date(ini.getTime() + 24 * 60 * 60 * 1000 - 1);
-
-  // Usamos a action nova para manter mesma lógica de leitura/normalização
-  var res = Agenda_Action_ListarPorPeriodo_(
-    { action: "Agenda_ListarEventosDiaParaValidacao_", user: null, env: (typeof PRONTIO_ENV !== "undefined" ? PRONTIO_ENV : "DEV"), apiVersion: (typeof PRONTIO_API_VERSION !== "undefined" ? PRONTIO_API_VERSION : "1.0.0-DEV") },
-    { inicio: ini, fim: fim, incluirCancelados: true }
-  );
-
-  var items = (res && res.items) ? res.items : [];
-  var out = [];
-
-  for (var i = 0; i < items.length; i++) {
-    var dto = _agendaNormalizeRowToDto_(items[i]);
-    var status = _agendaNormalizeStatus_(dto.status);
-    if (status === AGENDA_STATUS.CANCELADO) continue;
-
-    var dtIni = _agendaParseDate_(dto.inicio);
-    var dtFim = _agendaParseDate_(dto.fim);
-    if (!dtIni || !dtFim) continue;
-
-    // garante mesmo dia (defensivo)
-    var ds = _agendaFormatDate_(dtIni);
-    if (ds !== dataStr) continue;
-
-    var dur = Math.max(1, Math.round((dtFim.getTime() - dtIni.getTime()) / 60000));
-    var tipo = _agendaNormalizeTipo_(dto.tipo);
-
-    out.push({
-      ID_Agenda: String(dto.idAgenda || ""),
-      data: dataStr,
-      hora_inicio: _agendaFormatHHMM_(dtIni),
-      hora_fim: _agendaFormatHHMM_(dtFim),
-      duracao_minutos: dur,
-      bloqueio: (tipo === AGENDA_TIPO.BLOQUEIO)
-    });
-  }
-
-  return out;
-}
-
-/* ============================================================
- * ============================================================
- * ✅ LEGACY API (para NÃO mudar o front atual)
- * ============================================================
- * Estas funções implementam o contrato esperado por:
- * frontend/assets/js/pages/page-agenda.js
- *
- * Actions legadas chamadas pelo front:
- * - Agenda_ListarDia
- * - Agenda_ListarSemana
- * - Agenda_Criar
- * - Agenda_Atualizar
- * - Agenda_BloquearHorario
- * - Agenda_MudarStatus
- * - Agenda_RemoverBloqueio
- * - Agenda_ValidarConflito
- * ============================================================ */
-
-function Agenda_Legacy_ListarDia_(ctx, payload) {
-  payload = payload || {};
-  var dataStr = String(payload.data || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida (YYYY-MM-DD).', { field: "data" });
-
-  var ini = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 0, 0, 0, 0);
-  var fim = new Date(ini.getTime() + 24 * 60 * 60 * 1000 - 1);
-
-  var res = Agenda_Action_ListarPorPeriodo_(ctx, { inicio: ini, fim: fim, incluirCancelados: false });
-  var items = (res && res.items) ? res.items : [];
-
-  var ags = items.map(function (dto) { return _agendaLegacyDtoToFront_(dto); });
-
-  // agrupa por hora_inicio
-  var map = {};
-  for (var i = 0; i < ags.length; i++) {
-    var h = String(ags[i].hora_inicio || "");
-    if (!map[h]) map[h] = [];
-    map[h].push(ags[i]);
-  }
-
-  var horas = Object.keys(map).sort(function (a, b) { return a.localeCompare(b); });
-  var horarios = horas.map(function (h) { return { hora: h, agendamentos: map[h] }; });
-
-  return {
-    resumo: _agendaLegacyBuildResumo_(ags),
-    horarios: horarios
-  };
-}
-
-function Agenda_Legacy_ListarSemana_(ctx, payload) {
-  payload = payload || {};
-  var refStr = String(payload.data_referencia || payload.data || "").trim();
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(refStr)) _agendaThrow_("VALIDATION_ERROR", '"data_referencia" inválida (YYYY-MM-DD).', { field: "data_referencia" });
-
-  var ref = new Date(Number(refStr.slice(0, 4)), Number(refStr.slice(5, 7)) - 1, Number(refStr.slice(8, 10)), 0, 0, 0, 0);
-  var day = ref.getDay(); // 0 dom .. 6 sab
-  var diffToMon = (day === 0) ? -6 : (1 - day);
-  var mon = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate() + diffToMon, 0, 0, 0, 0);
-
-  var dias = [];
-  for (var d = 0; d < 7; d++) {
-    var cur = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + d, 0, 0, 0, 0);
-    var curEnd = new Date(cur.getTime() + 24 * 60 * 60 * 1000 - 1);
-
-    var r = Agenda_Action_ListarPorPeriodo_(ctx, { inicio: cur, fim: curEnd, incluirCancelados: false });
-    var items = (r && r.items) ? r.items : [];
-    var ags = items.map(function (dto) { return _agendaLegacyDtoToFront_(dto); });
-
-    var map = {};
-    for (var i = 0; i < ags.length; i++) {
-      var h = String(ags[i].hora_inicio || "");
-      if (!map[h]) map[h] = [];
-      map[h].push(ags[i]);
-    }
-
-    var horas = Object.keys(map).sort(function (a, b) { return a.localeCompare(b); });
-    var horarios = horas.map(function (h) { return { hora: h, agendamentos: map[h] }; });
-
-    dias.push({
-      data: _agendaFormatDate_(cur),
-      horarios: horarios
-    });
-  }
-
-  return { dias: dias };
-}
-
-function Agenda_Legacy_Criar_(ctx, payload) {
-  payload = payload || {};
-
-  // Empacota extras do legado dentro de "notas" (JSON) para round-trip
-  var packedNotas = _agendaLegacyPackNotas_(payload);
-
-  var createPayload = {
-    data: payload.data,
-    hora_inicio: payload.hora_inicio,
-    duracao_minutos: payload.duracao_minutos,
-    ID_Paciente: payload.ID_Paciente || "",
-    tipo: payload.tipo || "",
-    motivo: payload.motivo || payload.titulo || "",
-    origem: payload.origem || "",
-    permite_encaixe: payload.permite_encaixe === true,
-    notas: packedNotas
-  };
-
-  var r = Agenda_Action_Criar_(ctx, createPayload);
-  var dto = r && r.item ? r.item : null;
-  return { ok: true, item: dto ? _agendaLegacyDtoToFront_(dto) : null };
-}
-
-function Agenda_Legacy_Atualizar_(ctx, payload) {
-  payload = payload || {};
-  var idAgenda = String(payload.ID_Agenda || payload.idAgenda || "").trim();
-  if (!idAgenda) _agendaThrow_("VALIDATION_ERROR", '"ID_Agenda" é obrigatório.', { field: "ID_Agenda" });
-
-  var existing = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
-  if (!existing) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado.", { idAgenda: idAgenda });
-
-  // preserva notas existentes e mescla
-  var packedNotas = _agendaLegacyMergeNotas_(existing.notas, payload);
-
-  var updatePayload = {
-    idAgenda: idAgenda,
-    data: payload.data,
-    hora_inicio: payload.hora_inicio,
-    duracao_minutos: payload.duracao_minutos,
-    ID_Paciente: (payload.ID_Paciente !== undefined) ? payload.ID_Paciente : undefined,
-    tipo: payload.tipo,
-    origem: payload.origem,
-    titulo: payload.motivo || payload.titulo, // front usa "motivo"
-    notas: packedNotas,
-    permitirEncaixe: payload.permite_encaixe === true
-  };
-
-  var r = Agenda_Action_Atualizar_(ctx, updatePayload);
-  return { ok: true, item: r && r.item ? _agendaLegacyDtoToFront_(r.item) : null };
-}
-
-function Agenda_Legacy_BloquearHorario_(ctx, payload) {
-  payload = payload || {};
-  var dataStr = String(payload.data || "").trim();
-  var horaStr = String(payload.hora_inicio || "").trim();
-  var dur = Number(payload.duracao_minutos || 0);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida.', { field: "data" });
-  if (!/^\d{2}:\d{2}$/.test(horaStr)) _agendaThrow_("VALIDATION_ERROR", '"hora_inicio" inválida.', { field: "hora_inicio" });
-  if (!dur || isNaN(dur) || dur <= 0) _agendaThrow_("VALIDATION_ERROR", '"duracao_minutos" inválida.', { field: "duracao_minutos" });
-
-  var createPayload = {
-    data: dataStr,
-    hora_inicio: horaStr,
-    duracao_minutos: dur,
-    tipo: "BLOQUEIO",
-    motivo: "BLOQUEIO",
-    origem: "SISTEMA",
-    notas: _agendaLegacyPackNotas_({ bloqueio: true })
-  };
-
-  var r = Agenda_Action_Criar_(ctx, createPayload);
-  return { ok: true, item: r && r.item ? _agendaLegacyDtoToFront_(r.item) : null };
-}
-
-function Agenda_Legacy_RemoverBloqueio_(ctx, payload) {
-  payload = payload || {};
-  var idAgenda = String(payload.ID_Agenda || "").trim();
-  if (!idAgenda) _agendaThrow_("VALIDATION_ERROR", '"ID_Agenda" é obrigatório.', { field: "ID_Agenda" });
-
-  // Remove bloqueio = cancelar (não aparece mais em ListarDia/Semana)
-  Agenda_Action_Cancelar_(ctx, { idAgenda: idAgenda, motivo: "Remover bloqueio" });
-  return { ok: true };
-}
-
-function Agenda_Legacy_MudarStatus_(ctx, payload) {
-  payload = payload || {};
-  var idAgenda = String(payload.ID_Agenda || "").trim();
-  var novo = String(payload.novo_status || "").trim();
-  if (!idAgenda) _agendaThrow_("VALIDATION_ERROR", '"ID_Agenda" é obrigatório.', { field: "ID_Agenda" });
-  if (!novo) _agendaThrow_("VALIDATION_ERROR", '"novo_status" é obrigatório.', { field: "novo_status" });
-
-  var existing = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
-  if (!existing) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado.", { idAgenda: idAgenda });
-
-  // Mapeia status do UI para status core + salva label no notas
-  var core = _agendaLegacyMapUiStatusToCore_(novo);
-  var packedNotas = _agendaLegacyMergeNotas_(existing.notas, { status_label: novo });
-
-  if (core === AGENDA_STATUS.CANCELADO) {
-    Agenda_Action_Cancelar_(ctx, { idAgenda: idAgenda, motivo: "Cancelado pela Agenda" });
-    return { ok: true };
-  }
-
-  var upd = {
-    idAgenda: idAgenda,
-    patch: {
-      status: core,
-      notas: packedNotas
-    }
-  };
-
-  Agenda_Action_Atualizar_(ctx, upd);
-  return { ok: true };
-}
-
-function Agenda_Legacy_ValidarConflito_(ctx, payload) {
-  payload = payload || {};
-  var dataStr = String(payload.data || "").trim();
-  var horaStr = String(payload.hora_inicio || "").trim();
-  var dur = Number(payload.duracao_minutos || 0);
-  var ignoreId = String(payload.ignoreIdAgenda || "").trim();
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida.', { field: "data" });
-  if (!/^\d{2}:\d{2}$/.test(horaStr)) _agendaThrow_("VALIDATION_ERROR", '"hora_inicio" inválida.', { field: "hora_inicio" });
-  if (!dur || isNaN(dur) || dur <= 0) _agendaThrow_("VALIDATION_ERROR", '"duracao_minutos" inválida.', { field: "duracao_minutos" });
-
-  var params = (typeof Config_getAgendaParams_ === "function") ? Config_getAgendaParams_() : {
-    duracaoPadraoMin: 30,
-    slotMin: 10,
-    permiteSobreposicao: false
-  };
-
-  var ini = _agendaBuildDateTime_(dataStr, horaStr);
-  var fim = new Date(ini.getTime() + dur * 60000);
-
-  try {
-    _agendaAssertSemConflitos_(ctx, {
-      inicio: ini,
-      fim: fim,
-      permitirEncaixe: false,
-      modoBloqueio: false,
-      ignoreIdAgenda: ignoreId || null
-    }, params);
-
-    return {
-      ok: true,
-      conflitos: [],
-      intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur }
-    };
-
-  } catch (err) {
-    // Normaliza para o formato esperado pelo front
-    var conflitos = [];
-    try {
-      var det = err && err.details ? err.details : null;
-      var c = det && det.conflito ? det.conflito : null;
-      if (c) {
-        var ci = _agendaParseDate_(c.inicio);
-        var cf = _agendaParseDate_(c.fim);
-        conflitos.push({
-          ID_Agenda: c.idAgenda || "",
-          bloqueio: String(c.tipo || "").toUpperCase().indexOf("BLOQ") >= 0,
-          hora_inicio: ci ? _agendaFormatHHMM_(ci) : "",
-          hora_fim: cf ? _agendaFormatHHMM_(cf) : ""
-        });
-      }
-    } catch (_) { }
-
-    return {
-      ok: false,
-      erro: (err && err.message) ? String(err.message) : "Conflito de horário.",
-      conflitos: conflitos,
-      intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur }
-    };
-  }
-}
-
-/* =======================
- * Helpers LEGACY internos
- * ======================= */
-
-function _agendaLegacyDtoToFront_(dto) {
-  dto = _agendaNormalizeRowToDto_(dto);
-
-  var ini = _agendaParseDate_(dto.inicio);
-  var fim = _agendaParseDate_(dto.fim);
-
-  var dataStr = ini ? _agendaFormatDate_(ini) : "";
-  var horaIni = ini ? _agendaFormatHHMM_(ini) : "";
-  var horaFim = fim ? _agendaFormatHHMM_(fim) : "";
-  var durMin = (ini && fim) ? Math.max(1, Math.round((fim.getTime() - ini.getTime()) / 60000)) : 0;
-
-  var legacyExtra = _agendaLegacyTryParseNotas_(dto.notas);
-
-  // Enriquecimento por Paciente (se houver)
-  var nomePaciente = "";
-  var docPaciente = "";
-  var telPaciente = "";
-  var nasc = "";
-
-  if (dto.idPaciente) {
-    try {
-      var p = Repo_getById_("Pacientes", "idPaciente", dto.idPaciente);
-      if (p) {
-        nomePaciente = String(p.nome || "");
-        docPaciente = String(p.cpf || "");
-        telPaciente = String(p.telefone || "");
-        nasc = String(p.nascimento || "");
-      }
-    } catch (_) { }
-  }
-
-  // Status label (UI)
-  var statusLabel = legacyExtra.status_label ? String(legacyExtra.status_label) : "";
-  if (!statusLabel) {
-    var s = String(dto.status || "").toUpperCase();
-    if (s === "CANCELADO") statusLabel = "Cancelado";
-    else if (s === "CONCLUIDO") statusLabel = "Concluído";
-    else if (s === "FALTOU") statusLabel = "Faltou";
-    else statusLabel = "Agendado";
-  }
-
-  var tipo = legacyExtra.tipo_ui ? String(legacyExtra.tipo_ui) : String(dto.tipo || "");
-  var motivo = legacyExtra.motivo ? String(legacyExtra.motivo) : String(dto.titulo || "");
-  var canal = legacyExtra.canal ? String(legacyExtra.canal) : "";
-  var nomeLivre = legacyExtra.nome_paciente ? String(legacyExtra.nome_paciente) : "";
-
-  var finalNome = nomePaciente || nomeLivre || "";
-
-  var out = {
-    ID_Agenda: dto.idAgenda,
-    ID_Paciente: dto.idPaciente || "",
-    data: dataStr,
-    hora_inicio: horaIni,
-    hora_fim: horaFim,
-    duracao_minutos: durMin,
-    tipo: tipo || "",
-    motivo: motivo || "",
-    origem: dto.origem || "",
-    canal: canal || "",
-    status: statusLabel,
-
-    nome_paciente: finalNome,
-    documento_paciente: docPaciente || (legacyExtra.documento_paciente || ""),
-    telefone_paciente: telPaciente || (legacyExtra.telefone_paciente || ""),
-    data_nascimento: nasc || (legacyExtra.data_nascimento || "")
-  };
-
-  // Bloqueio
-  if (String(dto.tipo || "").toUpperCase().indexOf("BLOQ") >= 0) {
-    out.bloqueio = true;
-  } else if (legacyExtra.bloqueio === true) {
-    out.bloqueio = true;
-  } else {
-    out.bloqueio = false;
-  }
-
-  // Flag encaixe
-  out.permite_encaixe = legacyExtra.permite_encaixe === true;
-
-  return out;
-}
-
-function _agendaLegacyBuildResumo_(ags) {
-  ags = ags || [];
-  var resumo = {
-    total: ags.length,
-    confirmados: 0,
-    faltas: 0,
-    cancelados: 0,
-    concluidos: 0,
-    em_atendimento: 0
-  };
-
-  for (var i = 0; i < ags.length; i++) {
-    var s = String(ags[i].status || "").toLowerCase();
-    if (s.indexOf("confirm") >= 0) resumo.confirmados++;
-    else if (s.indexOf("falt") >= 0) resumo.faltas++;
-    else if (s.indexOf("cancel") >= 0) resumo.cancelados++;
-    else if (s.indexOf("concl") >= 0) resumo.concluidos++;
-    else if (s.indexOf("atend") >= 0) resumo.em_atendimento++;
-  }
-
-  return resumo;
-}
-
-// Empacota extras do front em JSON dentro do campo "notas"
-function _agendaLegacyPackNotas_(payload) {
-  payload = payload || {};
-  var obj = {
-    __legacy: true,
-    motivo: payload.motivo || payload.titulo || "",
-    canal: payload.canal || "",
-    nome_paciente: payload.nome_paciente || "",
-    documento_paciente: payload.documento_paciente || "",
-    telefone_paciente: payload.telefone_paciente || "",
-    data_nascimento: payload.data_nascimento || "",
-    permite_encaixe: payload.permite_encaixe === true,
-    status_label: payload.status_label || "",
-    tipo_ui: payload.tipo || ""
-  };
-
-  if (payload.bloqueio === true) obj.bloqueio = true;
-
-  try { return JSON.stringify(obj); } catch (e) { return ""; }
-}
-
-function _agendaLegacyTryParseNotas_(notas) {
-  var s = String(notas || "").trim();
-  if (!s) return {};
-  if (s[0] !== "{") return {};
-  try {
-    var obj = JSON.parse(s);
-    if (obj && typeof obj === "object") return obj;
-  } catch (_) { }
-  return {};
-}
-
-function _agendaLegacyMergeNotas_(existingNotas, payload) {
-  var base = _agendaLegacyTryParseNotas_(existingNotas);
-  if (!base || typeof base !== "object") base = {};
-  base.__legacy = true;
-
-  payload = payload || {};
-
-  if (payload.motivo !== undefined) base.motivo = String(payload.motivo || "");
-  if (payload.canal !== undefined) base.canal = String(payload.canal || "");
-  if (payload.nome_paciente !== undefined) base.nome_paciente = String(payload.nome_paciente || "");
-  if (payload.documento_paciente !== undefined) base.documento_paciente = String(payload.documento_paciente || "");
-  if (payload.telefone_paciente !== undefined) base.telefone_paciente = String(payload.telefone_paciente || "");
-  if (payload.data_nascimento !== undefined) base.data_nascimento = String(payload.data_nascimento || "");
-  if (payload.permite_encaixe !== undefined) base.permite_encaixe = payload.permite_encaixe === true;
-  if (payload.status_label !== undefined) base.status_label = String(payload.status_label || "");
-  if (payload.tipo !== undefined) base.tipo_ui = String(payload.tipo || "");
-  if (payload.bloqueio === true) base.bloqueio = true;
-
-  try { return JSON.stringify(base); } catch (e) { return String(existingNotas || ""); }
-}
-
-function _agendaLegacyMapUiStatusToCore_(label) {
-  var s = String(label || "").trim().toLowerCase();
-  if (s.indexOf("cancel") >= 0) return AGENDA_STATUS.CANCELADO;
-  if (s.indexOf("concl") >= 0) return AGENDA_STATUS.CONCLUIDO;
-  if (s.indexOf("falt") >= 0) return AGENDA_STATUS.FALTOU;
-  // Confirmado / Em atendimento / Agendado -> AGENDADO core
-  return AGENDA_STATUS.AGENDADO;
 }

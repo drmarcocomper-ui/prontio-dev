@@ -18,6 +18,12 @@
 //
 // DIAGNÓSTICO:
 // - Action Pacientes_DebugInfo para confirmar spreadsheetId/aba/linhas/amostra.
+//
+// ✅ UPDATE (seguro, retrocompatível):
+// - _toText_ agora sanitiza "#ERROR!/#N/A/#REF!/#VALUE!" para não vazar para o front.
+// - _ativoToStatus_ não defaulta INATIVO quando ativo não veio (undefined); default = ATIVO.
+// - pacienteRowToObject_ inclui nomeExibicao (não quebra: campo extra).
+// - handlePacientesAction aceita ctx como 3º argumento (ignora), compat com Registry/Api.
 // ---------------------------------------------------------------------------
 
 /** Nome da aba de pacientes na planilha */
@@ -62,10 +68,20 @@ function _formatDateTime_(date) {
   if (!(date instanceof Date) || isNaN(date.getTime())) return '';
   return Utilities.formatDate(date, _tz_(), 'yyyy-MM-dd HH:mm:ss');
 }
+
+/**
+ * ✅ Sanitização:
+ * - Evita vazar valores de erro do Sheets para o front (#ERROR!, #N/A, etc.)
+ */
 function _toText_(v) {
   if (v === null || v === undefined) return '';
-  return String(v).trim();
+  var s = String(v).trim();
+
+  // Sanitiza erros comuns de planilha
+  if (s === '#ERROR!' || s === '#N/A' || s === '#REF!' || s === '#VALUE!' || s === '#DIV/0!') return '';
+  return s;
 }
+
 function _onlyDigits_(s) {
   return String(s || '').replace(/\D+/g, '');
 }
@@ -173,10 +189,16 @@ function _statusToAtivo_(status) {
   return !(st === 'INATIVO' || st === 'OBITO');
 }
 
-/** ativo(boolean ou 'SIM/NAO') -> status */
+/**
+ * ativo(boolean ou 'SIM/NAO') -> status
+ * ✅ UPDATE: se ativo não veio (undefined/null) e status vazio, default ATIVO.
+ */
 function _ativoToStatus_(ativo, currentStatus) {
   // Se o payload trouxe status, respeita status.
   if (currentStatus) return String(currentStatus).trim().toUpperCase();
+
+  // Se NÃO veio ativo, default ATIVO (evita criar paciente já INATIVO por engano)
+  if (ativo === undefined || ativo === null) return 'ATIVO';
 
   // Senão converte ativo
   var b = !!ativo;
@@ -187,6 +209,7 @@ function _ativoToStatus_(ativo, currentStatus) {
  * Converte uma linha da planilha em objeto "paciente completo" para o front.
  * ✅ Lê tanto colunas novas quanto antigas (se existirem).
  * ✅ Retorna campos novos + aliases antigos.
+ * ✅ UPDATE: adiciona nomeExibicao (campo extra, não quebra compat).
  */
 function pacienteRowToObject_(row, headerMap) {
   // IDs (novo e antigo)
@@ -205,7 +228,8 @@ function pacienteRowToObject_(row, headerMap) {
     status = ativoBoolOld ? 'ATIVO' : 'INATIVO';
   }
 
-  var ativoBool = _statusToAtivo_(status);
+  var statusFinal = status || 'ATIVO';
+  var ativoBool = _statusToAtivo_(statusFinal);
 
   // Nome
   var nomeCompleto = _toText_(getCellByColName_(row, headerMap, _colAny_(headerMap, ['nomeCompleto','NomeCompleto']) || ''));
@@ -250,13 +274,20 @@ function pacienteRowToObject_(row, headerMap) {
   var criadoEm = _readDateTime_(criadoEmCol ? getCellByColName_(row, headerMap, criadoEmCol) : (dataCadastroCol ? getCellByColName_(row, headerMap, dataCadastroCol) : ''));
   var atualizadoEm = _readDateTime_(atualizadoEmCol ? getCellByColName_(row, headerMap, atualizadoEmCol) : '');
 
+  // Nome social (se existir)
+  var nomeSocial = _toText_(getCellByColName_(row, headerMap, _colAny_(headerMap, ['nomeSocial']) || ''));
+
+  // ✅ Campo extra útil (não quebra ninguém): nome de exibição
+  var nomeExibicao = nomeCompleto || nomeSocial || '';
+
   // Monta objeto com campos novos + compat antigos
   return {
     // novos (v2)
     idPaciente: idRaw,
-    status: status || 'ATIVO',
+    status: statusFinal,
     nomeCompleto: nomeCompleto,
-    nomeSocial: _toText_(getCellByColName_(row, headerMap, _colAny_(headerMap, ['nomeSocial']) || '')),
+    nomeSocial: nomeSocial,
+    nomeExibicao: nomeExibicao, // ✅ EXTRA (seguro)
     sexo: sexo,
     dataNascimento: dataNascimentoStr,
     estadoCivil: _toText_(getCellByColName_(row, headerMap, _colAny_(headerMap, ['estadoCivil']) || '')),
@@ -318,7 +349,7 @@ function readAllPacientes_() {
     if (String(row.join('')).trim() === '') continue;
 
     var paciente = pacienteRowToObject_(row, headerMap);
-    if (!paciente.idPaciente && !paciente.nomeCompleto) continue;
+    if (!paciente.idPaciente && !paciente.nomeCompleto && !paciente.nomeSocial) continue;
 
     list.push(paciente);
   }
@@ -355,7 +386,7 @@ function Pacientes_DebugInfo(payload) {
     var rows = sh.getRange(2, 1, Math.min(10, lastRow - 1), lastCol).getValues();
     for (var i = 0; i < rows.length; i++) {
       var p = pacienteRowToObject_(rows[i], map);
-      sample.push({ idPaciente: p.idPaciente, nomeCompleto: p.nomeCompleto, status: p.status, ativo: p.ativo });
+      sample.push({ idPaciente: p.idPaciente, nomeCompleto: p.nomeCompleto, nomeSocial: p.nomeSocial, nomeExibicao: p.nomeExibicao, status: p.status, ativo: p.ativo });
     }
   }
 
@@ -374,8 +405,9 @@ function Pacientes_DebugInfo(payload) {
 /**
  * Roteador de ações específicas de Pacientes.
  * ✅ Mantém seus aliases antigos (não quebra front)
+ * ✅ UPDATE: aceita ctx como terceiro argumento (ignora) para compat com Registry/Api
  */
-function handlePacientesAction(action, payload) {
+function handlePacientesAction(action, payload, ctx) {
   // compat: algumas chamadas podem vir como "Pacientes.ListarSelecao" etc.
   if (action === 'Pacientes.ListarSelecao') action = 'Pacientes_ListarSelecao';
   if (action === 'Pacientes.CriarBasico') action = 'Pacientes_CriarBasico';
@@ -429,6 +461,8 @@ function Pacientes_ListarSelecao(payload) {
       ID_Paciente: p.ID_Paciente,
       idPaciente: p.idPaciente,
       nomeCompleto: p.nomeCompleto,
+      nomeSocial: p.nomeSocial,
+      nomeExibicao: p.nomeExibicao,
       documento: p.cpf,
       telefone: p.telefonePrincipal || p.telefone1 || p.telefone || ''
     };
@@ -591,7 +625,7 @@ function Pacientes_BuscarSimples(payload) {
     var p = todos[i];
     if (!p.ativo) continue;
 
-    var haystack = [p.nomeCompleto || '', p.cpf || '', p.telefonePrincipal || p.telefone1 || p.telefone || '']
+    var haystack = [p.nomeExibicao || p.nomeCompleto || '', p.cpf || '', p.telefonePrincipal || p.telefone1 || p.telefone || '']
       .join(' ')
       .toLowerCase();
 
@@ -599,7 +633,7 @@ function Pacientes_BuscarSimples(payload) {
       resultados.push({
         ID_Paciente: p.ID_Paciente,
         idPaciente: p.idPaciente,
-        nome: p.nomeCompleto,
+        nome: p.nomeExibicao || p.nomeCompleto,
         documento: p.cpf,
         telefone: p.telefonePrincipal || p.telefone1 || p.telefone || '',
         data_nascimento: p.dataNascimento
@@ -628,7 +662,7 @@ function Pacientes_Listar(payload) {
 
     if (!termo) return true;
 
-    var texto = [p.nomeCompleto || '', p.cpf || '', (p.telefonePrincipal || p.telefone1 || p.telefone || ''), p.email || '']
+    var texto = [p.nomeExibicao || p.nomeCompleto || '', p.cpf || '', (p.telefonePrincipal || p.telefone1 || p.telefone || ''), p.email || '']
       .join(' ')
       .toLowerCase();
 
@@ -637,8 +671,8 @@ function Pacientes_Listar(payload) {
 
   filtrados.sort(function (a, b) {
     if (ordenacao === 'nomeAsc' || ordenacao === 'nomeDesc') {
-      var na = (a.nomeCompleto || '').toLowerCase();
-      var nb = (b.nomeCompleto || '').toLowerCase();
+      var na = (a.nomeExibicao || a.nomeCompleto || '').toLowerCase();
+      var nb = (b.nomeExibicao || b.nomeCompleto || '').toLowerCase();
       if (na < nb) return ordenacao === 'nomeAsc' ? -1 : 1;
       if (na > nb) return ordenacao === 'nomeAsc' ? 1 : -1;
       return 0;
@@ -802,12 +836,9 @@ function Pacientes_Atualizar(payload) {
     if (headerMap['ativo'] != null) row[headerMap['ativo']] = (statusFinal === 'ATIVO') ? 'SIM' : 'NAO';
   }
 
-  // atualizadoEm/DataCadastro
+  // atualizadoEm
   var agoraStr = _formatDateTime_(new Date());
   if (headerMap['atualizadoEm'] != null) row[headerMap['atualizadoEm']] = agoraStr;
-
-  // opcional: se não houver atualizadoEm mas houver DataCadastro, não mexe (mantém histórico)
-  // (se quiser, você pode adicionar um "AtualizadoEm" antigo e setar aqui)
 
   var writeRowIndex = foundRowIndex + 2;
   sh.getRange(writeRowIndex, 1, 1, lastCol).setValues([row]);
