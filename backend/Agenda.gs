@@ -348,6 +348,9 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
     var evTipo = _agendaNormalizeTipo_(e.tipo || AGENDA_TIPO.CONSULTA);
     var evStatus = _agendaNormalizeStatus_(e.status || AGENDA_STATUS.AGENDADO);
 
+    // ✅ FIX: cancelados NÃO geram conflito, inclusive bloqueios cancelados
+    if (evStatus === AGENDA_STATUS.CANCELADO) continue;
+
     var evIsBloqueio = (evTipo === AGENDA_TIPO.BLOQUEIO);
 
     if (evIsBloqueio) {
@@ -361,8 +364,6 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
         conflito: { idAgenda: e.idAgenda, inicio: e.inicio, fim: e.fim, tipo: e.tipo, status: e.status }
       });
     }
-
-    if (evStatus === AGENDA_STATUS.CANCELADO) continue;
 
     if (cfgPermiteSobreposicao) continue;
     if (permitirEncaixe) continue;
@@ -608,6 +609,63 @@ function _agendaThrow_(code, message, details) {
   err.code = String(code || "INTERNAL_ERROR");
   err.details = (details === undefined ? null : details);
   throw err;
+}
+
+/**
+ * ============================================================
+ * Integração com AgendaConflitos.gs (pré-validação do front)
+ * ============================================================
+ * O front chama "Agenda_ValidarConflito" (Registry -> AgendaConflitos.gs).
+ * O helper espera esta função no Agenda.gs:
+ *   Agenda_ListarEventosDiaParaValidacao_(dataStr)
+ *
+ * ✅ Aqui implementamos um adapter que lê a Agenda nova e devolve no formato legado.
+ * - Ignora CANCELADOS (para não travar encaixes/bloqueios removidos).
+ * - Converte ISO -> YYYY-MM-DD / HH:MM / duracao_minutos / bloqueio.
+ */
+function Agenda_ListarEventosDiaParaValidacao_(dataStr) {
+  dataStr = String(dataStr || "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return [];
+
+  var ini = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 0, 0, 0, 0);
+  var fim = new Date(ini.getTime() + 24 * 60 * 60 * 1000 - 1);
+
+  // Usamos a action nova para manter mesma lógica de leitura/normalização
+  var res = Agenda_Action_ListarPorPeriodo_(
+    { action: "Agenda_ListarEventosDiaParaValidacao_", user: null, env: PRONTIO_ENV, apiVersion: PRONTIO_API_VERSION },
+    { inicio: ini, fim: fim, incluirCancelados: true }
+  );
+
+  var items = (res && res.items) ? res.items : [];
+  var out = [];
+
+  for (var i = 0; i < items.length; i++) {
+    var dto = _agendaNormalizeRowToDto_(items[i]);
+    var status = _agendaNormalizeStatus_(dto.status);
+    if (status === AGENDA_STATUS.CANCELADO) continue;
+
+    var dtIni = _agendaParseDate_(dto.inicio);
+    var dtFim = _agendaParseDate_(dto.fim);
+    if (!dtIni || !dtFim) continue;
+
+    // garante mesmo dia (defensivo)
+    var ds = _agendaFormatDate_(dtIni);
+    if (ds !== dataStr) continue;
+
+    var dur = Math.max(1, Math.round((dtFim.getTime() - dtIni.getTime()) / 60000));
+    var tipo = _agendaNormalizeTipo_(dto.tipo);
+
+    out.push({
+      ID_Agenda: String(dto.idAgenda || ""),
+      data: dataStr,
+      hora_inicio: _agendaFormatHHMM_(dtIni),
+      hora_fim: _agendaFormatHHMM_(dtFim),
+      duracao_minutos: dur,
+      bloqueio: (tipo === AGENDA_TIPO.BLOQUEIO)
+    });
+  }
+
+  return out;
 }
 
 /* ============================================================

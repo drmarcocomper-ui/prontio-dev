@@ -4,22 +4,19 @@
  *
  * Observação importante:
  * - Este helper NÃO conhece planilhas/abas/colunas.
- * - Ele depende da função no Agenda.gs:
+ *
+ * ✅ UPDATE (maturação, sem quebrar):
+ * - Agora a action Agenda_Action_ValidarConflito(payload) tenta usar a MESMA regra do Agenda.gs:
+ *     _agendaAssertSemConflitos_(ctx,args,params)
+ *   para garantir que "validou" == "salvou".
+ * - Se essa integração não estiver disponível no deploy (ex.: arquivo não carregado),
+ *   faz fallback para o validador legado por dia:
  *     Agenda_ListarEventosDiaParaValidacao_(dataStr)
- *   que retorne os eventos do dia no formato:
- * {
- *   ID_Agenda: "AG...",
- *   data: "YYYY-MM-DD",
- *   hora_inicio: "HH:MM",
- *   duracao_minutos: 30,
- *   // opcional: hora_fim: "HH:MM"
- *   bloqueio: true|false
- * }
  *
  * API exposta:
  * - Agenda_ValidarConflitos_(args) -> { ok, conflitos, intervalo, erro }
  * - Agenda_AssertSemConflitos_(args) -> retorna { ok:true,... } ou lança Error(code/message/details)
- * - Agenda_Action_ValidarConflito(payload) -> para uso via API (handleAgendaAction/Registry)
+ * - Agenda_Action_ValidarConflito(payload) -> para uso via API (Registry)
  *
  * Ajuste retrocompatível:
  * - Substitui "throw { ... }" por Error com err.code/err.details.
@@ -100,7 +97,7 @@ function Agenda_NormalizeEvento_(ev) {
 }
 
 // =======================
-// API interna de validação
+// API interna de validação (LEGADO POR DIA)
 // =======================
 
 function Agenda_ValidarConflitos_(args) {
@@ -212,12 +209,117 @@ function Agenda_AssertSemConflitos_(args) {
   throw e2;
 }
 
+// =======================
+// NOVO: validação usando a regra real do Agenda.gs
+// =======================
+
+function _Agenda_ValidarConflito_UsandoAgendaGs_(payload) {
+  payload = payload || {};
+
+  var dataStr = String(payload.data || "").trim();
+  var horaStr = String(payload.hora_inicio || "").trim();
+  var dur = Number(payload.duracao_minutos || 0);
+  var ignoreId = String(payload.ignoreIdAgenda || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) {
+    return { ok: false, conflitos: [], intervalo: null, erro: '"data" inválida (YYYY-MM-DD).' };
+  }
+  if (!/^\d{2}:\d{2}$/.test(horaStr)) {
+    return { ok: false, conflitos: [], intervalo: null, erro: '"hora_inicio" inválida (HH:MM).' };
+  }
+  if (!dur || isNaN(dur) || dur <= 0) {
+    return { ok: false, conflitos: [], intervalo: null, erro: '"duracao_minutos" inválida.' };
+  }
+
+  // Precisamos do builder do Agenda.gs para garantir consistência de timezone/Date
+  if (typeof _agendaBuildDateTime_ !== "function" || typeof _agendaAssertSemConflitos_ !== "function") {
+    return null; // sinaliza: não disponível -> fallback legado
+  }
+
+  var ini = _agendaBuildDateTime_(dataStr, horaStr);
+  var fim = new Date(ini.getTime() + dur * 60000);
+
+  var params = (typeof Config_getAgendaParams_ === "function") ? Config_getAgendaParams_() : {
+    duracaoPadraoMin: 30,
+    slotMin: 10,
+    permiteSobreposicao: false
+  };
+
+  var intervalo = {
+    data: dataStr,
+    hora_inicio: horaStr,
+    duracao_minutos: dur
+  };
+
+  try {
+    // ctx não é usado pela regra atual, mas mantemos a assinatura
+    var ctx = { action: "Agenda_ValidarConflito", user: null };
+
+    _agendaAssertSemConflitos_(ctx, {
+      inicio: ini,
+      fim: fim,
+      permitirEncaixe: false,
+      modoBloqueio: false,
+      ignoreIdAgenda: ignoreId || null
+    }, params);
+
+    return { ok: true, conflitos: [], intervalo: intervalo, erro: "" };
+  } catch (err) {
+    // Converte para o formato do front
+    var conflitos = [];
+
+    // Quando Agenda.gs acusa conflito, ele inclui err.details.conflito
+    try {
+      var det = err && err.details ? err.details : null;
+      var c = det && det.conflito ? det.conflito : null;
+      if (c) {
+        var ci = (typeof _agendaParseDate_ === "function") ? _agendaParseDate_(c.inicio) : new Date(c.inicio);
+        var cf = (typeof _agendaParseDate_ === "function") ? _agendaParseDate_(c.fim) : new Date(c.fim);
+
+        var hi = (ci && !isNaN(ci.getTime()) && typeof _agendaFormatHHMM_ === "function") ? _agendaFormatHHMM_(ci) : "";
+        var hf = (cf && !isNaN(cf.getTime()) && typeof _agendaFormatHHMM_ === "function") ? _agendaFormatHHMM_(cf) : "";
+
+        var tipoRaw = String(c.tipo || "");
+        conflitos.push({
+          ID_Agenda: String(c.idAgenda || ""),
+          bloqueio: tipoRaw.toUpperCase().indexOf("BLOQ") >= 0,
+          data: dataStr,
+          hora_inicio: hi,
+          hora_fim: hf,
+          duracao_minutos: (hi && hf) ? dur : dur // mantém compat
+        });
+      }
+    } catch (_) {}
+
+    return {
+      ok: false,
+      conflitos: conflitos,
+      intervalo: intervalo,
+      erro: (err && err.message) ? String(err.message) : "Conflito de horário."
+    };
+  }
+}
+
 /**
  * Action para a API (útil no front validar antes de salvar).
  * Retorna sempre um objeto { ok, conflitos, intervalo, erro } (não lança).
+ *
+ * ✅ UPDATE:
+ * - Tenta usar a regra real do Agenda.gs.
+ * - Se indisponível, faz fallback para o validador legado por dia (Agenda_ListarEventosDiaParaValidacao_).
  */
 function Agenda_Action_ValidarConflito(payload) {
   payload = payload || {};
+
+  // 1) Preferência: mesma regra do salvar (Agenda.gs)
+  try {
+    var rNew = _Agenda_ValidarConflito_UsandoAgendaGs_(payload);
+    if (rNew && typeof rNew === "object") return rNew;
+  } catch (_) {
+    // se der qualquer problema, não quebra: cai no legado
+  }
+
+  // 2) Fallback legado (por dia)
   return Agenda_ValidarConflitos_({
     data: payload.data,
     inicio: payload.hora_inicio,

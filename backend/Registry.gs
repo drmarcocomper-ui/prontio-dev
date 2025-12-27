@@ -42,7 +42,7 @@ function _Registry_missingHandler_(fnName) {
 
 /**
  * Fallback LEGADO via routeAction_ (para actions antigas não migradas).
- * Útil porque doGet(JSONP) não tem fallback.
+ * Útil para instalações antigas.
  */
 function _Registry_legacyHandler_(legacyActionName) {
   var actionName = String(legacyActionName || "").trim();
@@ -54,6 +54,28 @@ function _Registry_legacyHandler_(legacyActionName) {
     err.code = "NOT_FOUND";
     err.details = { action: actionName };
     throw err;
+  };
+}
+
+/**
+ * ✅ NOVO (maturação, sem quebrar):
+ * Cria handler que tenta chamar um handler "moderno" (ex.: Agenda_Legacy_ListarDia_)
+ * e, se não existir, cai no legado via routeAction_ (instalações antigas).
+ */
+function _Registry_tryModernElseLegacy_(modernFnName, legacyActionName) {
+  var fnName = String(modernFnName || "").trim();
+  var legacy = String(legacyActionName || "").trim();
+
+  return function (ctx, payload) {
+    try {
+      var fn = (typeof globalThis !== "undefined" ? globalThis[fnName] : this[fnName]);
+      if (typeof fn === "function") {
+        return fn(ctx, payload || {});
+      }
+    } catch (_) {}
+
+    // fallback
+    return _Registry_legacyHandler_(legacy)(ctx, payload || {});
   };
 }
 
@@ -485,6 +507,37 @@ function _Registry_build_() {
     requiresLock: false,
     lockKey: null
   };
+
+  // =========================
+  // AGENDA (legados / compat)
+  // =========================
+  // ✅ UPDATE: tenta usar Agenda_Legacy_*_ (novo módulo) e só então cai no routeAction_ (legado antigo)
+  var agendaLegacyMap = [
+    ["Agenda_ListarDia", "Agenda_Legacy_ListarDia_"],
+    ["Agenda_ListarSemana", "Agenda_Legacy_ListarSemana_"],
+    ["Agenda_MudarStatus", "Agenda_Legacy_MudarStatus_"],
+    ["Agenda_RemoverBloqueio", "Agenda_Legacy_RemoverBloqueio_"],
+    ["Agenda_BloquearHorario", "Agenda_Legacy_BloquearHorario_"],
+    ["Agenda_ListarAFuturo", ""],
+    ["Agenda.ListarAFuturo", ""]
+  ];
+
+  for (var i = 0; i < agendaLegacyMap.length; i++) {
+    var legacyAction = agendaLegacyMap[i][0];
+    var modernFn = agendaLegacyMap[i][1];
+
+    map[legacyAction] = {
+      action: legacyAction,
+      handler: modernFn
+        ? _Registry_tryModernElseLegacy_(modernFn, legacyAction)
+        : _Registry_legacyHandler_(legacyAction),
+      requiresAuth: true,
+      roles: [],
+      validations: [],
+      requiresLock: true,
+      lockKey: "AGENDA_LEGACY"
+    };
+  }
 
   // ============================================================
   // PRONTUÁRIO (fachada)
@@ -941,32 +994,6 @@ function _Registry_build_() {
     requiresLock: false,
     lockKey: null
   };
-
-  // =========================
-  // AGENDA (legados ainda não migrados)
-  // =========================
-  var agendaLegacy = [
-    "Agenda_ListarDia",
-    "Agenda_ListarSemana",
-    "Agenda_MudarStatus",
-    "Agenda_RemoverBloqueio",
-    "Agenda_BloquearHorario",
-    "Agenda_ListarAFuturo",
-    "Agenda.ListarAFuturo"
-  ];
-
-  for (var i = 0; i < agendaLegacy.length; i++) {
-    var a = agendaLegacy[i];
-    map[a] = {
-      action: a,
-      handler: _Registry_legacyHandler_(a),
-      requiresAuth: true,
-      roles: [],
-      validations: [],
-      requiresLock: true,
-      lockKey: "AGENDA_LEGACY"
-    };
-  }
 
   return map;
 }
