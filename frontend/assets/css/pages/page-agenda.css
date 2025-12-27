@@ -1,12 +1,13 @@
 /* PRONTIO - Estilos da Agenda
-   ✅ Ajustado para conviver com o Design System do PRONTIO
-   - Remove overrides globais (body, *, .btn, .topbar local)
-   - Mantém o restante (slots, semana, modais etc.)
-   - Corrige o “embolado” no card CONTROLES
+   Melhorias aplicadas:
+   - Botão "Agora" e hints discretos
+   - Destaque do slot atual (dia) e linha atual (semana)
+   - Cabeçalho sticky e coluna de hora sticky na visão semanal
+   - Pequenos refinamentos responsivos
 */
 
 /* =========================================================
-   CONTAINER PRINCIPAL (mantém)
+   CONTAINER PRINCIPAL
    ========================================================= */
 
 .agenda-container {
@@ -16,20 +17,16 @@
 }
 
 /* =========================================================
-   CONTROLES (FIX DO EMBOLADO)
-   Observação: no HTML atual, "agenda-controls" é o CARD
-   e os controles ficam dentro do .card-body-compact.
+   CONTROLES
    ========================================================= */
 
 .agenda-controls .card-body-compact {
-  /* ✅ grid responsivo para evitar sobreposição */
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   gap: var(--sp-3);
   align-items: center;
 }
 
-/* Data / navegação */
 .agenda-controls .date-controls {
   display: flex;
   align-items: center;
@@ -58,7 +55,6 @@
   min-width: 160px;
 }
 
-/* Ações (Bloquear / Novo) */
 .agenda-controls .agenda-actions {
   display: inline-flex;
   justify-content: flex-end;
@@ -67,7 +63,6 @@
   white-space: nowrap;
 }
 
-/* Troca de visão (Dia/Semana) */
 .agenda-controls .view-switch {
   display: inline-flex;
   justify-content: center;
@@ -76,7 +71,6 @@
   white-space: nowrap;
 }
 
-/* ✅ Harmoniza tamanhos sem sobrescrever o design system */
 .agenda-controls .agenda-actions .btn,
 .agenda-controls .view-switch .btn,
 .agenda-controls .date-controls .btn {
@@ -87,16 +81,14 @@
   white-space: nowrap;
 }
 
-/* Estado ativo da visão (mantém sua lógica, só não redefine cores globais) */
 .agenda-controls .view-switch .view-active {
-  /* se seu DS já tiver classes, isso só ajuda quando existir .view-active */
   background: var(--cor-fundo-card-alt);
   border: 1px solid var(--cor-borda-suave);
   color: var(--cor-texto-principal);
 }
 
 /* =========================================================
-   FILTROS (mantém, mas sem redefinir inputs globais)
+   FILTROS
    ========================================================= */
 
 .agenda-filtros {
@@ -107,6 +99,7 @@
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
+  align-items: flex-end;
 }
 
 .filtro-item {
@@ -114,7 +107,12 @@
   flex-direction: column;
   gap: 0.2rem;
   min-width: 220px;
-  max-width: 280px;
+  max-width: 320px;
+}
+
+.filtro-item--compact {
+  min-width: 160px;
+  max-width: 200px;
 }
 
 .filtro-item label {
@@ -122,7 +120,6 @@
   color: var(--cor-texto-suave);
 }
 
-/* Mantém estilos básicos sem brigar com DS */
 .filtro-item input,
 .filtro-item select {
   height: 34px;
@@ -134,7 +131,7 @@
 }
 
 /* =========================================================
-   RESUMO DO DIA (mantém e harmoniza com tokens)
+   RESUMO DO DIA
    ========================================================= */
 
 .agenda-resumo {
@@ -173,8 +170,20 @@
 .resumo-concluidos { color: #059669; }
 .resumo-em-atendimento { color: #0ea5e9; }
 
+.agenda-hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  margin-top: 0.6rem;
+}
+
+.agenda-hint {
+  font-size: 0.78rem;
+  color: var(--cor-texto-suave);
+}
+
 /* =========================================================
-   AGENDA DO DIA / SEMANA (cards base) - mantido
+   AGENDA DO DIA / SEMANA (cards base)
    ========================================================= */
 
 .hidden {
@@ -204,6 +213,12 @@
   border-bottom: none;
 }
 
+.agenda-slot.slot-now {
+  background: rgba(14, 165, 233, 0.06);
+  outline: 2px solid rgba(14, 165, 233, 0.18);
+  outline-offset: -2px;
+}
+
 .agenda-slot-hora {
   padding: 0.5rem 0.5rem;
   border-right: 1px solid var(--cor-borda-suave);
@@ -213,6 +228,10 @@
   display: flex;
   align-items: flex-start;
   justify-content: flex-end;
+}
+
+.agenda-slot.slot-now .agenda-slot-hora {
+  color: var(--cor-texto-principal);
 }
 
 .agenda-slot-conteudo {
@@ -237,72 +256,6 @@
 .agenda-slot-action-btn {
   font-size: 0.68rem;
   padding: 0.12rem 0.45rem;
-}
-
-/* =========================================================
-   VISÃO SEMANA (layout antigo em cards) - mantido
-   ========================================================= */
-
-.agenda-semana-dias {
-  margin-top: 0.5rem;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0.75rem;
-}
-
-.agenda-semana-dia-card {
-  background: var(--cor-fundo-card-alt);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--cor-borda-suave);
-  padding: 0.55rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.agenda-semana-dia-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.agenda-semana-dia-data {
-  font-weight: 600;
-  font-size: 0.9rem;
-  color: var(--cor-texto-principal);
-}
-
-.agenda-semana-dia-resumo {
-  font-size: 0.78rem;
-  color: var(--cor-texto-suave);
-}
-
-.agenda-semana-dia-lista {
-  border-radius: var(--radius-md);
-  background: var(--cor-fundo-card);
-  border: 1px solid var(--cor-borda-suave);
-  max-height: 220px;
-  overflow-y: auto;
-}
-
-.agenda-semana-item {
-  padding: 0.3rem 0.45rem;
-  border-bottom: 1px solid var(--cor-borda-suave);
-  font-size: 0.8rem;
-}
-
-.agenda-semana-item:last-child {
-  border-bottom: none;
-}
-
-.agenda-semana-item-linha1 {
-  font-weight: 600;
-  color: var(--cor-texto-principal);
-}
-
-.agenda-semana-item-linha2 {
-  font-size: 0.75rem;
-  color: var(--cor-texto-suave);
 }
 
 /* =========================================================
@@ -379,15 +332,6 @@
   border-color: var(--cor-borda-suave);
 }
 
-.agendamento-status {
-  font-size: 0.75rem;
-  border-radius: 999px;
-  padding: 0.05rem 0.5rem;
-  background: var(--cor-fundo-card-alt);
-  color: var(--cor-texto-principal);
-  border: 1px solid var(--cor-borda-suave);
-}
-
 .agendamento-canal {
   font-size: 0.75rem;
   color: var(--cor-texto-suave);
@@ -404,64 +348,13 @@
 
 .status-agendado { border-left-color: #64748b; }
 .status-confirmado { border-left-color: #16a34a; }
+.status-em-atendimento { border-left-color: #0ea5e9; }
 .status-falta { border-left-color: #b91c1c; }
 .status-cancelado { border-left-color: #ea580c; }
-.status-encaixe { border-left-color: #7c3aed; }
-.status-em-atendimento { border-left-color: #0ea5e9; }
 .status-concluido { border-left-color: #059669; }
 
 /* =========================================================
-   RESPONSIVIDADE (mantida, mas alinhada com 900/768)
-   ========================================================= */
-
-@media (max-width: 900px) {
-  /* ✅ controles viram coluna para não embolar */
-  .agenda-controls .card-body-compact {
-    grid-template-columns: 1fr;
-    align-items: stretch;
-  }
-
-  .agenda-controls .agenda-actions,
-  .agenda-controls .view-switch {
-    justify-content: flex-start;
-    flex-wrap: wrap;
-  }
-
-  .agenda-semana-dias {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 768px) {
-  .agenda-container {
-    padding: var(--sp-3);
-  }
-
-  .resumo-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .agenda-lista-horarios {
-    max-height: calc(100vh - 280px);
-  }
-
-  .agenda-semana-dias {
-    grid-template-columns: minmax(0, 1fr);
-  }
-}
-
-@media (max-width: 480px) {
-  .resumo-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .agenda-slot {
-    grid-template-columns: 60px minmax(0, 1fr);
-  }
-}
-
-/* =========================================================
-   VISÃO SEMANAL EM GRID (novo layout) - mantido
+   VISÃO SEMANAL EM GRID (com sticky)
    ========================================================= */
 
 .agenda-semana-grid {
@@ -496,8 +389,22 @@
   background: var(--cor-fundo-card);
 }
 
+.semana-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+}
+
+.semana-sticky-cell {
+  background: var(--cor-fundo-card);
+}
+
 .semana-header-cell {
   text-align: center;
+}
+
+.semana-header-today {
+  box-shadow: inset 0 -2px 0 rgba(14, 165, 233, 0.45);
 }
 
 .semana-corner-cell {
@@ -524,9 +431,25 @@
   justify-content: flex-end;
 }
 
+/* Coluna de hora sticky (melhora leitura quando rola horizontal) */
+.semana-sticky-col {
+  position: sticky;
+  left: 0;
+  z-index: 3;
+  border-right: 1px solid var(--cor-borda-suave);
+}
+
 .semana-slot-cell {
   background: var(--cor-fundo-card);
   min-height: 1.8rem;
+}
+
+.semana-row-now .semana-hora-cell {
+  color: var(--cor-texto-principal);
+}
+
+.semana-slot-now {
+  background: rgba(14, 165, 233, 0.06);
 }
 
 .semana-agenda-item {
@@ -555,23 +478,67 @@
   cursor: default;
 }
 
+.semana-slot-empty {
+  cursor: default;
+}
+
+/* =========================================================
+   RESPONSIVIDADE
+   ========================================================= */
+
 @media (max-width: 900px) {
+  .agenda-controls .card-body-compact {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+  }
+
+  .agenda-controls .agenda-actions,
+  .agenda-controls .view-switch {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
   .semana-row {
     grid-template-columns: 55px repeat(6, minmax(0, 1fr));
   }
+
   .semana-hora-cell {
     font-size: 0.72rem;
   }
+
   .semana-header-data {
     display: none;
   }
 }
 
 @media (max-width: 768px) {
+  .agenda-container {
+    padding: var(--sp-3);
+  }
+
+  .resumo-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .agenda-lista-horarios {
+    max-height: calc(100vh - 280px);
+  }
+
   .agenda-semana-grid {
     overflow-x: auto;
   }
+
   .semana-row {
     min-width: 700px;
+  }
+}
+
+@media (max-width: 480px) {
+  .resumo-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .agenda-slot {
+    grid-template-columns: 60px minmax(0, 1fr);
   }
 }

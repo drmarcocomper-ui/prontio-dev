@@ -199,7 +199,19 @@ function Schema_all_() {
         titulo: { type: "string", required: false, maxLength: 120 },
         notas: { type: "string", required: false, maxLength: 2000 },
         tipo: { type: "string", required: false, enum: ["CONSULTA", "RETORNO", "PROCEDIMENTO", "BLOQUEIO", "OUTRO"] },
-        status: { type: "string", required: true, enum: ["AGENDADO", "CANCELADO", "CONCLUIDO", "FALTOU"] },
+
+        /**
+         * ✅ Atualizado:
+         * Agora aceita status oficiais adicionais para o módulo Agenda:
+         * - CONFIRMADO
+         * - EM_ATENDIMENTO
+         */
+        status: {
+          type: "string",
+          required: true,
+          enum: ["AGENDADO", "CONFIRMADO", "EM_ATENDIMENTO", "CANCELADO", "CONCLUIDO", "FALTOU"]
+        },
+
         origem: { type: "string", required: false, enum: ["RECEPCAO", "MEDICO", "SISTEMA"] },
         criadoEm: { type: "date", required: true },
         atualizadoEm: { type: "date", required: true },

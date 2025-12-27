@@ -55,9 +55,10 @@
 
                 <button id="btn-dia-posterior" class="btn btn-secondary" type="button" aria-label="Próximo dia">&gt;</button>
                 <button id="btn-hoje" class="btn btn-outline" type="button">Hoje</button>
+                <button id="btn-agora" class="btn btn-ghost" type="button" title="Pular para o horário atual (se for hoje)">Agora</button>
               </div>
 
-              <div class="view-switch">
+              <div class="view-switch" role="group" aria-label="Alternar visão">
                 <button id="btn-visao-dia" class="btn btn-secondary btn-sm view-active" type="button">Dia</button>
                 <button id="btn-visao-semana" class="btn btn-outline btn-sm" type="button">Semana</button>
               </div>
@@ -82,12 +83,18 @@
               <div class="filtros-row">
                 <div class="filtro-item">
                   <label for="filtro-nome">Filtrar por paciente</label>
-                  <input type="text" id="filtro-nome" placeholder="Digite parte do nome do paciente..." autocomplete="off" />
+                  <input
+                    type="text"
+                    id="filtro-nome"
+                    placeholder="Digite parte do nome do paciente..."
+                    autocomplete="off"
+                    aria-label="Filtrar por paciente"
+                  />
                 </div>
 
                 <div class="filtro-item">
                   <label for="filtro-status">Status</label>
-                  <select id="filtro-status">
+                  <select id="filtro-status" aria-label="Filtrar por status">
                     <option value="">Todos</option>
                     <option value="agendado">Agendado</option>
                     <option value="confirmado">Confirmado</option>
@@ -96,6 +103,12 @@
                     <option value="faltou">Faltou</option>
                     <option value="cancelado">Cancelado</option>
                   </select>
+                  <small class="hint-text">Os status acima refletem os suportados atualmente no backend.</small>
+                </div>
+
+                <div class="filtro-item filtro-item--compact">
+                  <label>&nbsp;</label>
+                  <button id="btn-limpar-filtros" class="btn btn-outline btn-sm" type="button">Limpar filtros</button>
                 </div>
               </div>
             </div>
@@ -137,6 +150,11 @@
                   <span class="resumo-value resumo-em-atendimento" id="resumo-em-atendimento">0</span>
                 </div>
               </div>
+
+              <div class="agenda-hints">
+                <span class="agenda-hint">Dica: duplo clique em um horário livre cria um agendamento.</span>
+                <span class="agenda-hint">Dica: clique em um item na semana para abrir o dia já focando no horário.</span>
+              </div>
             </div>
           </section>
 
@@ -149,7 +167,7 @@
               </div>
             </div>
             <div class="card-body card-body-compact">
-              <div id="agenda-lista-horarios" class="agenda-lista-horarios"></div>
+              <div id="agenda-lista-horarios" class="agenda-lista-horarios" aria-live="polite"></div>
             </div>
           </section>
 
@@ -162,7 +180,7 @@
               </div>
             </div>
             <div class="card-body card-body-compact">
-              <div id="agenda-semana-grid" class="agenda-semana-grid"></div>
+              <div id="agenda-semana-grid" class="agenda-semana-grid" aria-live="polite"></div>
             </div>
           </section>
         </div>

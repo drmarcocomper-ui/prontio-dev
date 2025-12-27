@@ -1,20 +1,12 @@
-// assets/js/pages/page-agenda.js
+// frontend/assets/js/pages/page-agenda.js
 /**
  * PRONTIO - Página de Agenda (front)
  *
- * ✅ MIGRAÇÃO (API-first, sem routeAction_):
- * - Substitui actions legadas por actions novas do backend:
- *   - Agenda_ListarDia / Agenda_ListarSemana -> Agenda.ListarPorPeriodo
- *   - Agenda_Criar -> Agenda.Criar
- *   - Agenda_Atualizar -> Agenda.Atualizar
- *   - Agenda_MudarStatus -> Agenda.Atualizar (ou Agenda.Cancelar)
- *   - Agenda_BloquearHorario -> Agenda.Criar (tipo BLOQUEIO)
- *   - Agenda_RemoverBloqueio -> Agenda.Cancelar (remove bloqueio cancelando)
- *
- * Mantém:
- * - Typeahead (Pacientes_BuscarSimples)
- * - Pré-validar conflito (Agenda_ValidarConflito)
- * - Modais e UX original
+ * Melhorias aplicadas:
+ * - Visão semanal em grade completa (slots pela config).
+ * - Filtros persistidos (nome/status) aplicam em dia e semana.
+ * - Destaque de "agora" e botão para pular.
+ * - Status do select alinhado com backend (AGENDADO/CONFIRMADO/EM_ATENDIMENTO/CONCLUIDO/FALTOU/CANCELADO).
  */
 
 (function (global, document) {
@@ -46,6 +38,7 @@
     if (!inputData) return;
 
     const btnHoje = get("btn-hoje");
+    const btnAgora = get("btn-agora");
     const btnDiaAnterior = get("btn-dia-anterior");
     const btnDiaPosterior = get("btn-dia-posterior");
 
@@ -69,11 +62,17 @@
 
     const inputFiltroNome = get("filtro-nome");
     const selectFiltroStatus = get("filtro-status");
+    const btnLimparFiltros = get("btn-limpar-filtros");
 
     let modoVisao =
       localStorage.getItem("prontio.agenda.modoVisao") === "semana" ? "semana" : "dia";
 
+    // Persistência de filtros
+    const FILTER_KEY = "prontio.agenda.filtros.v1";
+    const filtrosState = loadFiltros_();
+
     let agendamentosOriginaisDia = [];
+    let agendamentosOriginaisSemana = []; // DTOs UI (todos do período)
     let horaFocoDia = null;
 
     // =====================
@@ -191,6 +190,40 @@
       if (!el) return;
       el.textContent = text || "";
       el.className = "form-message" + (kind ? " " + kind : "");
+    }
+
+    function clamp_(n, a, b) {
+      const x = Number(n);
+      if (!isFinite(x)) return a;
+      return Math.max(a, Math.min(b, x));
+    }
+
+    function loadFiltros_() {
+      try {
+        const raw = localStorage.getItem(FILTER_KEY);
+        if (!raw) return { nome: "", status: "" };
+        const obj = JSON.parse(raw);
+        return {
+          nome: String(obj && obj.nome ? obj.nome : ""),
+          status: String(obj && obj.status ? obj.status : "")
+        };
+      } catch (_) {
+        return { nome: "", status: "" };
+      }
+    }
+
+    function saveFiltros_() {
+      try {
+        localStorage.setItem(
+          FILTER_KEY,
+          JSON.stringify({ nome: filtrosState.nome, status: filtrosState.status })
+        );
+      } catch (_) {}
+    }
+
+    function applyFiltrosToUI_() {
+      if (inputFiltroNome) inputFiltroNome.value = filtrosState.nome || "";
+      if (selectFiltroStatus) selectFiltroStatus.value = filtrosState.status || "";
     }
 
     // =====================
@@ -340,23 +373,19 @@
     }
 
     function dtoToUiAg_(dto) {
-      // Adapter do DTO novo (Agenda.gs) -> formato usado pelo UI antigo
       const inicioIso = dto && dto.inicio ? String(dto.inicio) : "";
       const fimIso = dto && dto.fim ? String(dto.fim) : "";
 
       const tipo = String(dto && dto.tipo ? dto.tipo : "");
       const isBloqueio = tipo.toUpperCase() === "BLOQUEIO";
 
-      const out = {
-        // IDs
+      return {
         ID_Agenda: (dto && (dto.idAgenda || dto.ID_Agenda)) ? String(dto.idAgenda || dto.ID_Agenda) : "",
         ID_Paciente: (dto && (dto.idPaciente || dto.ID_Paciente)) ? String(dto.idPaciente || dto.ID_Paciente) : "",
-        // Data/hora (UI)
         data: ymdFromIso_(inicioIso),
         hora_inicio: hhmmFromIso_(inicioIso),
         hora_fim: hhmmFromIso_(fimIso),
         duracao_minutos: diffMinutes_(inicioIso, fimIso),
-        // Campos exibidos
         nome_paciente: (dto && dto.titulo) ? String(dto.titulo) : (isBloqueio ? "Bloqueio" : ""),
         telefone_paciente: "",
         documento_paciente: "",
@@ -368,8 +397,6 @@
         bloqueio: isBloqueio,
         permite_encaixe: false
       };
-
-      return out;
     }
 
     function computeResumoDia_(ags) {
@@ -384,14 +411,14 @@
 
       (ags || []).forEach((ag) => {
         if (!ag) return;
-        if (ag.bloqueio) return; // não conta em total do dia
+        if (ag.bloqueio) return;
         resumo.total++;
 
         const s = stripAccents(String(ag.status || "")).toLowerCase();
         if (s.includes("falt")) resumo.faltas++;
         else if (s.includes("cancel")) resumo.cancelados++;
         else if (s.includes("concl")) resumo.concluidos++;
-        else if (s.includes("atend")) resumo.em_atendimento++;
+        else if (s.includes("em_atend") || s.includes("em atend") || s.includes("atend")) resumo.em_atendimento++;
         else if (s.includes("confirm")) resumo.confirmados++;
       });
 
@@ -413,6 +440,26 @@
       } finally {
         agendaConfigCarregada = true;
       }
+    }
+
+    function getSlotsByConfig_() {
+      const inicioMin = timeToMinutes(agendaConfig.hora_inicio_padrao) ?? 8 * 60;
+      const fimMin = timeToMinutes(agendaConfig.hora_fim_padrao) ?? 18 * 60;
+      const passo = parseInt(String(agendaConfig.duracao_grade_minutos || 15), 10) || 15;
+
+      const slots = [];
+      for (let t = inicioMin; t <= fimMin; t += passo) slots.push(minutesToTime(t));
+      return { slots, inicioMin, fimMin, passo };
+    }
+
+    function getNowSlot_() {
+      const now = new Date();
+      const dataStr = formatDateToInput(now);
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const { slots, inicioMin, fimMin, passo } = getSlotsByConfig_();
+      if (nowMin < inicioMin || nowMin > fimMin) return { dataStr, hhmm: null };
+      const idx = clamp_(Math.floor((nowMin - inicioMin) / passo), 0, slots.length - 1);
+      return { dataStr, hhmm: slots[idx] || null };
     }
 
     // =========================================================
@@ -734,6 +781,29 @@
       if (resumoEmAtendimentoEl) resumoEmAtendimentoEl.textContent = resumo?.em_atendimento ?? 0;
     }
 
+    function getFiltroNormalized_() {
+      const termo = stripAccents(filtrosState.nome || "").toLowerCase().trim();
+      const statusFiltro = stripAccents(filtrosState.status || "").toLowerCase().trim();
+      return { termo, statusFiltro };
+    }
+
+    function matchesFiltro_(ag, termo, statusFiltro) {
+      if (!ag) return false;
+
+      if (termo) {
+        const nome = stripAccents(String(ag.nome_paciente || "")).toLowerCase();
+        if (!nome.includes(termo)) return false;
+      }
+
+      if (statusFiltro) {
+        const s = stripAccents(String(ag.status || "")).toLowerCase();
+        // statusFiltro vem do <select> (ex.: "confirmado" / "em atendimento")
+        if (!s.includes(statusFiltro)) return false;
+      }
+
+      return true;
+    }
+
     async function carregarAgendaDia() {
       const dataStr = inputData.value;
       if (!dataStr) return;
@@ -744,7 +814,6 @@
       mostrarEstadoCarregando();
 
       try {
-        // ✅ NOVO: Agenda.ListarPorPeriodo (dia inteiro)
         const data = await callApiData({
           action: "Agenda.ListarPorPeriodo",
           payload: { inicio: startOfDayIso_(dataStr), fim: endOfDayIso_(dataStr), incluirCancelados: true }
@@ -768,39 +837,22 @@
     }
 
     function aplicarFiltrosDia() {
-      const termo = stripAccents(inputFiltroNome?.value || "").toLowerCase().trim();
-      const statusFiltro = stripAccents(selectFiltroStatus?.value || "").toLowerCase().trim();
-
-      const inicioMin = timeToMinutes(agendaConfig.hora_inicio_padrao) ?? 8 * 60;
-      const fimMin = timeToMinutes(agendaConfig.hora_fim_padrao) ?? 18 * 60;
-      const passo = parseInt(String(agendaConfig.duracao_grade_minutos || 15), 10) || 15;
+      const { termo, statusFiltro } = getFiltroNormalized_();
+      const { slots } = getSlotsByConfig_();
 
       const map = new Map();
       (agendamentosOriginaisDia || []).forEach((ag) => {
         const hora = normalizeHora(ag.hora_inicio);
         if (!hora) return;
 
-        if (termo) {
-          const nome = stripAccents(String(ag.nome_paciente || "")).toLowerCase();
-          if (!nome.includes(termo)) return;
-        }
-        if (statusFiltro) {
-          const s = stripAccents(String(ag.status || "")).toLowerCase();
-          if (!s.includes(statusFiltro)) return;
-        }
+        if (!matchesFiltro_(ag, termo, statusFiltro)) return;
 
         if (!map.has(hora)) map.set(hora, []);
         map.get(hora).push(ag);
       });
 
-      const slots = [];
-      for (let t = inicioMin; t <= fimMin; t += passo) {
-        const hora = minutesToTime(t);
-        const ags = map.get(hora) || [];
-        slots.push({ hora, agendamentos: ags });
-      }
-
-      desenharHorarios(slots);
+      const slotsRender = slots.map((hora) => ({ hora, agendamentos: map.get(hora) || [] }));
+      desenharHorarios(slotsRender);
     }
 
     function desenharHorarios(horarios) {
@@ -813,12 +865,18 @@
       }
 
       let slotParaFoco = null;
+      const now = getNowSlot_();
+      const isHoje = now.dataStr === inputData.value;
+      const hhNow = now.hhmm;
 
       horarios.forEach((slot) => {
         const { hora, agendamentos } = slot;
 
         const slotEl = document.createElement("div");
         slotEl.className = "agenda-slot";
+        slotEl.dataset.hora = hora;
+
+        if (isHoje && hhNow && hora === hhNow) slotEl.classList.add("slot-now");
 
         const horaEl = document.createElement("div");
         horaEl.className = "agenda-slot-hora";
@@ -864,23 +922,50 @@
         slotEl.appendChild(conteudoEl);
         listaHorariosEl.appendChild(slotEl);
 
-        if (horaFocoDia && hora === horaFocoDia && !slotParaFoco) {
-          slotParaFoco = slotEl;
-        }
+        if (horaFocoDia && hora === horaFocoDia && !slotParaFoco) slotParaFoco = slotEl;
       });
 
       if (slotParaFoco) slotParaFoco.scrollIntoView({ block: "start", behavior: "smooth" });
+      else if (isHoje && hhNow) {
+        const elNow = listaHorariosEl.querySelector(`.agenda-slot[data-hora="${hhNow}"]`);
+        if (elNow) elNow.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+
       horaFocoDia = null;
     }
 
+    function scrollToNow_() {
+      const now = getNowSlot_();
+      if (!now.hhmm) return;
+
+      if (inputData.value !== now.dataStr) {
+        inputData.value = now.dataStr;
+        if (modoVisao === "dia") {
+          horaFocoDia = now.hhmm;
+          carregarAgendaDia();
+        } else {
+          carregarAgendaSemana();
+        }
+        return;
+      }
+
+      if (modoVisao === "dia") {
+        const elNow = listaHorariosEl && listaHorariosEl.querySelector(`.agenda-slot[data-hora="${now.hhmm}"]`);
+        if (elNow) elNow.scrollIntoView({ block: "start", behavior: "smooth" });
+      } else {
+        const marker = semanaGridEl && semanaGridEl.querySelector(`.semana-row[data-hora="${now.hhmm}"]`);
+        if (marker) marker.scrollIntoView({ block: "start", behavior: "smooth" });
+      }
+    }
+
     // ===========================
-    // Semana (usando ListarPorPeriodo)
+    // Semana (grade completa)
     // ===========================
     function getStartOfWeekMonday_(d) {
       const x = new Date(d);
       x.setHours(0, 0, 0, 0);
-      const day = x.getDay(); // 0 dom ... 6 sab
-      const diff = (day + 6) % 7; // segunda=0
+      const day = x.getDay();
+      const diff = (day + 6) % 7;
       x.setDate(x.getDate() - diff);
       return x;
     }
@@ -907,15 +992,17 @@
         const items = (data && data.items) ? data.items : [];
         const agsUi = items.map(dtoToUiAg_);
 
-        // transforma no formato que o grid antigo espera: [{data, horarios:[{hora, agendamentos:[]}]}, ...]
-        const diasMap = {};
+        agendamentosOriginaisSemana = agsUi;
+
+        const dias = [];
         for (let i = 0; i < 7; i++) {
           const d = new Date(ini.getTime() + i * 24 * 60 * 60 * 1000);
-          const ds = formatDateToInput(d);
-          diasMap[ds] = { data: ds, horarios: [] };
+          dias.push(formatDateToInput(d));
         }
 
-        const byDayHour = {}; // { "YYYY-MM-DD": { "HH:MM": [ag...] } }
+        const { slots } = getSlotsByConfig_();
+
+        const byDayHour = {};
         agsUi.forEach((ag) => {
           const ds = ag.data;
           const hh = normalizeHora(ag.hora_inicio);
@@ -925,18 +1012,7 @@
           byDayHour[ds][hh].push({ ...ag, __hora_norm: hh });
         });
 
-        Object.keys(diasMap).forEach((ds) => {
-          const hoursObj = byDayHour[ds] || {};
-          const horas = Object.keys(hoursObj).sort((a, b) => {
-            const [ha, ma] = a.split(":").map(Number);
-            const [hb, mb] = b.split(":").map(Number);
-            return ha * 60 + ma - (hb * 60 + mb);
-          });
-
-          diasMap[ds].horarios = horas.map((hh) => ({ hora: hh, agendamentos: hoursObj[hh] || [] }));
-        });
-
-        desenharSemanaGrid(Object.values(diasMap));
+        desenharSemanaGrid({ dias, slots, byDayHour });
       } catch (error) {
         console.error(error);
         if (semanaGridEl) {
@@ -948,78 +1024,62 @@
       }
     }
 
-    function desenharSemanaGrid(dias) {
+    function desenharSemanaGrid(ctx) {
       if (!semanaGridEl) return;
       semanaGridEl.innerHTML = "";
 
-      if (!dias.length) {
-        semanaGridEl.innerHTML = '<div class="agenda-vazia">Nenhum agendamento para esta semana.</div>';
+      const dias = ctx && ctx.dias ? ctx.dias : [];
+      const slots = ctx && ctx.slots ? ctx.slots : [];
+      const byDayHour = ctx && ctx.byDayHour ? ctx.byDayHour : {};
+
+      if (!dias.length || !slots.length) {
+        semanaGridEl.innerHTML = '<div class="agenda-vazia">Nenhum horário configurado para exibir.</div>';
         return;
       }
 
-      const diasOrdenados = [...dias].sort((a, b) => a.data.localeCompare(b.data));
-      const diaAgMap = {};
-      const horasSet = new Set();
-
-      diasOrdenados.forEach((dia) => {
-        const ags = [];
-        (dia.horarios || []).forEach((slot) => {
-          const horaSlot = normalizeHora(slot.hora);
-          (slot.agendamentos || []).forEach((ag) => {
-            const horaAg = normalizeHora(ag.hora_inicio || horaSlot);
-            ags.push({ ...ag, __hora_norm: horaAg });
-            if (horaAg) horasSet.add(horaAg);
-          });
-        });
-        diaAgMap[dia.data] = ags;
-      });
-
-      const horas = Array.from(horasSet).sort((a, b) => {
-        const [ha, ma] = a.split(":").map(Number);
-        const [hb, mb] = b.split(":").map(Number);
-        return ha * 60 + ma - (hb * 60 + mb);
-      });
-
-      if (!horas.length) {
-        semanaGridEl.innerHTML = '<div class="agenda-vazia">Nenhum agendamento para esta semana.</div>';
-        return;
-      }
+      const now = getNowSlot_();
+      const { termo, statusFiltro } = getFiltroNormalized_();
 
       const headerRow = document.createElement("div");
-      headerRow.className = "semana-row semana-header-row";
+      headerRow.className = "semana-row semana-header-row semana-sticky";
+      headerRow.dataset.hora = "__header__";
 
       const corner = document.createElement("div");
-      corner.className = "semana-cell semana-corner-cell";
+      corner.className = "semana-cell semana-corner-cell semana-sticky-cell";
       corner.textContent = "";
       headerRow.appendChild(corner);
 
-      diasOrdenados.forEach((dia) => {
+      dias.slice(0, 6).forEach((ds) => {
         const cell = document.createElement("div");
-        cell.className = "semana-cell semana-header-cell";
+        cell.className = "semana-cell semana-header-cell semana-sticky-cell";
         cell.innerHTML = `
-          <div class="semana-header-dia">${getDiaSemanaLabel(dia.data)}</div>
-          <div class="semana-header-data">${formatDataBonita(dia.data)}</div>
+          <div class="semana-header-dia">${getDiaSemanaLabel(ds)}</div>
+          <div class="semana-header-data">${formatDataBonita(ds)}</div>
         `;
+        if (ds === now.dataStr) cell.classList.add("semana-header-today");
         headerRow.appendChild(cell);
       });
 
       semanaGridEl.appendChild(headerRow);
 
-      horas.forEach((hora) => {
+      slots.forEach((hora) => {
         const row = document.createElement("div");
         row.className = "semana-row";
+        row.dataset.hora = hora;
+        if (now.hhmm && hora === now.hhmm) row.classList.add("semana-row-now");
 
         const horaCell = document.createElement("div");
-        horaCell.className = "semana-cell semana-hora-cell";
+        horaCell.className = "semana-cell semana-hora-cell semana-sticky-col";
         horaCell.textContent = hora;
         row.appendChild(horaCell);
 
-        diasOrdenados.forEach((dia) => {
+        dias.slice(0, 6).forEach((ds) => {
           const cell = document.createElement("div");
           cell.className = "semana-cell semana-slot-cell";
+          if (ds === now.dataStr && now.hhmm && hora === now.hhmm) cell.classList.add("semana-slot-now");
 
-          const agsDia = diaAgMap[dia.data] || [];
-          const agsNoHorario = agsDia.filter((ag) => ag.__hora_norm === hora);
+          const agsNoHorario = ((byDayHour[ds] && byDayHour[ds][hora]) ? byDayHour[ds][hora] : [])
+            .filter((ag) => matchesFiltro_(ag, termo, statusFiltro));
 
           if (agsNoHorario.length) {
             agsNoHorario.forEach((ag) => {
@@ -1040,12 +1100,19 @@
 
                 item.addEventListener("click", () => {
                   horaFocoDia = hora;
-                  inputData.value = dia.data;
+                  inputData.value = ds;
                   setVisao("dia");
                 });
               }
 
               cell.appendChild(item);
+            });
+          } else {
+            cell.classList.add("semana-slot-empty");
+            cell.addEventListener("dblclick", () => {
+              inputData.value = ds;
+              setVisao("dia");
+              setTimeout(() => abrirModalNovoAgendamento(hora), 50);
             });
           }
 
@@ -1057,15 +1124,23 @@
     }
 
     // ===========================
-    // Status em select box
+    // Status (alinhado com backend)
     // ===========================
-    const STATUS_OPTIONS = ["Agendado", "Confirmado", "Em atendimento", "Concluído", "Faltou", "Cancelado"];
+    const STATUS_OPTIONS = [
+      "Agendado",
+      "Confirmado",
+      "Em atendimento",
+      "Concluído",
+      "Faltou",
+      "Cancelado"
+    ];
 
     function normalizeStatusLabel_(s) {
       const v = stripAccents(String(s || "")).trim().toLowerCase();
       if (!v) return "Agendado";
       if (v.includes("confirm")) return "Confirmado";
-      if (v.includes("atend")) return "Em atendimento";
+      if (v.includes("em_atend") || v.includes("em atend")) return "Em atendimento";
+      if (v.includes("atend") && !v.includes("concl")) return "Em atendimento";
       if (v.includes("concl")) return "Concluído";
       if (v.includes("falt")) return "Faltou";
       if (v.includes("cancel")) return "Cancelado";
@@ -1075,10 +1150,12 @@
 
     function mapStatusToBackend_(label) {
       const v = stripAccents(String(label || "")).toLowerCase();
+      if (v.includes("confirm")) return "CONFIRMADO";
+      if (v.includes("em atend") || v.includes("em_atend")) return "EM_ATENDIMENTO";
+      if (v.includes("atend") && !v.includes("concl")) return "EM_ATENDIMENTO";
       if (v.includes("concl")) return "CONCLUIDO";
       if (v.includes("falt")) return "FALTOU";
       if (v.includes("cancel")) return "CANCELADO";
-      // Confirmado / Em atendimento não existem no backend novo ainda -> mantém AGENDADO
       return "AGENDADO";
     }
 
@@ -1086,11 +1163,10 @@
       if (!status) return "status-agendado";
       const s = stripAccents(String(status)).toLowerCase();
       if (s.includes("confirm")) return "status-confirmado";
-      if (s.includes("falta")) return "status-falta";
+      if (s.includes("em_atend") || s.includes("em atend") || (s.includes("atend") && !s.includes("concl"))) return "status-em-atendimento";
+      if (s.includes("falt")) return "status-falta";
       if (s.includes("cancel")) return "status-cancelado";
-      if (s.includes("encaixe")) return "status-encaixe";
-      if (s.includes("atendimento")) return "status-em-atendimento";
-      if (s.includes("conclu")) return "status-concluido";
+      if (s.includes("concl")) return "status-concluido";
       return "status-agendado";
     }
 
@@ -1122,6 +1198,7 @@
 
       const statusSelect = document.createElement("select");
       statusSelect.className = "agendamento-status-select";
+      statusSelect.setAttribute("aria-label", "Alterar status do agendamento");
 
       STATUS_OPTIONS.forEach((opt) => {
         const o = document.createElement("option");
@@ -1267,7 +1344,6 @@
       try {
         const backendStatus = mapStatusToBackend_(novoStatus);
 
-        // Cancelado -> Agenda.Cancelar (backend impede cancelar via update)
         if (backendStatus === "CANCELADO") {
           await callApiData({
             action: "Agenda.Cancelar",
@@ -1305,7 +1381,6 @@
       if (cardEl) cardEl.classList.add("agendamento-atualizando");
 
       try {
-        // ✅ Remover bloqueio = cancelar o evento bloqueio (cancelado não conta para conflito)
         await callApiData({
           action: "Agenda.Cancelar",
           payload: { idAgenda: ID_Agenda, motivo: "Bloqueio removido" }
@@ -1533,8 +1608,6 @@
         );
       }
 
-      // ✅ Backend Agenda.gs aceita formato legado (data/hora_inicio/duracao_minutos) e ID_Paciente
-      // e também aceita permitirEncaixe (permite_encaixe).
       const payload = {
         data: dataStr,
         hora_inicio: horaStr,
@@ -1664,12 +1737,10 @@
         }
       }
 
-      // ✅ Backend Agenda.gs: update precisa de payload.idAgenda
       const payload = {
         idAgenda: idAgenda,
         permitirEncaixe: permiteEncaixeUI,
         permite_encaixe: permiteEncaixeUI,
-        // formato legado suportado pelo backend
         data: dataStr,
         hora_inicio: horaStr,
         duracao_minutos: duracao,
@@ -1678,7 +1749,6 @@
         origem: inputEditOrigem?.value || ""
       };
 
-      // Se houver vínculo com paciente
       if (pacienteSelecionadoEditar && pacienteSelecionadoEditar.ID_Paciente) {
         payload.ID_Paciente = pacienteSelecionadoEditar.ID_Paciente;
       } else {
@@ -1756,7 +1826,6 @@
         return;
       }
 
-      // ✅ Bloqueio = Agenda.Criar com tipo BLOQUEIO (backend aceita payload.Bloqueio=true)
       const payload = {
         data: dataStr,
         hora_inicio: horaStr,
@@ -1812,15 +1881,44 @@
     });
 
     // ===========================
-    // Listeners gerais
+    // Filtros (persistidos)
     // ===========================
-    inputData.addEventListener("change", () => (modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana()));
+    function setFiltros_(nome, status) {
+      filtrosState.nome = String(nome || "");
+      filtrosState.status = String(status || "");
+      saveFiltros_();
+    }
+
+    let filtroDebounce = null;
+    function onFiltrosChanged_() {
+      if (filtroDebounce) clearTimeout(filtroDebounce);
+      filtroDebounce = setTimeout(() => {
+        if (modoVisao === "dia") aplicarFiltrosDia();
+        else carregarAgendaSemana();
+      }, 120);
+    }
+
+    function limparFiltros_() {
+      setFiltros_("", "");
+      applyFiltrosToUI_();
+      if (modoVisao === "dia") aplicarFiltrosDia();
+      else carregarAgendaSemana();
+    }
+
+    // =====================
+    // Listeners gerais
+    // =====================
+    inputData.addEventListener("change", () =>
+      (modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana())
+    );
 
     btnHoje &&
       btnHoje.addEventListener("click", () => {
         setToday();
         modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
       });
+
+    btnAgora && btnAgora.addEventListener("click", () => scrollToNow_());
 
     btnDiaAnterior &&
       btnDiaAnterior.addEventListener("click", () => {
@@ -1847,13 +1945,25 @@
 
     inputFiltroNome &&
       inputFiltroNome.addEventListener("input", () => {
-        if (modoVisao === "dia") aplicarFiltrosDia();
+        setFiltros_(inputFiltroNome.value, selectFiltroStatus ? selectFiltroStatus.value : "");
+        onFiltrosChanged_();
+      });
+
+    inputFiltroNome &&
+      inputFiltroNome.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onFiltrosChanged_();
+        }
       });
 
     selectFiltroStatus &&
       selectFiltroStatus.addEventListener("change", () => {
-        if (modoVisao === "dia") aplicarFiltrosDia();
+        setFiltros_(inputFiltroNome ? inputFiltroNome.value : "", selectFiltroStatus.value);
+        onFiltrosChanged_();
       });
+
+    btnLimparFiltros && btnLimparFiltros.addEventListener("click", () => limparFiltros_());
 
     btnNovoAgendamento && btnNovoAgendamento.addEventListener("click", () => abrirModalNovoAgendamento());
     btnBloquearHorario && btnBloquearHorario.addEventListener("click", () => abrirModalBloqueio());
@@ -1928,7 +2038,8 @@
     // =====================
     // Inicialização
     // =====================
-    setToday();
+    applyFiltrosToUI_();
+    if (!inputData.value) setToday();
     setVisao(modoVisao);
   }
 

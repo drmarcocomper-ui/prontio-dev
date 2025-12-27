@@ -67,6 +67,8 @@ var AGENDA_ID_FIELD = "idAgenda";
 
 var AGENDA_STATUS = {
   AGENDADO: "AGENDADO",
+  CONFIRMADO: "CONFIRMADO",
+  EM_ATENDIMENTO: "EM_ATENDIMENTO",
   CANCELADO: "CANCELADO",
   CONCLUIDO: "CONCLUIDO",
   FALTOU: "FALTOU"
@@ -602,7 +604,9 @@ function Agenda_Legacy_Criar_(ctx, payload) {
     motivo: payload.motivo || payload.titulo || "",
     origem: payload.origem || "",
     permite_encaixe: payload.permite_encaixe === true,
-    notas: packedNotas
+    notas: packedNotas,
+    // opcional: aceitar status legado se vier (não quebra)
+    status: payload.status ? String(payload.status) : undefined
   };
 
   var r = Agenda_Action_Criar_(ctx, createPayload);
@@ -632,6 +636,12 @@ function Agenda_Legacy_Atualizar_(ctx, payload) {
     notas: packedNotas,
     permitirEncaixe: payload.permite_encaixe === true
   };
+
+  // aceita status se vier no payload legado
+  if (payload.status !== undefined) {
+    updatePayload.patch = updatePayload.patch || {};
+    updatePayload.patch.status = payload.status;
+  }
 
   var r = Agenda_Action_Atualizar_(ctx, updatePayload);
   return { ok: true, item: r && r.item ? _agendaLegacyDtoToFront_(r.item) : null };
@@ -791,10 +801,12 @@ function _agendaLegacyDtoToFront_(dto) {
 
   var statusLabel = legacyExtra.status_label ? String(legacyExtra.status_label) : "";
   if (!statusLabel) {
-    var s = String(dto.status || "").toUpperCase();
-    if (s === "CANCELADO") statusLabel = "Cancelado";
-    else if (s === "CONCLUIDO") statusLabel = "Concluído";
-    else if (s === "FALTOU") statusLabel = "Faltou";
+    var s = String(_agendaNormalizeStatus_(dto.status || "")).toUpperCase();
+    if (s === AGENDA_STATUS.CANCELADO) statusLabel = "Cancelado";
+    else if (s === AGENDA_STATUS.CONCLUIDO) statusLabel = "Concluído";
+    else if (s === AGENDA_STATUS.FALTOU) statusLabel = "Faltou";
+    else if (s === AGENDA_STATUS.CONFIRMADO) statusLabel = "Confirmado";
+    else if (s === AGENDA_STATUS.EM_ATENDIMENTO) statusLabel = "Em atendimento";
     else statusLabel = "Agendado";
   }
 
@@ -907,6 +919,8 @@ function _agendaLegacyMapUiStatusToCore_(label) {
   if (s.indexOf("cancel") >= 0) return AGENDA_STATUS.CANCELADO;
   if (s.indexOf("concl") >= 0) return AGENDA_STATUS.CONCLUIDO;
   if (s.indexOf("falt") >= 0) return AGENDA_STATUS.FALTOU;
+  if (s.indexOf("confirm") >= 0) return AGENDA_STATUS.CONFIRMADO;
+  if (s.indexOf("atend") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
   return AGENDA_STATUS.AGENDADO;
 }
 
@@ -918,12 +932,28 @@ function _agendaNormalizeStatus_(status) {
   var s = String(status || "").trim().toUpperCase();
   if (!s) return AGENDA_STATUS.AGENDADO;
 
+  // aceita variações comuns
+  if (s.indexOf("EM_ATEND") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
+  if (s.indexOf("EM ATEND") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
+  if (s.indexOf("ATEND") >= 0 && s.indexOf("EM") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
+
+  if (s.indexOf("CONFIRM") >= 0) return AGENDA_STATUS.CONFIRMADO;
+
   if (s.indexOf("CANCEL") >= 0) return AGENDA_STATUS.CANCELADO;
   if (s.indexOf("CONCLU") >= 0) return AGENDA_STATUS.CONCLUIDO;
   if (s.indexOf("FAL") >= 0) return AGENDA_STATUS.FALTOU;
   if (s.indexOf("AGEND") >= 0) return AGENDA_STATUS.AGENDADO;
 
-  if (s === AGENDA_STATUS.AGENDADO || s === AGENDA_STATUS.CANCELADO || s === AGENDA_STATUS.CONCLUIDO || s === AGENDA_STATUS.FALTOU) return s;
+  // aceitação direta (já normalizado)
+  if (
+    s === AGENDA_STATUS.AGENDADO ||
+    s === AGENDA_STATUS.CONFIRMADO ||
+    s === AGENDA_STATUS.EM_ATENDIMENTO ||
+    s === AGENDA_STATUS.CANCELADO ||
+    s === AGENDA_STATUS.CONCLUIDO ||
+    s === AGENDA_STATUS.FALTOU
+  ) return s;
+
   return AGENDA_STATUS.AGENDADO;
 }
 
