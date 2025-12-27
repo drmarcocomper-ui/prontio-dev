@@ -3,8 +3,13 @@
  *
  * ✅ Correções consolidadas:
  * - NÃO usa location.origin (quebra em file:// e alguns ambientes). Usa caminho RELATIVO.
- * - Cache com versionamento, com fallback se falhar.
+ * - Cache com versionamento do partial HTML, com fallback se falhar.
  * - ✅ Idempotente: não reinjeta se já montou (evita flicker / rebind repetido)
+ *
+ * ✅ Padronização de versionamento:
+ * - NÃO adicionar ?v= em scripts JS aqui.
+ * - O cache-busting de JS é centralizado no main.js (APP_VERSION).
+ * - Aqui versionamos SOMENTE o HTML do partial (fetch).
  */
 
 (function (global, document) {
@@ -16,22 +21,30 @@
 
   const CHAT_CSS_HREF = "assets/css/components/chat-topbar.css";
 
-  // ✅ alinhe com APP_VERSION do main.js quando fizer releases
+  // Bump quando mudar o HTML do partial da topbar
   const PARTIAL_VERSION = "1.0.5";
 
-  // ✅ RELATIVO (não depende de origin)
-  const PARTIAL_TOPBAR_PATH = `partials/topbar.html?v=${encodeURIComponent(PARTIAL_VERSION)}`;
+  // ✅ RELATIVO (não depende de origin) + versionamento SOMENTE do partial HTML
+  const PARTIAL_TOPBAR_PATH = "partials/topbar.html?v=" + encodeURIComponent(PARTIAL_VERSION);
 
   function hasChatEnabled_() {
-    return document.body?.getAttribute("data-has-chat") === "true";
+    try {
+      return (document.body && document.body.getAttribute("data-has-chat")) === "true";
+    } catch (e) {
+      return false;
+    }
   }
 
   function getContext_() {
-    return (
-      document.body?.getAttribute("data-context") ||
-      document.body?.getAttribute("data-page-id") ||
-      "app"
-    );
+    try {
+      return (
+        (document.body && document.body.getAttribute("data-context")) ||
+        (document.body && document.body.getAttribute("data-page-id")) ||
+        "app"
+      );
+    } catch (e) {
+      return "app";
+    }
   }
 
   function getPatientIdIfAny_() {
@@ -53,9 +66,11 @@
   }
 
   function fillTopbarTexts_() {
-    const title = document.body?.getAttribute("data-tag") || document.body?.getAttribute("data-page-id") || "PRONTIO";
-    const subtitle = document.body?.getAttribute("data-subtitle") || "";
-    const context = document.body?.getAttribute("data-context") || "";
+    const title =
+      (document.body && (document.body.getAttribute("data-tag") || document.body.getAttribute("data-page-id"))) ||
+      "PRONTIO";
+    const subtitle = (document.body && document.body.getAttribute("data-subtitle")) || "";
+    const context = (document.body && document.body.getAttribute("data-context")) || "";
 
     const titleEl = document.getElementById("topbar-title-text");
     const tagEl = document.getElementById("topbar-tag");
@@ -164,10 +179,12 @@
     global.ChatUI.init({
       context: getContext_(),
       patientId: getPatientIdIfAny_(),
-      currentUserId: localStorage.getItem("PRONTIO_CURRENT_USER_ID") || null
+      currentUserId: (function () {
+        try { return localStorage.getItem("PRONTIO_CURRENT_USER_ID") || null; } catch (e) { return null; }
+      })()
     });
 
-    if ((document.body?.getAttribute("data-page-id") || "").toLowerCase() === "prontuario") {
+    if (String((document.body && document.body.getAttribute("data-page-id")) || "").toLowerCase() === "prontuario") {
       let tries = 0;
       const maxTries = 60;
       const timer = setInterval(() => {
