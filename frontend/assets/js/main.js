@@ -10,7 +10,8 @@
   PRONTIO._mainBootstrapped = true;
 
   // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
-  const APP_VERSION = "1.0.7";
+  // Observação: no print estava v=1.0.7.1 — alinhei aqui para evitar confusão.
+  const APP_VERSION = "1.0.7.1";
 
   // ============================================================
   // Skeleton (mantido) + breakpoint alinhado com JS (900px)
@@ -288,7 +289,10 @@
       await ensureCoreLoaded_();
 
       if (!isLoginPage_()) {
-        await loadOnce_("assets/js/ui/sidebar.js");
+        // ✅ FIX: removido carregamento de arquivo inexistente:
+        // await loadOnce_("assets/js/ui/sidebar.js");
+
+        // ✅ Mantém loader real do sidebar (deve carregar/usar widget-sidebar internamente)
         await loadOnce_("assets/js/ui/sidebar-loader.js");
 
         if (PRONTIO.ui && PRONTIO.ui.sidebarLoader && typeof PRONTIO.ui.sidebarLoader.load === "function") {
