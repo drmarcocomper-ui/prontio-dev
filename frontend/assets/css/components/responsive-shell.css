@@ -1,0 +1,186 @@
+/* frontend/assets/css/components/responsive-shell.css
+============================================================
+PRONTIO - Shell Responsivo (Profissional)
+- Sidebar off-canvas em largura estreita (split screen)
+- Overlay + botão ☰ no topbar
+- Conteúdo não corta (min-width: 0 nos containers críticos)
+- Tabelas em cards com scroll horizontal interno (evita "cortar")
+============================================================ */
+
+/* ============================================================
+   Botão ☰ no topbar
+   ============================================================ */
+.prontio-sidebar-toggle{
+  display: none; /* aparece só em telas estreitas */
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(255,255,255,.10);
+  background: rgba(0,0,0,.22);
+  color: rgba(255,255,255,.92);
+  cursor: pointer;
+  margin-right: 10px;
+}
+.prontio-sidebar-toggle:hover{
+  background: rgba(255,255,255,.06);
+}
+.prontio-sidebar-toggle__icon{
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* ============================================================
+   Overlay
+   ============================================================ */
+.prontio-sidebar-overlay{
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  background: rgba(0,0,0,.55);
+  backdrop-filter: blur(2px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .18s ease;
+}
+
+/* ============================================================
+   Regras globais de layout: impedir corte por min-width implícito
+   (Flex/Grid frequentemente precisam de min-width:0 no filho)
+   ============================================================ */
+.app-shell,
+.main-area,
+.content,
+.page-content,
+#content,
+#main,
+.app-content{
+  min-width: 0;
+}
+
+/* Cards também não devem forçar largura */
+.card,
+.panel,
+.table-card,
+.content-card,
+.widget-card{
+  min-width: 0;
+}
+
+/* ============================================================
+   Tabelas em cards: scroll horizontal interno (genérico)
+   - Usado por várias telas
+   ============================================================ */
+.prontio-table-scroll{
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Scrollbar discreto */
+.prontio-table-scroll::-webkit-scrollbar{
+  height: 10px;
+}
+.prontio-table-scroll::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,.18);
+  border-radius: 999px;
+}
+.prontio-table-scroll::-webkit-scrollbar-track{
+  background: rgba(255,255,255,.06);
+  border-radius: 999px;
+}
+
+/* ============================================================
+   Atendimento: estrutura real (do seu HTML)
+   - .tabela-atendimento-wrapper envolve a tabela
+   ============================================================ */
+.tabela-atendimento-wrapper{
+  width: 100%;
+  overflow-x: auto;               /* ✅ evita corte */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Mantém colunas legíveis: em telas menores, rola dentro do wrapper */
+.tabela-atendimento{
+  border-collapse: collapse;
+  min-width: 760px;               /* ✅ seguro para 6 colunas (Data/Hora/Paciente/Tipo/Status/Ações) */
+}
+
+/* Scrollbar discreto também no wrapper do atendimento */
+.tabela-atendimento-wrapper::-webkit-scrollbar{
+  height: 10px;
+}
+.tabela-atendimento-wrapper::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,.18);
+  border-radius: 999px;
+}
+.tabela-atendimento-wrapper::-webkit-scrollbar-track{
+  background: rgba(255,255,255,.06);
+  border-radius: 999px;
+}
+
+/* ============================================================
+   Responsivo: quando a largura fica menor (split screen)
+   - Sidebar vira off-canvas
+   - Conteúdo ocupa a largura
+   ============================================================ */
+@media (max-width: 1180px) {
+
+  /* Mostra o botão ☰ */
+  .prontio-sidebar-toggle{
+    display: inline-flex;
+  }
+
+  /* Sidebar: cobre a maioria dos layouts existentes */
+  .sidebar,
+  aside.sidebar,
+  [data-sidebar]{
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    height: 100vh !important;
+    z-index: 9999;
+    width: 290px !important;
+    max-width: 86vw;
+    transform: translateX(-102%);
+    transition: transform .18s ease;
+    box-shadow: 0 18px 60px rgba(0,0,0,.55);
+  }
+
+  /* Se a sidebar estiver montada dentro de algum wrapper */
+  #sidebarMount .sidebar{
+    position: fixed !important;
+  }
+
+  /* Abre */
+  body.prontio-sidebar-open .sidebar,
+  body.prontio-sidebar-open aside.sidebar,
+  body.prontio-sidebar-open [data-sidebar]{
+    transform: translateX(0);
+  }
+
+  /* Overlay ativo quando aberto */
+  body.prontio-sidebar-open .prontio-sidebar-overlay{
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Conteúdo: reforço extra para não “estourar” */
+  .app-shell,
+  .main-area,
+  .content,
+  .content-atendimento,
+  .page-content,
+  #content,
+  #main,
+  .app-content{
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  /* Tabelas em cards (genérico): mantêm largura mínima e rolam */
+  .prontio-table-scroll table{
+    min-width: 760px;
+  }
+}

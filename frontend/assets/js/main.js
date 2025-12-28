@@ -9,29 +9,24 @@
   // ✅ marca cedo para impedir auto-init duplicado em loaders
   PRONTIO._mainBootstrapped = true;
 
-  // ✅ trava adicional: se main.js for incluído 2x por qualquer motivo, não roda bootstrap de novo
+  // ✅ Se main.js for incluído 2x, não roda bootstrap de novo
   if (PRONTIO._mainBootstrapRan === true) return;
   PRONTIO._mainBootstrapRan = true;
 
   // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
-  const APP_VERSION = "1.0.7.8";
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.7.9";
   PRONTIO.APP_VERSION = APP_VERSION;
 
   // ============================================================
   // ✅ Manifest explícito (evita tentar carregar páginas que não existem)
   // ============================================================
   const PAGE_MANIFEST = {
-    // login (index.html)
     login: {
-      // ✅ inclui toast aqui (antes era manual no HTML)
       js: ["assets/js/widgets/widget-toast.js", "assets/js/pages/page-login.js"],
       css: ["assets/css/pages/page-login.css"]
     },
 
-    // home real
     atendimento: { js: ["assets/js/pages/page-atendimento.js"], css: ["assets/css/pages/page-atendimento.css"] },
-
-    // módulos principais
     agenda: { js: ["assets/js/pages/page-agenda.js"], css: ["assets/css/pages/page-agenda.css"] },
     chat: { js: ["assets/js/pages/page-chat.js"], css: ["assets/css/pages/page-chat.css"] },
     configuracoes: { js: ["assets/js/pages/page-configuracoes.js"], css: ["assets/css/pages/page-configuracoes.css"] },
@@ -43,10 +38,17 @@
     relatorios: { js: ["assets/js/pages/page-relatorios.js"], css: ["assets/css/pages/page-relatorios.css"] },
     usuarios: { js: ["assets/js/pages/page-usuarios.js"], css: ["assets/css/pages/page-usuarios.css"] },
 
-    // auth pages
     "alterar-senha": { js: ["assets/js/pages/page-alterar-senha.js"], css: [] },
     "forgot-password": { js: ["assets/js/pages/page-forgot-password.js"], css: [] },
     "reset-password": { js: ["assets/js/pages/page-reset-password.js"], css: [] }
+  };
+
+  // ============================================================
+  // Shell responsivo (profissional) - GLOBAL
+  // ============================================================
+  const RESPONSIVE_SHELL = {
+    css: "assets/css/components/responsive-shell.css",
+    js: "assets/js/ui/responsive-shell.js"
   };
 
   // ============================================================
@@ -76,7 +78,9 @@
   function shouldUseShell_() {
     return (
       !!document.querySelector("[data-include-sidebar]") ||
-      !!document.getElementById("topbarMount")
+      !!document.getElementById("topbarMount") ||
+      !!document.querySelector(".sidebar") ||
+      !!document.querySelector(".topbar")
     );
   }
 
@@ -152,11 +156,7 @@
   }
 
   function _stripQuery_(url) {
-    try {
-      return String(url || "").split("?")[0];
-    } catch (_) {
-      return String(url || "");
-    }
+    try { return String(url || "").split("?")[0]; } catch (_) { return String(url || ""); }
   }
 
   function _hasScriptAlready_(src) {
@@ -187,7 +187,6 @@
     const raw = String(src || "");
     if (!raw) return false;
 
-    // ✅ Se já existe no DOM (mesmo sem ?v=), não recarrega
     if (_hasScriptAlready_(raw)) return true;
 
     const key = withVersion_(raw);
@@ -270,10 +269,18 @@
     await loadOnce_("assets/js/core/auth.js");
     await loadOnce_("assets/js/core/app.js");
 
-    // ✅ chama app.init (agora app.js não auto-inicializa mais)
+    // ✅ Se existir PRONTIO.app.init, chama (best-effort)
     try {
       if (PRONTIO.app && typeof PRONTIO.app.init === "function") {
         await PRONTIO.app.init();
+      }
+    } catch (_) {}
+
+    // ✅ Shell responsivo: JS global (toggle sidebar + overlay + ESC)
+    try {
+      await loadOnce_(RESPONSIVE_SHELL.js);
+      if (PRONTIO.ui && PRONTIO.ui.responsiveShell && typeof PRONTIO.ui.responsiveShell.init === "function") {
+        PRONTIO.ui.responsiveShell.init();
       }
     } catch (_) {}
 
@@ -402,8 +409,10 @@
   // Bootstrap
   // ============================================================
   async function bootstrap_() {
-    if (!isLoginPage_()) showSkeleton_();
+    // ✅ CSS global do shell responsivo (sidebar off-canvas + tabelas responsivas)
+    loadCssOnce_(RESPONSIVE_SHELL.css, "global");
 
+    if (!isLoginPage_()) showSkeleton_();
     const safety = global.setTimeout(hideSkeleton_, 1800);
 
     try {
@@ -431,10 +440,8 @@
 
       const pageId = String(getPageId_() || "").toLowerCase().trim();
 
-      // CSS/Assets da página (só se existir no manifest)
       ensurePageAssets_(pageId);
 
-      // Carrega scripts da página via manifest (login incluído)
       const entry = PAGE_MANIFEST[pageId];
       if (entry && entry.js && entry.js.length) {
         for (let i = 0; i < entry.js.length; i++) {

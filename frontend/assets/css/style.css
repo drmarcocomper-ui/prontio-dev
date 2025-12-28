@@ -26,8 +26,14 @@
 @import url("components/tables.css");
 @import url("components/cards.css");
 @import url("components/modals.css");
+
+/* ✅ Sistema (shell) */
 @import url("components/sidebar.css");
 @import url("components/topbar.css");
+
+/* ✅ NOVO: responsividade profissional do shell (sidebar off-canvas + tabelas em cards) */
+@import url("components/responsive-shell.css");
+
 @import url("./components/chat-widget.css");
 
 /* ============ PÁGINAS (CSS específico por tela) ============ */
