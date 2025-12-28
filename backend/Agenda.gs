@@ -65,13 +65,25 @@ function handleAgendaAction(action, payload) {
 var AGENDA_ENTITY = "Agenda";
 var AGENDA_ID_FIELD = "idAgenda";
 
+/**
+ * ✅ STATUS CANÔNICO (alinhado com Atendimento/SchemaAtendimento)
+ * Estados finais:
+ * MARCADO, CONFIRMADO, AGUARDANDO, EM_ATENDIMENTO, ATENDIDO, FALTOU, CANCELADO, REMARCADO
+ *
+ * Compatibilidade:
+ * - "AGENDADO" => MARCADO
+ * - "CHEGOU"/"CHAMADO" => AGUARDANDO
+ * - "CONCLUIDO" => ATENDIDO
+ */
 var AGENDA_STATUS = {
-  AGENDADO: "AGENDADO",
+  MARCADO: "MARCADO",
   CONFIRMADO: "CONFIRMADO",
+  AGUARDANDO: "AGUARDANDO",
   EM_ATENDIMENTO: "EM_ATENDIMENTO",
+  ATENDIDO: "ATENDIDO",
+  FALTOU: "FALTOU",
   CANCELADO: "CANCELADO",
-  CONCLUIDO: "CONCLUIDO",
-  FALTOU: "FALTOU"
+  REMARCADO: "REMARCADO"
 };
 
 var AGENDA_TIPO = {
@@ -148,9 +160,10 @@ function Agenda_Action_Criar_(ctx, payload) {
 
   var norm = _agendaNormalizeCreateInput_(payload, params);
 
+  // ✅ Bloqueio: mantém sem paciente, status canônico (MARCADO)
   if (norm.tipo === AGENDA_TIPO.BLOQUEIO) {
     norm.idPaciente = "";
-    norm.status = AGENDA_STATUS.AGENDADO;
+    norm.status = AGENDA_STATUS.MARCADO;
   }
 
   _agendaAssertSemConflitos_(ctx, {
@@ -172,7 +185,10 @@ function Agenda_Action_Criar_(ctx, payload) {
     titulo: norm.titulo || "",
     notas: norm.notas || "",
     tipo: norm.tipo || AGENDA_TIPO.CONSULTA,
-    status: norm.status || AGENDA_STATUS.AGENDADO,
+
+    // ✅ Default sempre MARCADO
+    status: norm.status || AGENDA_STATUS.MARCADO,
+
     origem: norm.origem || AGENDA_ORIGEM.RECEPCAO,
     criadoEm: now.toISOString(),
     atualizadoEm: now.toISOString(),
@@ -209,9 +225,11 @@ function Agenda_Action_Atualizar_(ctx, payload) {
 
   if (mergedPatch.status !== undefined) {
     var s = _agendaNormalizeStatus_(mergedPatch.status);
+
     if (s === AGENDA_STATUS.CANCELADO) {
       _agendaThrow_("VALIDATION_ERROR", 'Use "Agenda.Cancelar" para cancelar um agendamento.', { idAgenda: idAgenda });
     }
+
     mergedPatch.status = s;
   }
 
@@ -319,7 +337,7 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
     if (!overlaps) continue;
 
     var evTipo = _agendaNormalizeTipo_(e.tipo || AGENDA_TIPO.CONSULTA);
-    var evStatus = _agendaNormalizeStatus_(e.status || AGENDA_STATUS.AGENDADO);
+    var evStatus = _agendaNormalizeStatus_(e.status || AGENDA_STATUS.MARCADO);
 
     if (evStatus === AGENDA_STATUS.CANCELADO) continue;
 
@@ -352,8 +370,8 @@ function _agendaNormalizeCreateInput_(payload, params) {
   params = params || {};
   payload = payload || {};
 
-  // ✅ padrão oficial: idPaciente (camelCase)
-  // ✅ compat: ID_Paciente
+  // padrão oficial: idPaciente
+  // compat: ID_Paciente
   var idPaciente = payload.idPaciente ? String(payload.idPaciente) : (payload.ID_Paciente ? String(payload.ID_Paciente) : "");
 
   var titulo = payload.titulo || payload.motivo || "";
@@ -361,7 +379,7 @@ function _agendaNormalizeCreateInput_(payload, params) {
   var tipo = payload.tipo ? String(payload.tipo) : (payload.Bloqueio === true ? AGENDA_TIPO.BLOQUEIO : AGENDA_TIPO.CONSULTA);
   var origem = payload.origem ? String(payload.origem) : AGENDA_ORIGEM.RECEPCAO;
 
-  var status = payload.status ? String(payload.status) : AGENDA_STATUS.AGENDADO;
+  var status = payload.status ? String(payload.status) : AGENDA_STATUS.MARCADO;
   status = _agendaNormalizeStatus_(status);
 
   var permitirEncaixe = payload.permitirEncaixe === true || payload.permite_encaixe === true;
@@ -418,7 +436,6 @@ function _agendaBuildUpdatePatch_(existing, patch, topCompat, params) {
     if (patch[f] !== undefined) out[f] = patch[f];
   }
 
-  // compat: ID_Paciente -> idPaciente
   if (topCompat.ID_Paciente !== undefined) out.idPaciente = topCompat.ID_Paciente;
 
   if (out.tipo !== undefined) out.tipo = _agendaNormalizeTipo_(out.tipo);
@@ -471,7 +488,7 @@ function _agendaNormalizeRowToDto_(rowObj) {
     titulo: rowObj.titulo || "",
     notas: rowObj.notas || "",
     tipo: rowObj.tipo || AGENDA_TIPO.CONSULTA,
-    status: rowObj.status || AGENDA_STATUS.AGENDADO,
+    status: rowObj.status || AGENDA_STATUS.MARCADO,
     origem: rowObj.origem || AGENDA_ORIGEM.RECEPCAO,
     criadoEm: rowObj.criadoEm || "",
     atualizadoEm: rowObj.atualizadoEm || "",
@@ -605,7 +622,6 @@ function Agenda_Legacy_Criar_(ctx, payload) {
     origem: payload.origem || "",
     permite_encaixe: payload.permite_encaixe === true,
     notas: packedNotas,
-    // opcional: aceitar status legado se vier (não quebra)
     status: payload.status ? String(payload.status) : undefined
   };
 
@@ -637,7 +653,6 @@ function Agenda_Legacy_Atualizar_(ctx, payload) {
     permitirEncaixe: payload.permite_encaixe === true
   };
 
-  // aceita status se vier no payload legado
   if (payload.status !== undefined) {
     updatePayload.patch = updatePayload.patch || {};
     updatePayload.patch.status = payload.status;
@@ -762,105 +777,8 @@ function Agenda_Legacy_ValidarConflito_(ctx, payload) {
 }
 
 // ============================================================
-// Helpers LEGACY internos (inclui ENRIQUECIMENTO por Pacientes)
+// Helpers LEGACY internos
 // ============================================================
-
-function _agendaLegacyDtoToFront_(dto) {
-  dto = _agendaNormalizeRowToDto_(dto);
-
-  var ini = _agendaParseDate_(dto.inicio);
-  var fim = _agendaParseDate_(dto.fim);
-
-  var dataStr = ini ? _agendaFormatDate_(ini) : "";
-  var horaIni = ini ? _agendaFormatHHMM_(ini) : "";
-  var horaFim = fim ? _agendaFormatHHMM_(fim) : "";
-  var durMin = (ini && fim) ? Math.max(1, Math.round((fim.getTime() - ini.getTime()) / 60000)) : 0;
-
-  var legacyExtra = _agendaLegacyTryParseNotas_(dto.notas);
-
-  // ✅ ENRIQUECIMENTO PADRONIZADO (sua aba Pacientes):
-  // idPaciente, nomeCompleto, cpf, telefonePrincipal, dataNascimento
-  var nomePaciente = "";
-  var docPaciente = "";
-  var telPaciente = "";
-  var nasc = "";
-
-  if (dto.idPaciente) {
-    try {
-      // Padrão oficial: "idPaciente"
-      var p = Repo_getById_("Pacientes", "idPaciente", dto.idPaciente);
-
-      if (p) {
-        nomePaciente = String(p.nomeCompleto || p.nomeSocial || "");
-        docPaciente = String(p.cpf || "");
-        telPaciente = String(p.telefonePrincipal || p.telefoneSecundario || "");
-        nasc = String(p.dataNascimento || "");
-      }
-    } catch (_) {}
-  }
-
-  var statusLabel = legacyExtra.status_label ? String(legacyExtra.status_label) : "";
-  if (!statusLabel) {
-    var s = String(_agendaNormalizeStatus_(dto.status || "")).toUpperCase();
-    if (s === AGENDA_STATUS.CANCELADO) statusLabel = "Cancelado";
-    else if (s === AGENDA_STATUS.CONCLUIDO) statusLabel = "Concluído";
-    else if (s === AGENDA_STATUS.FALTOU) statusLabel = "Faltou";
-    else if (s === AGENDA_STATUS.CONFIRMADO) statusLabel = "Confirmado";
-    else if (s === AGENDA_STATUS.EM_ATENDIMENTO) statusLabel = "Em atendimento";
-    else statusLabel = "Agendado";
-  }
-
-  var tipo = legacyExtra.tipo_ui ? String(legacyExtra.tipo_ui) : String(dto.tipo || "");
-  var motivo = legacyExtra.motivo ? String(legacyExtra.motivo) : String(dto.titulo || "");
-  var canal = legacyExtra.canal ? String(legacyExtra.canal) : "";
-  var nomeLivre = legacyExtra.nome_paciente ? String(legacyExtra.nome_paciente) : "";
-
-  var finalNome = nomePaciente || nomeLivre || "";
-
-  var out = {
-    ID_Agenda: dto.idAgenda,
-    ID_Paciente: dto.idPaciente || "",
-    data: dataStr,
-    hora_inicio: horaIni,
-    hora_fim: horaFim,
-    duracao_minutos: durMin,
-    tipo: tipo || "",
-    motivo: motivo || "",
-    origem: dto.origem || "",
-    canal: canal || "",
-    status: statusLabel,
-
-    // ✅ o front usa isso para renderizar o nome; se vazio vira "(sem nome)"
-    nome_paciente: finalNome,
-    documento_paciente: docPaciente || (legacyExtra.documento_paciente || ""),
-    telefone_paciente: telPaciente || (legacyExtra.telefone_paciente || ""),
-    data_nascimento: nasc || (legacyExtra.data_nascimento || "")
-  };
-
-  if (String(dto.tipo || "").toUpperCase().indexOf("BLOQ") >= 0) out.bloqueio = true;
-  else if (legacyExtra.bloqueio === true) out.bloqueio = true;
-  else out.bloqueio = false;
-
-  out.permite_encaixe = legacyExtra.permite_encaixe === true;
-
-  return out;
-}
-
-function _agendaLegacyBuildResumo_(ags) {
-  ags = ags || [];
-  var resumo = { total: ags.length, confirmados: 0, faltas: 0, cancelados: 0, concluidos: 0, em_atendimento: 0 };
-
-  for (var i = 0; i < ags.length; i++) {
-    var s = String(ags[i].status || "").toLowerCase();
-    if (s.indexOf("confirm") >= 0) resumo.confirmados++;
-    else if (s.indexOf("falt") >= 0) resumo.faltas++;
-    else if (s.indexOf("cancel") >= 0) resumo.cancelados++;
-    else if (s.indexOf("concl") >= 0) resumo.concluidos++;
-    else if (s.indexOf("atend") >= 0) resumo.em_atendimento++;
-  }
-
-  return resumo;
-}
 
 function _agendaLegacyPackNotas_(payload) {
   payload = payload || {};
@@ -916,46 +834,51 @@ function _agendaLegacyMergeNotas_(existingNotas, payload) {
 
 function _agendaLegacyMapUiStatusToCore_(label) {
   var s = String(label || "").trim().toLowerCase();
+
   if (s.indexOf("cancel") >= 0) return AGENDA_STATUS.CANCELADO;
-  if (s.indexOf("concl") >= 0) return AGENDA_STATUS.CONCLUIDO;
+  if (s.indexOf("remarc") >= 0) return AGENDA_STATUS.REMARCADO;
   if (s.indexOf("falt") >= 0) return AGENDA_STATUS.FALTOU;
   if (s.indexOf("confirm") >= 0) return AGENDA_STATUS.CONFIRMADO;
-  if (s.indexOf("atend") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
-  return AGENDA_STATUS.AGENDADO;
+  if (s.indexOf("aguard") >= 0 || s.indexOf("cheg") >= 0) return AGENDA_STATUS.AGUARDANDO;
+  if (s.indexOf("em atend") >= 0 || s.indexOf("em_atend") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
+  if (s.indexOf("atendid") >= 0 || s.indexOf("concl") >= 0) return AGENDA_STATUS.ATENDIDO;
+
+  return AGENDA_STATUS.MARCADO;
+}
+
+/**
+ * ✅ Normalização FINAL
+ * Retorna sempre status CANÔNICO.
+ * Aceita valores antigos.
+ */
+function _agendaNormalizeStatus_(status) {
+  var s = String(status || "").trim().toUpperCase();
+  if (!s) return AGENDA_STATUS.MARCADO;
+
+  if (s === "AGENDADO") return AGENDA_STATUS.MARCADO;
+  if (s === "CHEGOU") return AGENDA_STATUS.AGUARDANDO;
+  if (s === "CHAMADO") return AGENDA_STATUS.AGUARDANDO;
+  if (s === "CONCLUIDO") return AGENDA_STATUS.ATENDIDO;
+
+  if (s === "EM ATENDIMENTO" || s === "EM-ATENDIMENTO") s = "EM_ATENDIMENTO";
+
+  if (s.indexOf("REMARC") >= 0) return AGENDA_STATUS.REMARCADO;
+  if (s.indexOf("CANCEL") >= 0) return AGENDA_STATUS.CANCELADO;
+  if (s.indexOf("FALT") >= 0) return AGENDA_STATUS.FALTOU;
+
+  if (s.indexOf("ATENDID") >= 0) return AGENDA_STATUS.ATENDIDO;
+  if (s.indexOf("EM_ATEND") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
+
+  if (s.indexOf("AGUARD") >= 0) return AGENDA_STATUS.AGUARDANDO;
+  if (s.indexOf("CONFIRM") >= 0) return AGENDA_STATUS.CONFIRMADO;
+  if (s.indexOf("MARC") >= 0) return AGENDA_STATUS.MARCADO;
+
+  return AGENDA_STATUS.MARCADO;
 }
 
 // ============================================================
 // Utils
 // ============================================================
-
-function _agendaNormalizeStatus_(status) {
-  var s = String(status || "").trim().toUpperCase();
-  if (!s) return AGENDA_STATUS.AGENDADO;
-
-  // aceita variações comuns
-  if (s.indexOf("EM_ATEND") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
-  if (s.indexOf("EM ATEND") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
-  if (s.indexOf("ATEND") >= 0 && s.indexOf("EM") >= 0) return AGENDA_STATUS.EM_ATENDIMENTO;
-
-  if (s.indexOf("CONFIRM") >= 0) return AGENDA_STATUS.CONFIRMADO;
-
-  if (s.indexOf("CANCEL") >= 0) return AGENDA_STATUS.CANCELADO;
-  if (s.indexOf("CONCLU") >= 0) return AGENDA_STATUS.CONCLUIDO;
-  if (s.indexOf("FAL") >= 0) return AGENDA_STATUS.FALTOU;
-  if (s.indexOf("AGEND") >= 0) return AGENDA_STATUS.AGENDADO;
-
-  // aceitação direta (já normalizado)
-  if (
-    s === AGENDA_STATUS.AGENDADO ||
-    s === AGENDA_STATUS.CONFIRMADO ||
-    s === AGENDA_STATUS.EM_ATENDIMENTO ||
-    s === AGENDA_STATUS.CANCELADO ||
-    s === AGENDA_STATUS.CONCLUIDO ||
-    s === AGENDA_STATUS.FALTOU
-  ) return s;
-
-  return AGENDA_STATUS.AGENDADO;
-}
 
 function _agendaNormalizeTipo_(tipo) {
   var t = String(tipo || "").trim().toUpperCase();

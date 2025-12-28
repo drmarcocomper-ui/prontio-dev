@@ -130,7 +130,10 @@ function Schema_all_() {
         inicioDateTime: { type: "date", required: true },
         fimDateTime: { type: "date", required: true },
         tipo: { type: "string", required: true, enum: ["CONSULTA", "RETORNO", "PROCEDIMENTO", "BLOQUEIO"] },
+
+        // (Novo modelo) – mantido como estava no seu trecho
         status: { type: "string", required: true, enum: ["MARCADO", "CONFIRMADO", "ATENDIDO", "CANCELADO", "FALTOU"] },
+
         titulo: { type: "string", required: false, maxLength: 200 },
         notas: { type: "string", required: false, maxLength: 2000 },
         permiteEncaixe: { type: "boolean", required: false },
@@ -151,7 +154,7 @@ function Schema_all_() {
         idClinica: { type: "string", required: true },
         idUsuario: { type: "string", required: true },
         idProfissional: { type: "string", required: true },
-        permissoes: { type: "object", required: true }, // {ver:true, criar:true...} ou lista
+        permissoes: { type: "object", required: true },
         ativo: { type: "boolean", required: true },
         criadoEm: { type: "date", required: true },
         atualizadoEm: { type: "date", required: true }
@@ -202,14 +205,28 @@ function Schema_all_() {
 
         /**
          * ✅ Atualizado:
-         * Agora aceita status oficiais adicionais para o módulo Agenda:
-         * - CONFIRMADO
-         * - EM_ATENDIMENTO
+         * Aceita os status novos (canônicos) + antigos (temporário) para não quebrar base existente.
          */
         status: {
           type: "string",
           required: true,
-          enum: ["AGENDADO", "CONFIRMADO", "EM_ATENDIMENTO", "CANCELADO", "CONCLUIDO", "FALTOU"]
+          enum: [
+            // CANÔNICOS
+            "MARCADO",
+            "CONFIRMADO",
+            "AGUARDANDO",
+            "EM_ATENDIMENTO",
+            "ATENDIDO",
+            "FALTOU",
+            "CANCELADO",
+            "REMARCADO",
+
+            // LEGADOS (aceitos temporariamente)
+            "AGENDADO",
+            "CHEGOU",
+            "CHAMADO",
+            "CONCLUIDO"
+          ]
         },
 
         origem: { type: "string", required: false, enum: ["RECEPCAO", "MEDICO", "SISTEMA"] },
@@ -239,11 +256,6 @@ function Schema_all_() {
 
 /**
  * Gera uma lista de validações (Validators spec) a partir do schema.
- * Útil para ações Create/Update.
- *
- * mode:
- * - "create": aplica required=true
- * - "update": não aplica required (exceto id, se indicado externamente)
  */
 function Schema_buildValidations_(entityName, mode) {
   var s = Schema_get_(entityName);
