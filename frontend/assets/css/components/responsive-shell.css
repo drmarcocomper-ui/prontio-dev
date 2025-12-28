@@ -2,13 +2,14 @@
 ============================================================
 PRONTIO - Shell Responsivo (Profissional)
 - Sidebar off-canvas em largura estreita (split screen)
-- Overlay + botão ☰ no topbar
+- Overlay + botão ☰ (topbar ou fixo)
 - Conteúdo não corta (min-width: 0 nos containers críticos)
-- Tabelas em cards com scroll horizontal interno (evita "cortar")
+- Tabelas em cards com scroll horizontal interno
+- Evita "2 hambúrgueres": em telas estreitas esconde toggles internos da sidebar
 ============================================================ */
 
 /* ============================================================
-   Botão ☰ no topbar
+   Botão ☰ (topbar / fixo)
    ============================================================ */
 .prontio-sidebar-toggle{
   display: none; /* aparece só em telas estreitas */
@@ -31,6 +32,15 @@ PRONTIO - Shell Responsivo (Profissional)
   line-height: 1;
 }
 
+/* Botão fixo (fallback quando não existe topbar ainda) */
+.prontio-sidebar-toggle--fixed{
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 10001; /* acima do topbar e overlay */
+  margin-right: 0;
+}
+
 /* ============================================================
    Overlay
    ============================================================ */
@@ -47,7 +57,6 @@ PRONTIO - Shell Responsivo (Profissional)
 
 /* ============================================================
    Regras globais de layout: impedir corte por min-width implícito
-   (Flex/Grid frequentemente precisam de min-width:0 no filho)
    ============================================================ */
 .app-shell,
 .main-area,
@@ -59,7 +68,6 @@ PRONTIO - Shell Responsivo (Profissional)
   min-width: 0;
 }
 
-/* Cards também não devem forçar largura */
 .card,
 .panel,
 .table-card,
@@ -69,48 +77,18 @@ PRONTIO - Shell Responsivo (Profissional)
 }
 
 /* ============================================================
-   Tabelas em cards: scroll horizontal interno (genérico)
-   - Usado por várias telas
+   Atendimento: wrapper real da tabela
    ============================================================ */
-.prontio-table-scroll{
+.tabela-atendimento-wrapper{
   width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
 }
-
-/* Scrollbar discreto */
-.prontio-table-scroll::-webkit-scrollbar{
-  height: 10px;
-}
-.prontio-table-scroll::-webkit-scrollbar-thumb{
-  background: rgba(255,255,255,.18);
-  border-radius: 999px;
-}
-.prontio-table-scroll::-webkit-scrollbar-track{
-  background: rgba(255,255,255,.06);
-  border-radius: 999px;
-}
-
-/* ============================================================
-   Atendimento: estrutura real (do seu HTML)
-   - .tabela-atendimento-wrapper envolve a tabela
-   ============================================================ */
-.tabela-atendimento-wrapper{
-  width: 100%;
-  overflow-x: auto;               /* ✅ evita corte */
-  -webkit-overflow-scrolling: touch;
-}
-
-/* Mantém colunas legíveis: em telas menores, rola dentro do wrapper */
 .tabela-atendimento{
   border-collapse: collapse;
-  min-width: 760px;               /* ✅ seguro para 6 colunas (Data/Hora/Paciente/Tipo/Status/Ações) */
+  min-width: 760px;
 }
-
-/* Scrollbar discreto também no wrapper do atendimento */
-.tabela-atendimento-wrapper::-webkit-scrollbar{
-  height: 10px;
-}
+.tabela-atendimento-wrapper::-webkit-scrollbar{ height: 10px; }
 .tabela-atendimento-wrapper::-webkit-scrollbar-thumb{
   background: rgba(255,255,255,.18);
   border-radius: 999px;
@@ -121,18 +99,16 @@ PRONTIO - Shell Responsivo (Profissional)
 }
 
 /* ============================================================
-   Responsivo: quando a largura fica menor (split screen)
-   - Sidebar vira off-canvas
-   - Conteúdo ocupa a largura
+   Responsivo: split screen / janela estreita
    ============================================================ */
 @media (max-width: 1180px) {
 
-  /* Mostra o botão ☰ */
+  /* Mostra o botão ☰ (topbar ou fixo) */
   .prontio-sidebar-toggle{
     display: inline-flex;
   }
 
-  /* Sidebar: cobre a maioria dos layouts existentes */
+  /* Sidebar vira off-canvas */
   .sidebar,
   aside.sidebar,
   [data-sidebar]{
@@ -148,25 +124,18 @@ PRONTIO - Shell Responsivo (Profissional)
     box-shadow: 0 18px 60px rgba(0,0,0,.55);
   }
 
-  /* Se a sidebar estiver montada dentro de algum wrapper */
-  #sidebarMount .sidebar{
-    position: fixed !important;
-  }
-
-  /* Abre */
   body.prontio-sidebar-open .sidebar,
   body.prontio-sidebar-open aside.sidebar,
   body.prontio-sidebar-open [data-sidebar]{
     transform: translateX(0);
   }
 
-  /* Overlay ativo quando aberto */
   body.prontio-sidebar-open .prontio-sidebar-overlay{
     opacity: 1;
     pointer-events: auto;
   }
 
-  /* Conteúdo: reforço extra para não “estourar” */
+  /* Reforço para conteúdo não “estourar” */
   .app-shell,
   .main-area,
   .content,
@@ -179,8 +148,17 @@ PRONTIO - Shell Responsivo (Profissional)
     max-width: 100% !important;
   }
 
-  /* Tabelas em cards (genérico): mantêm largura mínima e rolam */
-  .prontio-table-scroll table{
-    min-width: 760px;
+  /* ✅ Evita “2 hambúrgueres”: esconde toggles internos da sidebar em telas estreitas
+     (seletores amplos para pegar diferentes implementações) */
+  .sidebar .prontio-sidebar-toggle,
+  .sidebar .hamburger,
+  .sidebar .menu-toggle,
+  .sidebar .sidebar-toggle,
+  .sidebar .js-sidebar-toggle,
+  .sidebar [data-action="toggle-sidebar"],
+  .sidebar [data-nav-action="toggle-sidebar"],
+  .sidebar button[aria-label*="menu" i],
+  .sidebar button[aria-label*="menu" i] *{
+    display: none !important;
   }
 }

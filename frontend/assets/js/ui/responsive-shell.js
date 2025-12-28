@@ -2,11 +2,11 @@
 // ============================================================
 // PRONTIO - Shell Responsivo (Profissional)
 // ============================================================
-// Objetivo:
-// - Sidebar off-canvas em telas estreitas (split screen).
-// - Botão ☰ no topbar (injeção segura).
-// - Overlay + ESC para fechar.
-// - Não depende da estrutura interna da planilha / backend.
+// Ajustes desta versão:
+// ✅ 1 toggle profissional (topbar ou fallback fixo)
+// ✅ Não cria duplicado se já existir botão equivalente
+// ✅ Se topbar não existir ainda, cria botão FIXO (sempre visível)
+// ✅ Overlay + ESC + clique fora
 // ============================================================
 
 (function (global, document) {
@@ -19,24 +19,13 @@
   const BODY_OPEN_CLASS = "prontio-sidebar-open";
   const OVERLAY_ID = "prontioSidebarOverlay";
   const TOGGLE_BTN_ID = "prontioSidebarToggleBtn";
+  const FIXED_BTN_ID = "prontioSidebarToggleBtnFixed";
 
   function qs(sel, root) {
     try { return (root || document).querySelector(sel); } catch (_) { return null; }
   }
 
-  function qsa(sel, root) {
-    try { return Array.from((root || document).querySelectorAll(sel)); } catch (_) { return []; }
-  }
-
-  function ensureSidebarId_(sidebarEl) {
-    if (!sidebarEl) return null;
-    if (sidebarEl.id) return sidebarEl.id;
-    sidebarEl.id = "prontioSidebar";
-    return sidebarEl.id;
-  }
-
   function findSidebar_() {
-    // Tentativas comuns
     return (
       qs("#prontioSidebar") ||
       qs("#sidebar") ||
@@ -74,12 +63,14 @@
     document.body.classList.add(BODY_OPEN_CLASS);
     const ov = ensureOverlay_();
     ov.setAttribute("aria-hidden", "false");
+    syncToggleAria_();
   }
 
   function closeSidebar_() {
     document.body.classList.remove(BODY_OPEN_CLASS);
     const ov = document.getElementById(OVERLAY_ID);
     if (ov) ov.setAttribute("aria-hidden", "true");
+    syncToggleAria_();
   }
 
   function toggleSidebar_() {
@@ -87,15 +78,60 @@
     else openSidebar_();
   }
 
-  function ensureToggleButton_() {
-    // Se já existe no DOM, reaproveita
+  function syncToggleAria_() {
+    const btn1 = document.getElementById(TOGGLE_BTN_ID);
+    const btn2 = document.getElementById(FIXED_BTN_ID);
+    const expanded = isOpen_() ? "true" : "false";
+    if (btn1) btn1.setAttribute("aria-expanded", expanded);
+    if (btn2) btn2.setAttribute("aria-expanded", expanded);
+  }
+
+  // Se o projeto já tiver um botão “hamburger” no topbar, usamos ele (evita duplicado)
+  function findExistingTopbarToggle_() {
+    const topbar = findTopbar_();
+    if (!topbar) return null;
+
+    // seletores comuns (bastante tolerante)
+    return (
+      qs("#" + TOGGLE_BTN_ID, topbar) ||
+      qs('[data-nav-action="toggle-sidebar"]', topbar) ||
+      qs('[data-action="toggle-sidebar"]', topbar) ||
+      qs(".js-sidebar-toggle", topbar) ||
+      qs(".sidebar-toggle", topbar) ||
+      qs('button[aria-label*="menu" i]', topbar)
+    );
+  }
+
+  function wireToggle_(btn) {
+    if (!btn) return;
+    if (btn.getAttribute("data-prontio-toggle-bound") === "1") return;
+    btn.setAttribute("data-prontio-toggle-bound", "1");
+
+    btn.addEventListener("click", function (ev) {
+      try { ev.preventDefault(); } catch (_) {}
+      toggleSidebar_();
+    });
+
+    // aria
+    if (!btn.getAttribute("aria-label")) btn.setAttribute("aria-label", "Abrir menu");
+    btn.setAttribute("aria-expanded", isOpen_() ? "true" : "false");
+  }
+
+  function ensureTopbarToggleButton_() {
+    // 1) se já existe um botão equivalente no topbar, usa ele e NÃO cria outro
+    const existing = findExistingTopbarToggle_();
+    if (existing && existing.id !== TOGGLE_BTN_ID) {
+      wireToggle_(existing);
+      return existing;
+    }
+
+    // 2) se já criamos, retorna
     let btn = document.getElementById(TOGGLE_BTN_ID);
     if (btn) return btn;
 
     const topbar = findTopbar_();
     if (!topbar) return null;
 
-    // local para inserir: começo do topbar
     const container =
       qs(".topbar__left", topbar) ||
       qs(".topbar-left", topbar) ||
@@ -107,25 +143,39 @@
     btn.className = "prontio-sidebar-toggle";
     btn.setAttribute("aria-label", "Abrir menu");
     btn.setAttribute("aria-expanded", "false");
+    btn.innerHTML = `<span class="prontio-sidebar-toggle__icon" aria-hidden="true">☰</span>`;
 
-    // Ícone simples (sem dependência)
-    btn.innerHTML = `
-      <span class="prontio-sidebar-toggle__icon" aria-hidden="true">☰</span>
-    `;
+    wireToggle_(btn);
 
-    btn.addEventListener("click", function (ev) {
-      ev.preventDefault();
-      toggleSidebar_();
-      btn.setAttribute("aria-expanded", isOpen_() ? "true" : "false");
-    });
+    try { container.insertBefore(btn, container.firstChild); }
+    catch (_) { try { topbar.insertBefore(btn, topbar.firstChild); } catch (_) {} }
 
-    // Tenta inserir antes do primeiro elemento
-    try {
-      container.insertBefore(btn, container.firstChild);
-    } catch (_) {
-      try { topbar.insertBefore(btn, topbar.firstChild); } catch (_) {}
+    return btn;
+  }
+
+  // Fallback: se não existe topbar (ou ainda não carregou), cria botão fixo sempre visível
+  function ensureFixedToggleButton_() {
+    // se já existe topbar, não precisa do fixo
+    if (findTopbar_()) {
+      const fixed = document.getElementById(FIXED_BTN_ID);
+      if (fixed && fixed.parentNode) fixed.parentNode.removeChild(fixed);
+      return null;
     }
 
+    let btn = document.getElementById(FIXED_BTN_ID);
+    if (btn) return btn;
+
+    btn = document.createElement("button");
+    btn.id = FIXED_BTN_ID;
+    btn.type = "button";
+    btn.className = "prontio-sidebar-toggle prontio-sidebar-toggle--fixed";
+    btn.setAttribute("aria-label", "Abrir menu");
+    btn.setAttribute("aria-expanded", "false");
+    btn.innerHTML = `<span class="prontio-sidebar-toggle__icon" aria-hidden="true">☰</span>`;
+
+    wireToggle_(btn);
+
+    document.body.appendChild(btn);
     return btn;
   }
 
@@ -135,70 +185,29 @@
 
     document.addEventListener("keydown", function (ev) {
       if (!ev) return;
-      if (ev.key === "Escape" && isOpen_()) {
-        closeSidebar_();
-      }
-    });
-  }
-
-  function bindAutoCloseOnNavClick_() {
-    // Em telas pequenas: clicar em qualquer link dentro da sidebar fecha o menu
-    const sidebar = findSidebar_();
-    if (!sidebar) return;
-
-    if (sidebar.getAttribute("data-prontio-autoclose-bound") === "1") return;
-    sidebar.setAttribute("data-prontio-autoclose-bound", "1");
-
-    sidebar.addEventListener("click", function (ev) {
-      const t = ev && ev.target ? ev.target : null;
-      if (!t) return;
-      const a = t.closest ? t.closest("a") : null;
-      if (!a) return;
-
-      // fecha só se estiver aberto
-      if (isOpen_()) closeSidebar_();
-    });
-  }
-
-  function normalizeTables_() {
-    // Ajuda UX: garante que tabelas possam rolar dentro do card em viewport estreita
-    // Sem depender de classes específicas: aplica em containers comuns.
-    const candidates = qsa(".card, .panel, .table-card, .content-card, .widget-card");
-    candidates.forEach(function (card) {
-      if (!card) return;
-      const hasTable = !!qs("table", card);
-      if (!hasTable) return;
-      if (card.getAttribute("data-prontio-table-scroll") === "1") return;
-      card.setAttribute("data-prontio-table-scroll", "1");
-      card.classList.add("prontio-table-scroll");
+      if (ev.key === "Escape" && isOpen_()) closeSidebar_();
     });
   }
 
   function init() {
-    // trava
     if (PRONTIO.ui.responsiveShell._inited === true) return;
     PRONTIO.ui.responsiveShell._inited = true;
 
-    // Sidebar e overlay
-    const sidebar = findSidebar_();
-    if (sidebar) ensureSidebarId_(sidebar);
     ensureOverlay_();
-    ensureToggleButton_();
     bindCloseOnEsc_();
-    bindAutoCloseOnNavClick_();
 
-    // Ajuste de tabelas (best-effort)
-    normalizeTables_();
+    // tenta criar/usar o botão no topbar; se não existir topbar ainda, cria fixo
+    ensureTopbarToggleButton_();
+    ensureFixedToggleButton_();
 
-    // Re-aplica quando widgets carregarem (topbar/sidebar async)
+    // re-tenta algumas vezes porque topbar/sidebar costumam carregar async
     let tries = 0;
     const timer = global.setInterval(function () {
       tries += 1;
-      ensureToggleButton_();
-      bindAutoCloseOnNavClick_();
-      normalizeTables_();
-      if (tries >= 12) global.clearInterval(timer);
-    }, 350);
+      ensureTopbarToggleButton_();
+      ensureFixedToggleButton_();
+      if (tries >= 16) global.clearInterval(timer);
+    }, 300);
   }
 
   PRONTIO.ui.responsiveShell.init = init;
