@@ -5,20 +5,15 @@
   <title>PRONTIO - Prontuário</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <!-- CSS global -->
   <link rel="stylesheet" href="assets/css/style.css">
-  <!-- CSS de componentes de modal -->
   <link rel="stylesheet" href="assets/css/components/modals.css">
-  <!-- CSS específico do prontuário -->
   <link rel="stylesheet" href="assets/css/pages/page-prontuario.css">
-  <!-- Painel deslizante lateral (receita) -->
   <link rel="stylesheet" href="assets/css/components/slide-panel.css">
-  <!-- Timeline visual para receitas -->
   <link rel="stylesheet" href="assets/css/components/receitas-timeline.css">
-  <!-- CSS do Topbar -->
   <link rel="stylesheet" href="assets/css/components/topbar.css">
-  <!-- ✅ Autocomplete da Receita -->
   <link rel="stylesheet" href="assets/css/components/receita-autocomplete.css">
+  <link rel="stylesheet" href="assets/css/components/chat-topbar.css">
+  <link rel="stylesheet" href="assets/css/components/chat-widget.css">
 </head>
 
 <body
@@ -31,36 +26,59 @@
   data-has-chat="true"
 >
   <div class="app-shell">
-    <!-- ✅ Sidebar compartilhada (partial) -->
     <div data-include-sidebar></div>
 
-    <!-- ÁREA PRINCIPAL -->
     <main class="main-area">
-      <!-- TOPBAR: montada pelo widget-topbar via main.js -->
       <div id="topbarMount" data-partial="topbar"></div>
 
-      <!-- LAYOUT CENTRAL DO PRONTUÁRIO -->
       <section class="content content-prontuario">
 
-        <!-- CARD: IDENTIFICAÇÃO DO PACIENTE -->
         <section class="card card-prontuario card-paciente">
           <div class="card-header card-header-tight">
             <h2>Paciente e atendimento</h2>
             <span class="card-subtitle">Identificação e contexto clínico atual</span>
           </div>
+
           <div class="card-body card-body-compact">
             <div class="prontuario-paciente-header">
               <div class="prontuario-paciente-info">
                 <div class="paciente-nome-linha">
                   <span class="label">Paciente</span>
-                  <span id="prontuario-paciente-nome" class="paciente-nome">Paciente</span>
+                  <!-- ✅ Nome maior e em negrito (já existe, reforçado via style inline para garantir) -->
+                  <span
+                    id="prontuario-paciente-nome"
+                    class="paciente-nome"
+                    style="font-size:1.35rem; font-weight:700;"
+                  >Paciente</span>
                 </div>
+
                 <div class="paciente-id-linha">
                   <span class="texto-menor">
                     ID Paciente:
                     <span id="prontuario-paciente-id">—</span>
                   </span>
                 </div>
+
+                <!-- ✅ Novos campos do cadastro do paciente -->
+                <div class="grid-2 mt-sm" style="gap:.5rem 1rem;">
+                  <div class="campo-inline">
+                    <span class="campo-label">Idade</span>
+                    <span id="prontuario-paciente-idade" class="campo-valor">—</span>
+                  </div>
+                  <div class="campo-inline">
+                    <span class="campo-label">Profissão</span>
+                    <span id="prontuario-paciente-profissao" class="campo-valor">—</span>
+                  </div>
+                  <div class="campo-inline">
+                    <span class="campo-label">Plano de saúde</span>
+                    <span id="prontuario-paciente-plano" class="campo-valor">—</span>
+                  </div>
+                  <div class="campo-inline">
+                    <span class="campo-label">Carteirinha</span>
+                    <span id="prontuario-paciente-carteirinha" class="campo-valor">—</span>
+                  </div>
+                </div>
+
               </div>
             </div>
 
@@ -94,7 +112,6 @@
           </div>
         </section>
 
-        <!-- BARRA DE AÇÕES CLÍNICAS -->
         <section class="prontuario-acoes-clinicas" aria-label="Ações clínicas do prontuário">
           <button type="button" id="btnAcaoNovaEvolucao" class="btn btn-acao-clinica btn-acao-principal">
             <span class="btn-acao-icone" aria-hidden="true">📝</span>
@@ -129,7 +146,73 @@
           </button>
         </section>
 
-        <!-- CARD: NOVA EVOLUÇÃO (RETRAÍDO) -->
+        <!-- TIMELINE UNIFICADA (com paginação) -->
+        <section class="card card-prontuario" id="secTimelineUnificada">
+          <div class="card-header card-header-tight">
+            <div>
+              <h2>Timeline unificada</h2>
+              <span class="card-subtitle">Evoluções, receitas e chat em uma linha do tempo (mais recente no topo).</span>
+            </div>
+            <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+              <button id="btnTimelineRecarregar" class="btn btn-secondary btn-sm" type="button">Recarregar</button>
+              <button id="btnTimelineCarregarMais" class="btn btn-secondary btn-sm" type="button" style="display:none;">Carregar mais</button>
+            </div>
+          </div>
+
+          <div class="card-body card-body-compact">
+            <div class="mt-sm" style="display:flex; gap:.75rem; flex-wrap:wrap; align-items:center;">
+              <span class="texto-menor texto-suave">Filtros:</span>
+
+              <label class="texto-menor" style="display:flex; align-items:center; gap:.35rem;">
+                <input type="checkbox" id="tlFiltroEvolucao" checked>
+                Evolução
+              </label>
+
+              <label class="texto-menor" style="display:flex; align-items:center; gap:.35rem;">
+                <input type="checkbox" id="tlFiltroReceita" checked>
+                Receita
+              </label>
+
+              <label class="texto-menor" style="display:flex; align-items:center; gap:.35rem;">
+                <input type="checkbox" id="tlFiltroChat" checked>
+                Chat
+              </label>
+
+              <span id="tlMeta" class="texto-menor texto-suave" style="margin-left:auto;">—</span>
+            </div>
+
+            <p class="msg-menor" id="tlVazio">Carregando timeline...</p>
+            <ul id="tlLista" class="prontuario-timeline mt-md"></ul>
+          </div>
+        </section>
+
+        <!-- CHAT RÁPIDO -->
+        <section class="card card-prontuario" id="secChatRapidoPaciente">
+          <div class="card-header card-header-tight">
+            <div>
+              <h2>Chat rápido</h2>
+              <span class="card-subtitle">Anotações rápidas vinculadas ao paciente</span>
+            </div>
+            <div style="display:flex; gap:.5rem; flex-wrap:wrap; align-items:center;">
+              <span id="prontuario-current-user-label" class="texto-menor texto-suave">Você: Usuário</span>
+              <a id="prontuario-open-full-chat" class="btn btn-secondary btn-sm" href="chat.html">Abrir chat</a>
+              <a id="prontuario-open-agenda" class="btn btn-secondary btn-sm" href="agenda.html" style="display:none;">Ver na agenda</a>
+            </div>
+          </div>
+          <div class="card-body card-body-compact">
+            <div id="prontuario-chat-messages" style="display:flex; flex-direction:column; gap:.5rem; max-height:220px; overflow:auto;"></div>
+            <div class="mt-md" style="display:flex; gap:.5rem; align-items:flex-end; flex-wrap:wrap;">
+              <div style="flex:1; min-width:220px;">
+                <label class="texto-menor texto-suave" for="prontuario-chat-input">Mensagem</label>
+                <textarea id="prontuario-chat-input" rows="2" placeholder="Escreva uma anotação rápida (Enter para enviar)"></textarea>
+                <div id="prontuario-chat-status" class="msg-menor texto-suave mt-sm">—</div>
+              </div>
+              <button type="button" id="prontuario-chat-send" class="btn btn-primary" style="min-width:160px;">Enviar</button>
+            </div>
+          </div>
+        </section>
+
+        <!-- NOVA EVOLUÇÃO -->
         <section class="card card-prontuario card-nova-evolucao" id="cardNovaEvolucao" style="display:none;">
           <div class="card-header card-header-tight">
             <div>
@@ -157,14 +240,17 @@
           </div>
         </section>
 
-        <!-- HISTÓRICO -->
+        <!-- HISTÓRICO (com paginação) -->
         <section class="card card-prontuario" id="secHistoricoPaciente">
           <div class="card-header card-header-tight">
             <div>
               <h2>Linha do tempo do prontuário</h2>
-              <span class="card-subtitle">Eventos clínicos deste paciente em ordem cronológica (mais recente no topo).</span>
+              <span class="card-subtitle">Evoluções clínicas (mais recente no topo).</span>
             </div>
-            <button id="btnCarregarHistoricoPaciente" class="btn btn-secondary btn-sm">Carregar histórico completo</button>
+            <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+              <button id="btnCarregarHistoricoPaciente" class="btn btn-secondary btn-sm" type="button">Carregar histórico completo</button>
+              <button id="btnCarregarMaisEvolucoes" class="btn btn-secondary btn-sm" type="button" style="display:none;">Carregar mais</button>
+            </div>
           </div>
           <div class="card-body card-body-compact">
             <p class="msg-menor" id="listaEvolucoesPacienteVazia">Carregando última evolução clínica...</p>
@@ -172,14 +258,17 @@
           </div>
         </section>
 
-        <!-- RECEITAS -->
+        <!-- RECEITAS (com paginação) -->
         <section class="card card-prontuario" id="secReceitasPaciente">
           <div class="card-header card-header-tight">
             <div>
               <h2>Receitas do paciente</h2>
-              <span class="card-subtitle">Receitas médicas já emitidas para este paciente (mais recente no topo).</span>
+              <span class="card-subtitle">Receitas médicas (mais recente no topo).</span>
             </div>
-            <button id="btnCarregarReceitasPaciente" class="btn btn-secondary btn-sm">Carregar todas as receitas</button>
+            <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
+              <button id="btnCarregarReceitasPaciente" class="btn btn-secondary btn-sm" type="button">Carregar todas as receitas</button>
+              <button id="btnCarregarMaisReceitas" class="btn btn-secondary btn-sm" type="button" style="display:none;">Carregar mais</button>
+            </div>
           </div>
           <div class="card-body card-body-compact">
             <p class="msg-menor" id="listaReceitasPacienteVazia">Carregando última receita...</p>

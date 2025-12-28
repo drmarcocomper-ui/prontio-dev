@@ -7,16 +7,13 @@
     function () {
       return Promise.reject(
         new Error(
-          "API não disponível (callApiData indefinido). Verifique se assets/js/api.js foi carregado antes."
+          "API não disponível (callApiData indefinido). Verifique se assets/js/core/api.js foi carregado antes."
         )
       );
     };
 
   function qs(sel) {
     return document.querySelector(sel);
-  }
-  function qsa(sel) {
-    return Array.from(document.querySelectorAll(sel));
   }
 
   const LOCALSTORAGE_USER_INFO_KEY = "medpronto_user_info";
@@ -36,8 +33,43 @@
 
   let receitasCompletoCarregado = false;
 
+  // Timeline unificada + paginação
+  let tlEls = {
+    vazio: null,
+    ul: null,
+    meta: null,
+    btnRecarregar: null,
+    btnCarregarMais: null,
+    filtroEvo: null,
+    filtroRec: null,
+    filtroChat: null,
+  };
+
+  let tlCacheEvents = [];
+  let tlCursor = null; // cursor retornado pelo backend (para paginação)
+  let tlHasMore = false; // backend indica se há mais
+  let tlLoading = false;
+
+  // Evoluções paginadas (histórico completo)
+  let evoPaging = {
+    btnMais: null,
+    cursor: null,
+    hasMore: false,
+    loading: false,
+    lista: [],
+  };
+
+  // Receitas paginadas (lista completa)
+  let recPaging = {
+    btnMais: null,
+    cursor: null,
+    hasMore: false,
+    loading: false,
+    lista: [],
+  };
+
   // ============================================================
-  // Helpers de API: tentativa + fallback
+  // Helpers de API
   // ============================================================
 
   async function callApiDataTry_(actions, payload) {
@@ -162,6 +194,17 @@
     return `${hours}:${minutes}`;
   }
 
+  function formatDateTimeBR_(iso) {
+    const d = parseDataHora(iso);
+    if (!d) return String(iso || "");
+    const dia = String(d.getDate()).padStart(2, "0");
+    const mes = String(d.getMonth() + 1).padStart(2, "0");
+    const ano = d.getFullYear();
+    const hora = String(d.getHours()).padStart(2, "0");
+    const min = String(d.getMinutes()).padStart(2, "0");
+    return `${dia}/${mes}/${ano} ${hora}:${min}`;
+  }
+
   function formatIsoDateToBR_(iso) {
     if (!iso) return "";
     const partes = String(iso).split("-");
@@ -171,7 +214,6 @@
     return `${dia.padStart(2, "0")}/${mes.padStart(2, "0")}/${ano}`;
   }
 
-  // ✅ converte ENUM (COMUM/ESPECIAL) e variantes legadas para rótulo humano
   function formatTipoReceitaLabel_(raw) {
     const s = String(raw || "").trim();
     if (!s) return "Comum";
@@ -201,7 +243,361 @@
   }
 
   // ============================================================
-  // Chat
+  // Ações clínicas
+  // ============================================================
+
+  function abrirNovaEvolucao_() {
+    const card = qs("#cardNovaEvolucao");
+    if (!card) return;
+    card.style.display = "";
+    const txt = qs("#textoEvolucao");
+    if (txt) txt.focus();
+  }
+
+  function abrirPainelReceita_(ctx) {
+    if (typeof PRONTIO.abrirReceitaPanel === "function") {
+      PRONTIO.abrirReceitaPanel();
+      return;
+    }
+
+    try {
+      const base = new URL("receita.html", global.location.origin);
+      if (ctx.idPaciente) base.searchParams.set("pacienteId", ctx.idPaciente);
+      if (ctx.nome) base.searchParams.set("pacienteNome", ctx.nome);
+      if (ctx.idAgenda) base.searchParams.set("agendaId", ctx.idAgenda);
+      global.location.href = base.toString();
+    } catch (e) {
+      global.alert("Não foi possível abrir a receita.");
+    }
+  }
+
+  function abrirExames_(ctx) {
+    try {
+      const base = new URL("exames.html", global.location.origin);
+      if (ctx.idPaciente) base.searchParams.set("pacienteId", ctx.idPaciente);
+      if (ctx.nome) base.searchParams.set("pacienteNome", ctx.nome);
+      if (ctx.idAgenda) base.searchParams.set("agendaId", ctx.idAgenda);
+      global.location.href = base.toString();
+    } catch (e) {
+      global.alert("Não foi possível abrir Exames.");
+    }
+  }
+
+  function abrirDocumentos_(ctx) {
+    try {
+      const base = new URL("laudo.html", global.location.origin);
+      if (ctx.idPaciente) base.searchParams.set("pacienteId", ctx.idPaciente);
+      if (ctx.nome) base.searchParams.set("pacienteNome", ctx.nome);
+      if (ctx.idAgenda) base.searchParams.set("agendaId", ctx.idAgenda);
+      base.searchParams.set("from", "prontuario");
+      global.location.href = base.toString();
+    } catch (e) {
+      global.alert("Não foi possível abrir Documentos.");
+    }
+  }
+
+  function _setBtnMais_(btn, hasMore, loading) {
+    if (!btn) return;
+    btn.style.display = hasMore ? "inline-flex" : "none";
+    btn.disabled = !!loading;
+  }
+
+  // ============================================================
+  // Timeline unificada (com paginação)
+  // ============================================================
+
+  function tlGetEnabledTypes_() {
+    const types = [];
+    if (tlEls.filtroEvo && tlEls.filtroEvo.checked) types.push("EVOLUCAO");
+    if (tlEls.filtroRec && tlEls.filtroRec.checked) types.push("RECEITA");
+    if (tlEls.filtroChat && tlEls.filtroChat.checked) types.push("CHAT");
+    return types;
+  }
+
+  function tlApplyFilterAndRender_() {
+    const enabled = tlGetEnabledTypes_();
+    const list = (tlCacheEvents || []).filter((e) => enabled.indexOf(e.type) >= 0);
+    tlRender_(list);
+  }
+
+  function tlRender_(events) {
+    if (!tlEls.ul || !tlEls.vazio) return;
+
+    tlEls.ul.innerHTML = "";
+
+    if (!events || !events.length) {
+      tlEls.vazio.classList.remove("is-hidden");
+      tlEls.vazio.textContent = "Nenhum evento para exibir com os filtros selecionados.";
+      if (tlEls.meta) tlEls.meta.textContent = "0 eventos";
+      return;
+    }
+
+    tlEls.vazio.classList.add("is-hidden");
+    if (tlEls.meta) tlEls.meta.textContent = `${events.length} evento(s)`;
+
+    events.forEach((ev) => {
+      const li = document.createElement("li");
+      li.className = "evolucao-item";
+
+      const when = formatDateTimeBR_(ev.ts || ev.dataHora || ev.criadoEm || "");
+      const title = ev.title || "";
+      const summary = ev.summary || "";
+
+      const typeLabel =
+        ev.type === "EVOLUCAO" ? "Evolução" : ev.type === "RECEITA" ? "Receita" : ev.type === "CHAT" ? "Chat" : "Evento";
+      const badge = `<span class="badge">${typeLabel}</span>`;
+
+      let actionsHtml = "";
+      if (ev.type === "RECEITA" && ev.id) {
+        actionsHtml = `
+          <div class="evo-actions">
+            <button type="button" class="btn-evo-usar-modelo js-tl-abrir-receita" data-id="${ev.id}">Abrir PDF</button>
+          </div>
+        `;
+      } else if (ev.type === "EVOLUCAO" && ev.id) {
+        actionsHtml = `
+          <div class="evo-actions">
+            <button type="button" class="btn-evo-usar-modelo js-tl-usar-modelo" data-id="${ev.id}">Usar como modelo</button>
+          </div>
+        `;
+      }
+
+      li.innerHTML = `
+        <div class="evo-header">
+          <span class="evo-data">${when || ""}</span>
+          ${badge}
+          ${title ? `<span class="evo-autor">${title}</span>` : ""}
+        </div>
+        <div class="evo-texto">${String(summary || "").replace(/\n/g, "<br>")}</div>
+        ${actionsHtml}
+      `;
+
+      const btnAbrirPdf = li.querySelector(".js-tl-abrir-receita");
+      if (btnAbrirPdf) {
+        btnAbrirPdf.addEventListener("click", (e) => {
+          e.stopPropagation();
+          abrirPdfReceita(btnAbrirPdf.dataset.id || ev.id);
+        });
+      }
+
+      const btnModelo = li.querySelector(".js-tl-usar-modelo");
+      if (btnModelo) {
+        btnModelo.addEventListener("click", (e) => {
+          e.stopPropagation();
+          abrirNovaEvolucao_();
+          const txt = qs("#textoEvolucao");
+          if (txt) {
+            txt.value = (ev.raw && (ev.raw.texto || ev.raw.Texto)) || ev.fullText || summary || "";
+            idEvolucaoEmEdicao = null;
+            txt.focus();
+          }
+        });
+      }
+
+      tlEls.ul.appendChild(li);
+    });
+  }
+
+  function _timelineKey_(ev) {
+    const t = String(ev && ev.type ? ev.type : "");
+    const id = String(ev && ev.id ? ev.id : "");
+    const ts = String(ev && ev.ts ? ev.ts : "");
+    return `${t}::${id || "-"}::${ts || "-"}`;
+  }
+
+  function _dedupeAppend_(baseList, toAppend) {
+    const map = new Set();
+    (baseList || []).forEach((e) => map.add(_timelineKey_(e)));
+    const out = (baseList || []).slice();
+
+    (toAppend || []).forEach((e) => {
+      const k = _timelineKey_(e);
+      if (!map.has(k)) {
+        map.add(k);
+        out.push(e);
+      }
+    });
+
+    out.sort((a, b) => {
+      const da = parseDataHora(a.ts) || new Date(0);
+      const db = parseDataHora(b.ts) || new Date(0);
+      return db - da;
+    });
+
+    return out;
+  }
+
+  function _setCarregarMaisVisibility_() {
+    if (!tlEls.btnCarregarMais) return;
+    tlEls.btnCarregarMais.style.display = tlHasMore ? "inline-flex" : "none";
+    tlEls.btnCarregarMais.disabled = !!tlLoading;
+  }
+
+  function _normalizeEvolucaoFromTimelineRaw_(raw) {
+    const ev = raw || {};
+    return {
+      idEvolucao: ev.idEvolucao || ev.ID_Evolucao || ev.id || "",
+      autor: ev.autor || ev.profissional || "",
+      origem: ev.origem || "",
+      dataHoraRegistro: ev.dataHoraRegistro || ev.dataHora || ev.data || ev.criadoEm || "",
+      texto: ev.texto || "",
+    };
+  }
+
+  function _normalizeReceitaFromTimelineRaw_(raw) {
+    const rec = raw || {};
+    return {
+      idReceita: rec.idReceita || rec.ID_Receita || rec.id || "",
+      dataHoraCriacao: rec.dataHoraCriacao || rec.dataHora || rec.data || rec.criadoEm || "",
+      dataReceita: rec.dataReceita || rec.DataReceita || "",
+      tipoReceita: rec.tipoReceita || rec.TipoReceita || "",
+      status: rec.status || rec.Status || "",
+      textoMedicamentos: rec.textoMedicamentos || rec.TextoMedicamentos || "",
+      itens: rec.itens || rec.Itens || [],
+      observacoes: rec.observacoes || rec.Observacoes || "",
+    };
+  }
+
+  function updateUltimosCardsFromTimeline_() {
+    const ulEvo = qs("#listaEvolucoesPaciente");
+    const vazioEvo = qs("#listaEvolucoesPacienteVazia");
+    const ulRec = qs("#listaReceitasPaciente");
+    const vazioRec = qs("#listaReceitasPacienteVazia");
+
+    if (!ulEvo || !vazioEvo || !ulRec || !vazioRec) return;
+
+    const evEvent = (tlCacheEvents || []).find((e) => e && e.type === "EVOLUCAO");
+    const recEvent = (tlCacheEvents || []).find((e) => e && e.type === "RECEITA");
+
+    if (evEvent && evEvent.raw) {
+      renderListaEvolucoes([_normalizeEvolucaoFromTimelineRaw_(evEvent.raw)], ulEvo, vazioEvo);
+      historicoCompletoCarregado = false;
+    } else {
+      ulEvo.innerHTML = "";
+      vazioEvo.classList.remove("is-hidden");
+      vazioEvo.textContent = "Nenhuma evolução registrada para este paciente.";
+      historicoCompletoCarregado = false;
+    }
+
+    if (recEvent && recEvent.raw) {
+      renderListaReceitas([_normalizeReceitaFromTimelineRaw_(recEvent.raw)], ulRec, vazioRec);
+      receitasCompletoCarregado = false;
+    } else {
+      ulRec.innerHTML = "";
+      vazioRec.classList.remove("is-hidden");
+      vazioRec.textContent = "Nenhuma receita encontrada para este paciente.";
+      receitasCompletoCarregado = false;
+    }
+  }
+
+  async function tlCarregarPagina_(ctx, opts) {
+    if (!tlEls.ul || !tlEls.vazio) return;
+
+    if (tlLoading) return;
+    tlLoading = true;
+    _setCarregarMaisVisibility_();
+
+    const append = !!(opts && opts.append);
+    const cursor = opts && typeof opts.cursor === "string" ? opts.cursor : null;
+
+    if (!append) {
+      tlEls.vazio.classList.remove("is-hidden");
+      tlEls.vazio.textContent = "Carregando timeline...";
+      tlEls.ul.innerHTML = "";
+      if (tlEls.meta) tlEls.meta.textContent = "—";
+    }
+
+    const vazioEvo = qs("#listaEvolucoesPacienteVazia");
+    const vazioRec = qs("#listaReceitasPacienteVazia");
+    if (!append) {
+      if (vazioEvo) {
+        vazioEvo.classList.remove("is-hidden");
+        vazioEvo.textContent = "Carregando última evolução clínica...";
+      }
+      if (vazioRec) {
+        vazioRec.classList.remove("is-hidden");
+        vazioRec.textContent = "Carregando última receita...";
+      }
+    }
+
+    if (!ctx.idPaciente) {
+      if (!append) {
+        tlEls.vazio.textContent = "Nenhum paciente selecionado.";
+        if (vazioEvo) vazioEvo.textContent = "Nenhum paciente selecionado.";
+        if (vazioRec) vazioRec.textContent = "Nenhum paciente selecionado.";
+      }
+      tlCacheEvents = [];
+      tlCursor = null;
+      tlHasMore = false;
+      tlLoading = false;
+      _setCarregarMaisVisibility_();
+      return;
+    }
+
+    try {
+      const payload = { idPaciente: ctx.idPaciente, limit: 80 };
+      if (cursor) payload.cursor = cursor;
+
+      const data = await callApiDataTry_(["Prontuario.Timeline.ListarPorPaciente"], payload);
+
+      const events = (data && (data.events || data.eventos)) || [];
+      const nextCursor =
+        data && (data.nextCursor || (data.page && data.page.nextCursor)) ? data.nextCursor || data.page.nextCursor : null;
+      const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
+
+      if (!append) {
+        tlCacheEvents = Array.isArray(events) ? events : [];
+      } else {
+        tlCacheEvents = _dedupeAppend_(tlCacheEvents, Array.isArray(events) ? events : []);
+      }
+
+      tlCursor = nextCursor || null;
+      tlHasMore = hasMore && !!tlCursor;
+
+      tlApplyFilterAndRender_();
+      if (!append) updateUltimosCardsFromTimeline_();
+    } catch (e) {
+      if (!append) {
+        tlCacheEvents = [];
+        tlEls.vazio.classList.remove("is-hidden");
+        tlEls.vazio.textContent = "Erro ao carregar timeline.";
+        if (tlEls.meta) tlEls.meta.textContent = "—";
+
+        const ulEvo = qs("#listaEvolucoesPaciente");
+        const vazioEvo2 = qs("#listaEvolucoesPacienteVazia");
+        if (ulEvo) ulEvo.innerHTML = "";
+        if (vazioEvo2) {
+          vazioEvo2.classList.remove("is-hidden");
+          vazioEvo2.textContent = "Erro ao carregar evoluções.";
+        }
+
+        const ulRec = qs("#listaReceitasPaciente");
+        const vazioRec2 = qs("#listaReceitasPacienteVazia");
+        if (ulRec) ulRec.innerHTML = "";
+        if (vazioRec2) {
+          vazioRec2.classList.remove("is-hidden");
+          vazioRec2.textContent = "Erro ao carregar receitas.";
+        }
+      }
+    } finally {
+      tlLoading = false;
+      _setCarregarMaisVisibility_();
+    }
+  }
+
+  function tlRecarregar_(ctx) {
+    tlCursor = null;
+    tlHasMore = false;
+    return tlCarregarPagina_(ctx, { append: false, cursor: null });
+  }
+
+  function tlCarregarMais_(ctx) {
+    if (!tlHasMore || !tlCursor) return;
+    return tlCarregarPagina_(ctx, { append: true, cursor: tlCursor });
+  }
+
+  // ============================================================
+  // Chat (card rápido)
   // ============================================================
 
   function renderProntuarioChatMessages(messages) {
@@ -283,7 +679,11 @@
       loading.textContent = "Carregando chat do paciente...";
       elChatMessages.appendChild(loading);
 
-      const data = await callApiData({ action: "chat.listByPaciente", payload: { idPaciente: ctx.idPaciente } });
+      const data = await callApiDataTry_(
+        ["Prontuario.Chat.ListByPaciente", "chat.listByPaciente", "Chat.ListByPaciente"],
+        { idPaciente: ctx.idPaciente }
+      );
+
       const messages = (data && (data.messages || data.mensagens)) || (Array.isArray(data) ? data : []) || [];
 
       renderProntuarioChatMessages(messages);
@@ -337,16 +737,20 @@
       elChatSend.disabled = true;
       elChatStatus.textContent = "Enviando...";
 
-      const data = await callApiData({
-        action: "chat.sendByPaciente",
-        payload: { idPaciente: ctx.idPaciente, sender: currentUserName, message: text },
-      });
+      const data = await callApiDataTry_(
+        ["Prontuario.Chat.SendByPaciente", "chat.sendByPaciente", "Chat.SendByPaciente"],
+        { idPaciente: ctx.idPaciente, sender: currentUserName, message: text }
+      );
 
       const messages = (data && (data.messages || data.mensagens)) || (Array.isArray(data) ? data : []) || [];
 
       renderProntuarioChatMessages(messages);
       elChatInput.value = "";
       elChatStatus.textContent = "Mensagem enviada.";
+
+      if (PRONTIO && typeof PRONTIO.prontuarioRecarregarTimeline === "function") {
+        PRONTIO.prontuarioRecarregarTimeline();
+      }
     } catch (error) {
       global.alert("Erro ao enviar mensagem. Tente novamente.");
       elChatStatus.textContent = "Erro ao enviar mensagem.";
@@ -356,7 +760,7 @@
   }
 
   // ============================================================
-  // Evolução
+  // Evoluções paginadas (Histórico completo)
   // ============================================================
 
   function ordenarEvolucoes(lista) {
@@ -393,7 +797,6 @@
       const dt = parseDataHora(dataRaw);
       if (dt) {
         const dia = String(dt.getDate()).padStart(2, "0");
-        // ✅ CORRIGIDO: removido um ")" extra que quebrava o JS
         const mes = String(dt.getMonth() + 1).padStart(2, "0");
         const ano = dt.getFullYear();
         const hora = String(dt.getHours()).padStart(2, "0");
@@ -431,8 +834,7 @@
 
         if (btnModelo) {
           btnModelo.addEventListener("click", () => {
-            const card = qs("#cardNovaEvolucao");
-            if (card) card.style.display = "";
+            abrirNovaEvolucao_();
             const txt = qs("#textoEvolucao");
             if (txt) {
               txt.value = ev.texto || "";
@@ -444,8 +846,7 @@
 
         if (btnEditar) {
           btnEditar.addEventListener("click", () => {
-            const card = qs("#cardNovaEvolucao");
-            if (card) card.style.display = "";
+            abrirNovaEvolucao_();
             const txt = qs("#textoEvolucao");
             if (txt) {
               txt.value = ev.texto || "";
@@ -458,6 +859,79 @@
     });
   }
 
+  async function carregarEvolucoesPaginadas_(ctx, opts) {
+    const append = !!(opts && opts.append);
+    const ul = qs("#listaEvolucoesPaciente");
+    const vazio = qs("#listaEvolucoesPacienteVazia");
+    if (!ul || !vazio) return;
+
+    if (evoPaging.loading) return;
+    evoPaging.loading = true;
+    _setBtnMais_(evoPaging.btnMais, evoPaging.hasMore, true);
+
+    if (!ctx.idPaciente) {
+      vazio.classList.remove("is-hidden");
+      vazio.textContent = "Nenhum paciente selecionado.";
+      evoPaging.loading = false;
+      evoPaging.cursor = null;
+      evoPaging.hasMore = false;
+      evoPaging.lista = [];
+      _setBtnMais_(evoPaging.btnMais, false, false);
+      return;
+    }
+
+    if (!append) {
+      vazio.classList.remove("is-hidden");
+      vazio.textContent = "Carregando evoluções...";
+      ul.innerHTML = "";
+      evoPaging.lista = [];
+      evoPaging.cursor = null;
+      evoPaging.hasMore = false;
+    }
+
+    try {
+      const payload = { idPaciente: ctx.idPaciente, limit: 40 };
+      if (append && evoPaging.cursor) payload.cursor = evoPaging.cursor;
+
+      const data = await callApiDataTry_(
+        ["Prontuario.Evolucao.ListarPorPacientePaged", "Prontuario.Evolucao.ListarPorPaciente", "Evolucao.ListarPorPaciente"],
+        payload
+      );
+
+      const itemsPaged = data && (data.items || data.evolucoes || data.lista);
+      let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
+
+      // garante ordenação no front como fallback
+      lista = ordenarEvolucoes(lista);
+
+      const nextCursor =
+        data && (data.nextCursor || (data.page && data.page.nextCursor)) ? data.nextCursor || data.page.nextCursor : null;
+      const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
+
+      if (!append) evoPaging.lista = lista.slice();
+      else evoPaging.lista = evoPaging.lista.concat(lista);
+
+      renderListaEvolucoes(evoPaging.lista, ul, vazio);
+
+      evoPaging.cursor = nextCursor || null;
+      evoPaging.hasMore = !!(hasMore && evoPaging.cursor);
+
+      historicoCompletoCarregado = true;
+    } catch (e) {
+      vazio.classList.remove("is-hidden");
+      vazio.textContent = "Erro ao carregar evoluções.";
+      evoPaging.cursor = null;
+      evoPaging.hasMore = false;
+    } finally {
+      evoPaging.loading = false;
+      _setBtnMais_(evoPaging.btnMais, evoPaging.hasMore, false);
+    }
+  }
+
+  // ============================================================
+  // Salvar evolução
+  // ============================================================
+
   function setMensagemEvolucao(obj) {
     const el = qs("#mensagemEvolucao");
     if (!el) return;
@@ -465,42 +939,6 @@
     el.textContent = (obj && obj.texto) || "";
     if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
     if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
-  }
-
-  async function carregarHistoricoPaciente(ctx, opts) {
-    const apenasUltima = !!(opts && opts.apenasUltima);
-    const ul = qs("#listaEvolucoesPaciente");
-    const vazio = qs("#listaEvolucoesPacienteVazia");
-    if (!ul || !vazio) return;
-
-    vazio.textContent = "Carregando...";
-    vazio.classList.remove("is-hidden");
-    ul.innerHTML = "";
-
-    if (!ctx.idPaciente) {
-      vazio.textContent = "Nenhum paciente selecionado.";
-      return;
-    }
-
-    try {
-      const data = await callApiDataTry_(
-        ["Prontuario.Evolucao.ListarPorPaciente", "Evolucao.ListarPorPaciente"],
-        { idPaciente: ctx.idPaciente }
-      );
-
-      let lista = (data && (data.evolucoes || data.lista)) || (Array.isArray(data) ? data : []) || [];
-      lista = ordenarEvolucoes(lista);
-
-      if (apenasUltima) {
-        renderListaEvolucoes(lista.slice(0, 1), ul, vazio);
-        historicoCompletoCarregado = false;
-      } else {
-        renderListaEvolucoes(lista, ul, vazio);
-        historicoCompletoCarregado = true;
-      }
-    } catch (e) {
-      vazio.textContent = "Erro ao carregar evoluções.";
-    }
   }
 
   async function salvarEvolucao(ctx, ev) {
@@ -527,14 +965,21 @@
       if (txt) txt.value = "";
       idEvolucaoEmEdicao = null;
 
-      await carregarHistoricoPaciente(ctx, { apenasUltima: !historicoCompletoCarregado });
+      if (PRONTIO && typeof PRONTIO.prontuarioRecarregarTimeline === "function") {
+        PRONTIO.prontuarioRecarregarTimeline();
+      }
+
+      // Se histórico completo estiver aberto, recarrega a primeira página
+      if (historicoCompletoCarregado) {
+        await carregarEvolucoesPaginadas_(ctx, { append: false });
+      }
     } catch (e) {
       setMensagemEvolucao({ tipo: "erro", texto: "Erro ao salvar evolução." });
     }
   }
 
   // ============================================================
-  // Receita (FOCO): listar + abrir PDF (Prontuario.* com fallback)
+  // Receitas paginadas (Lista completa) + abrir PDF
   // ============================================================
 
   async function abrirPdfReceita(idReceita) {
@@ -563,9 +1008,7 @@
       win.document.close();
       win.focus();
     } catch (err) {
-      global.alert(
-        "Erro ao abrir o PDF da receita:\n\n" + (err && err.message ? err.message : String(err || ""))
-      );
+      global.alert("Erro ao abrir o PDF da receita:\n\n" + (err && err.message ? err.message : String(err || "")));
     }
   }
 
@@ -661,46 +1104,76 @@
     });
   }
 
-  async function carregarReceitasPaciente(ctx, opts) {
-    const apenasUltima = !!(opts && opts.apenasUltima);
+  async function carregarReceitasPaginadas_(ctx, opts) {
+    const append = !!(opts && opts.append);
     const ul = qs("#listaReceitasPaciente");
     const vazio = qs("#listaReceitasPacienteVazia");
-
     if (!ul || !vazio) return;
 
-    vazio.textContent = apenasUltima ? "Carregando última receita..." : "Carregando receitas...";
-    vazio.classList.remove("is-hidden");
-    ul.innerHTML = "";
+    if (recPaging.loading) return;
+    recPaging.loading = true;
+    _setBtnMais_(recPaging.btnMais, recPaging.hasMore, true);
 
     if (!ctx.idPaciente) {
+      vazio.classList.remove("is-hidden");
       vazio.textContent = "Nenhum paciente selecionado.";
+      recPaging.loading = false;
+      recPaging.cursor = null;
+      recPaging.hasMore = false;
+      recPaging.lista = [];
+      _setBtnMais_(recPaging.btnMais, false, false);
       return;
     }
 
+    if (!append) {
+      vazio.classList.remove("is-hidden");
+      vazio.textContent = "Carregando receitas...";
+      ul.innerHTML = "";
+      recPaging.lista = [];
+      recPaging.cursor = null;
+      recPaging.hasMore = false;
+    }
+
     try {
-      const data = await callApiDataTry_(["Prontuario.Receita.ListarPorPaciente", "Receita.ListarPorPaciente"], {
-        idPaciente: ctx.idPaciente,
+      const payload = { idPaciente: ctx.idPaciente, limit: 25 };
+      if (append && recPaging.cursor) payload.cursor = recPaging.cursor;
+
+      const data = await callApiDataTry_(
+        ["Prontuario.Receita.ListarPorPacientePaged", "Prontuario.Receita.ListarPorPaciente", "Receita.ListarPorPaciente"],
+        payload
+      );
+
+      const itemsPaged = data && (data.items || data.receitas || data.lista);
+      let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
+
+      // fallback: ordena por dataHoraCriacao desc
+      lista = (lista || []).slice().sort((a, b) => {
+        const da = parseDataHora(a.dataHoraCriacao || a.dataHora || a.data || a.criadoEm) || new Date(0);
+        const db = parseDataHora(b.dataHoraCriacao || b.dataHora || b.data || b.criadoEm) || new Date(0);
+        return db - da;
       });
 
-      let lista = (data && (data.receitas || data.lista)) || (Array.isArray(data) ? data : []) || [];
+      const nextCursor =
+        data && (data.nextCursor || (data.page && data.page.nextCursor)) ? data.nextCursor || data.page.nextCursor : null;
+      const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
 
-      lista = (lista || [])
-        .slice()
-        .sort((a, b) => {
-          const da = parseDataHora(a.dataHoraCriacao || a.dataHora || a.data || a.criadoEm) || new Date(0);
-          const db = parseDataHora(b.dataHoraCriacao || b.dataHora || b.data || b.criadoEm) || new Date(0);
-          return db - da;
-        });
+      if (!append) recPaging.lista = lista.slice();
+      else recPaging.lista = recPaging.lista.concat(lista);
 
-      if (apenasUltima) {
-        renderListaReceitas(lista.slice(0, 1), ul, vazio);
-        receitasCompletoCarregado = false;
-      } else {
-        renderListaReceitas(lista, ul, vazio);
-        receitasCompletoCarregado = true;
-      }
+      renderListaReceitas(recPaging.lista, ul, vazio);
+
+      recPaging.cursor = nextCursor || null;
+      recPaging.hasMore = !!(hasMore && recPaging.cursor);
+
+      receitasCompletoCarregado = true;
     } catch (e) {
+      vazio.classList.remove("is-hidden");
       vazio.textContent = "Erro ao carregar receitas.";
+      recPaging.cursor = null;
+      recPaging.hasMore = false;
+    } finally {
+      recPaging.loading = false;
+      _setBtnMais_(recPaging.btnMais, recPaging.hasMore, false);
     }
   }
 
@@ -714,6 +1187,28 @@
 
     aplicarContextoNaUI(ctx);
 
+    // Timeline (paginação)
+    tlEls.vazio = qs("#tlVazio");
+    tlEls.ul = qs("#tlLista");
+    tlEls.meta = qs("#tlMeta");
+    tlEls.btnRecarregar = qs("#btnTimelineRecarregar");
+    tlEls.btnCarregarMais = qs("#btnTimelineCarregarMais");
+    tlEls.filtroEvo = qs("#tlFiltroEvolucao");
+    tlEls.filtroRec = qs("#tlFiltroReceita");
+    tlEls.filtroChat = qs("#tlFiltroChat");
+
+    if (tlEls.btnRecarregar) tlEls.btnRecarregar.addEventListener("click", () => tlRecarregar_(ctx));
+    if (tlEls.btnCarregarMais) tlEls.btnCarregarMais.addEventListener("click", () => tlCarregarMais_(ctx));
+    if (tlEls.filtroEvo) tlEls.filtroEvo.addEventListener("change", tlApplyFilterAndRender_);
+    if (tlEls.filtroRec) tlEls.filtroRec.addEventListener("change", tlApplyFilterAndRender_);
+    if (tlEls.filtroChat) tlEls.filtroChat.addEventListener("change", tlApplyFilterAndRender_);
+
+    PRONTIO.prontuarioRecarregarTimeline = function () {
+      const contexto = PRONTIO.prontuarioContexto || ctx;
+      return tlRecarregar_(contexto);
+    };
+
+    // Chat
     elProntuarioUserLabel = document.getElementById("prontuario-current-user-label");
     elChatMessages = qs("#prontuario-chat-messages");
     elChatStatus = qs("#prontuario-chat-status");
@@ -724,28 +1219,70 @@
 
     loadUserFromLocalStorage();
 
+    // Botões de ações clínicas
+    const btnNovaEvo = qs("#btnAcaoNovaEvolucao");
+    if (btnNovaEvo) btnNovaEvo.addEventListener("click", abrirNovaEvolucao_);
+
+    const btnReceita = qs("#btnAcaoReceita");
+    if (btnReceita) btnReceita.addEventListener("click", () => abrirPainelReceita_(ctx));
+
+    const btnExames = qs("#btnAcaoExames");
+    if (btnExames) btnExames.addEventListener("click", () => abrirExames_(ctx));
+
+    const btnDocs = qs("#btnAcaoDocumentos");
+    if (btnDocs) btnDocs.addEventListener("click", () => abrirDocumentos_(ctx));
+
+    // Evolução salvar
     const formEvo = qs("#formEvolucao");
     if (formEvo) formEvo.addEventListener("submit", (ev) => salvarEvolucao(ctx, ev));
 
-    const btnHist = qs("#btnCarregarHistoricoPaciente");
-    if (btnHist) btnHist.addEventListener("click", () => carregarHistoricoPaciente(ctx, { apenasUltima: false }));
+    // Evoluções paginadas (histórico completo)
+    evoPaging.btnMais = qs("#btnCarregarMaisEvolucoes");
+    _setBtnMais_(evoPaging.btnMais, false, false);
 
-    carregarHistoricoPaciente(ctx, { apenasUltima: true });
-    carregarReceitasPaciente(ctx, { apenasUltima: true });
+    const btnHist = qs("#btnCarregarHistoricoPaciente");
+    if (btnHist) {
+      btnHist.addEventListener("click", () => {
+        historicoCompletoCarregado = true;
+        carregarEvolucoesPaginadas_(ctx, { append: false });
+      });
+    }
+
+    if (evoPaging.btnMais) {
+      evoPaging.btnMais.addEventListener("click", () => carregarEvolucoesPaginadas_(ctx, { append: true }));
+    }
+
+    // Receitas paginadas (lista completa)
+    recPaging.btnMais = qs("#btnCarregarMaisReceitas");
+    _setBtnMais_(recPaging.btnMais, false, false);
 
     const btnReceitas = qs("#btnCarregarReceitasPaciente");
-    if (btnReceitas) btnReceitas.addEventListener("click", () => carregarReceitasPaciente(ctx, { apenasUltima: false }));
+    if (btnReceitas) {
+      btnReceitas.addEventListener("click", () => {
+        receitasCompletoCarregado = true;
+        carregarReceitasPaginadas_(ctx, { append: false });
+      });
+    }
 
+    if (recPaging.btnMais) {
+      recPaging.btnMais.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: true }));
+    }
+
+    // Mantém compat: recarregar receitas quando necessário
     PRONTIO.recarregarReceitasPaciente = function (opcoes) {
       const contexto = PRONTIO.prontuarioContexto || ctx;
       if (!contexto || !contexto.idPaciente) return;
 
-      const apenasUltima =
-        opcoes && typeof opcoes.apenasUltima === "boolean" ? opcoes.apenasUltima : !receitasCompletoCarregado;
-
-      carregarReceitasPaciente(contexto, { apenasUltima });
+      const forceAll = opcoes && opcoes.apenasUltima === false;
+      if (forceAll || receitasCompletoCarregado) {
+        carregarReceitasPaginadas_(contexto, { append: false });
+      }
     };
 
+    // Carregamento inicial (timeline continua sendo a fonte dos “últimos”)
+    tlRecarregar_(ctx);
+
+    // Chat
     if (elChatSend) elChatSend.addEventListener("click", () => enviarMensagemRapida(ctx));
     if (elChatInput) {
       elChatInput.addEventListener("keydown", (event) => {
@@ -755,10 +1292,7 @@
         }
       });
     }
-
     carregarChatPaciente(ctx);
-
-    // painel receita é controlado por page-receita.js
   }
 
   if (PRONTIO.registerPage) {
