@@ -8,6 +8,9 @@
  * Actions:
  * - Prontuario.Ping
  *
+ * ✅ Paciente (resumo do cadastro):
+ * - Prontuario.Paciente.ObterResumo
+ *
  * Receita (delegado):
  * - Prontuario.Receita.ListarPorPaciente
  * - Prontuario.Receita.ListarPorPacientePaged     ✅ paginação por cursor (ts)
@@ -81,6 +84,11 @@ function handleProntuarioAction(action, payload) {
   switch (act) {
     case "Prontuario.Ping":
       return { ok: true, module: "Prontuario", ts: new Date().toISOString() };
+
+    // ===================== PACIENTE (RESUMO) ===================
+    case "Prontuario.Paciente.ObterResumo":
+      _prontuarioAssertRequired_(payload, ["idPaciente"]);
+      return _prontuarioPacienteObterResumo_(payload);
 
     // ===================== RECEITA ============================
     case "Prontuario.Receita.ListarPorPaciente":
@@ -162,7 +170,6 @@ function _prontuarioDelegarEvolucao_(evolucaoAction, payload) {
 }
 
 function _prontuarioDelegarChat_(chatAction, payload) {
-  // Prioridade: Chat.gs; fallback: ChatCompat.gs
   if (typeof handleChatAction === "function") {
     return handleChatAction(chatAction, payload || {});
   }
@@ -174,6 +181,127 @@ function _prontuarioDelegarChat_(chatAction, payload) {
     "Nenhum handler de Chat encontrado. Verifique se Chat.gs/ChatCompat.gs está no projeto.",
     { wantedAction: chatAction }
   );
+}
+
+/**
+ * Delegador para Pacientes.
+ * Seu projeto usa handlePacientesAction(action,payload,ctx) e remapeia "Pacientes.ObterPorId" -> "Pacientes_ObterPorId".
+ */
+function _prontuarioDelegarPacientes_(pacientesAction, payload) {
+  if (typeof handlePacientesAction === "function") {
+    // handlePacientesAction aceita (action,payload,ctx) mas ctx é opcional.
+    try { return handlePacientesAction(pacientesAction, payload || {}, { action: pacientesAction }); } catch (_) {}
+    return handlePacientesAction(pacientesAction, payload || {});
+  }
+  if (typeof handlePacienteAction === "function") {
+    return handlePacienteAction(pacientesAction, payload || {});
+  }
+  _prontuarioThrow_(
+    "PRONTUARIO_PACIENTES_HANDLER_MISSING",
+    "Nenhum handler de Pacientes encontrado. Verifique se Pacientes.gs está no projeto.",
+    { wantedAction: pacientesAction }
+  );
+}
+
+// ============================================================
+// ✅ Paciente: Obter Resumo (para topo do prontuário)
+// ============================================================
+
+function _prontuarioPacienteObterResumo_(payload) {
+  var idPaciente = String(payload.idPaciente || "").trim();
+
+  // Seu Pacientes.gs garante: "Pacientes.ObterPorId" -> "Pacientes_ObterPorId"
+  var raw = null;
+  try {
+    raw = _prontuarioDelegarPacientes_("Pacientes.ObterPorId", { idPaciente: idPaciente });
+  } catch (e) {
+    // fallback para o nome interno (se alguém chamar direto)
+    try {
+      raw = _prontuarioDelegarPacientes_("Pacientes_ObterPorId", { idPaciente: idPaciente });
+    } catch (e2) {
+      _prontuarioThrow_(
+        "PRONTUARIO_PACIENTE_NOT_FOUND",
+        "Não foi possível obter o paciente no módulo Pacientes.",
+        { idPaciente: idPaciente, error: String((e2 && e2.message) ? e2.message : e2) }
+      );
+    }
+  }
+
+  var p = (raw && raw.paciente) ? raw.paciente : raw;
+
+  // Campos alinhados ao seu schema v2:
+  // nomeCompleto, dataNascimento, planoSaude, numeroCarteirinha
+  var nome = _prontuarioPickFirst_(p, ["nomeCompleto", "nomeExibicao", "nomeSocial", "nome"]);
+  var dn = _prontuarioPickFirst_(p, ["dataNascimento", "DataNascimento", "data_nascimento", "nascimento"]);
+  var profissao = _prontuarioPickFirst_(p, ["profissao", "Profissao"]); // se existir na sua aba/legado
+  var planoSaude = _prontuarioPickFirst_(p, ["planoSaude", "PlanoSaude", "convenio", "Convenio", "plano"]);
+  var carteirinha = _prontuarioPickFirst_(p, [
+    "numeroCarteirinha", "NumeroCarteirinha",
+    "carteirinha", "Carteirinha"
+  ]);
+
+  // idade: calcula do dataNascimento se idade não vier pronta
+  var idade = _prontuarioPickFirst_(p, ["idade", "Idade"]);
+  if (!idade) {
+    var idadeCalc = _prontuarioCalcIdadeFromAny_(dn);
+    if (idadeCalc !== "" && idadeCalc !== null && idadeCalc !== undefined) idade = String(idadeCalc);
+  }
+
+  return {
+    idPaciente: idPaciente,
+    paciente: {
+      idPaciente: idPaciente,
+      nomeCompleto: nome ? String(nome) : "",
+      dataNascimento: dn ? String(dn) : "",
+      idade: idade ? String(idade) : "",
+      profissao: profissao ? String(profissao) : "",
+      planoSaude: planoSaude ? String(planoSaude) : "",
+      carteirinha: carteirinha ? String(carteirinha) : ""
+    }
+  };
+}
+
+function _prontuarioPickFirst_(obj, keys) {
+  obj = obj || {};
+  keys = keys || [];
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i];
+    if (obj[k] !== null && typeof obj[k] !== "undefined") {
+      var v = String(obj[k]).trim();
+      if (v) return v;
+    }
+  }
+  return "";
+}
+
+function _prontuarioCalcIdadeFromAny_(raw) {
+  if (!raw) return "";
+
+  var s = String(raw).trim();
+  if (!s) return "";
+
+  var d = new Date(s);
+  if (isNaN(d.getTime())) {
+    var m = s.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) {
+      d = new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]));
+    } else {
+      var m2 = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (m2) {
+        d = new Date(Number(m2[1]), Number(m2[2]) - 1, Number(m2[3]));
+      }
+    }
+  }
+
+  if (isNaN(d.getTime())) return "";
+
+  var hoje = new Date();
+  var idade = hoje.getFullYear() - d.getFullYear();
+  var mDiff = hoje.getMonth() - d.getMonth();
+  if (mDiff < 0 || (mDiff === 0 && hoje.getDate() < d.getDate())) idade--;
+
+  if (idade < 0 || idade > 130) return "";
+  return idade;
 }
 
 // ============================================================
@@ -197,14 +325,12 @@ function _prontuarioEvolucaoListarPorPacientePaged_(payload) {
     (Array.isArray(resp) ? resp : []) ||
     [];
 
-  // Ordena DESC no backend
   lista = (lista || []).slice().sort(function (a, b) {
     var ta = (a && (a.dataHoraRegistro || a.dataHora || a.data || a.criadoEm)) || "";
     var tb = (b && (b.dataHoraRegistro || b.dataHora || b.data || b.criadoEm)) || "";
     return _prontuarioParseDateMs_(tb) - _prontuarioParseDateMs_(ta);
   });
 
-  // Aplica cursor: apenas ts < cursor
   if (cursorMs !== null && !isNaN(cursorMs)) {
     var filtered = [];
     for (var i = 0; i < lista.length; i++) {
@@ -255,14 +381,12 @@ function _prontuarioReceitaListarPorPacientePaged_(payload) {
     (Array.isArray(resp) ? resp : []) ||
     [];
 
-  // Ordena DESC no backend
   lista = (lista || []).slice().sort(function (a, b) {
     var ta = (a && (a.dataHoraCriacao || a.dataHora || a.data || a.criadoEm)) || "";
     var tb = (b && (b.dataHoraCriacao || b.dataHora || b.data || b.criadoEm)) || "";
     return _prontuarioParseDateMs_(tb) - _prontuarioParseDateMs_(ta);
   });
 
-  // Cursor: apenas ts < cursor
   if (cursorMs !== null && !isNaN(cursorMs)) {
     var filtered = [];
     for (var i = 0; i < lista.length; i++) {
@@ -307,7 +431,6 @@ function _prontuarioTimelineListarPorPaciente_(payload) {
   cursorRaw = cursorRaw ? cursorRaw.trim() : "";
   var cursorMs = cursorRaw ? _prontuarioParseDateMs_(cursorRaw) : null;
 
-  // Coleta (delegadas)
   var evolucoesResp = _prontuarioDelegarEvolucao_("Evolucao.ListarPorPaciente", { idPaciente: idPaciente }) || {};
   var receitasResp = _prontuarioDelegarReceita_("Receita.ListarPorPaciente", { idPaciente: idPaciente }) || {};
   var chatResp = _prontuarioDelegarChat_("Chat.ListByPaciente", { idPaciente: idPaciente }) || {};
@@ -329,7 +452,6 @@ function _prontuarioTimelineListarPorPaciente_(payload) {
 
   var events = [];
 
-  // Evoluções
   for (var i = 0; i < evolucoes.length; i++) {
     var ev = evolucoes[i] || {};
     var idE = ev.idEvolucao || ev.ID_Evolucao || ev.id || "";
@@ -348,7 +470,6 @@ function _prontuarioTimelineListarPorPaciente_(payload) {
     });
   }
 
-  // Receitas
   for (var j = 0; j < receitas.length; j++) {
     var rec = receitas[j] || {};
     var idR = rec.idReceita || rec.ID_Receita || rec.id || "";
@@ -379,7 +500,6 @@ function _prontuarioTimelineListarPorPaciente_(payload) {
     });
   }
 
-  // Chat
   for (var k = 0; k < mensagens.length; k++) {
     var msg = mensagens[k] || {};
     var idC = msg.id || msg.ID || msg.idMensagem || msg.ID_Mensagem || "";
@@ -397,12 +517,11 @@ function _prontuarioTimelineListarPorPaciente_(payload) {
     });
   }
 
-  // Ordena DESC por ts
+  // ✅ Ordenação correta
   events.sort(function (a, b) {
     return _prontuarioParseDateMs_(b && b.ts) - _prontuarioParseDateMs_(a && a.ts);
   });
 
-  // Cursor (ts < cursor)
   if (cursorMs !== null && !isNaN(cursorMs)) {
     var filteredEvents = [];
     for (var m = 0; m < events.length; m++) {
@@ -412,7 +531,6 @@ function _prontuarioTimelineListarPorPaciente_(payload) {
     events = filteredEvents;
   }
 
-  // Página
   var pageEvents = events.slice(0, limit);
   var hasMore = events.length > limit;
 

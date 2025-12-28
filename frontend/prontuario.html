@@ -5,15 +5,7 @@
   <title>PRONTIO - Prontuário</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-  <link rel="stylesheet" href="assets/css/style.css">
-  <link rel="stylesheet" href="assets/css/components/modals.css">
-  <link rel="stylesheet" href="assets/css/pages/page-prontuario.css">
-  <link rel="stylesheet" href="assets/css/components/slide-panel.css">
-  <link rel="stylesheet" href="assets/css/components/receitas-timeline.css">
-  <link rel="stylesheet" href="assets/css/components/topbar.css">
-  <link rel="stylesheet" href="assets/css/components/receita-autocomplete.css">
-  <link rel="stylesheet" href="assets/css/components/chat-topbar.css">
-  <link rel="stylesheet" href="assets/css/components/chat-widget.css">
+<link rel="stylesheet" href="assets/css/style.css">
 </head>
 
 <body
@@ -34,83 +26,50 @@
       <section class="content content-prontuario">
 
         <section class="card card-prontuario card-paciente">
-          <div class="card-header card-header-tight">
-            <h2>Paciente e atendimento</h2>
-            <span class="card-subtitle">Identificação e contexto clínico atual</span>
-          </div>
+  <div class="card-body card-body-compact">
 
-          <div class="card-body card-body-compact">
-            <div class="prontuario-paciente-header">
-              <div class="prontuario-paciente-info">
-                <div class="paciente-nome-linha">
-                  <span class="label">Paciente</span>
-                  <!-- ✅ Nome maior e em negrito (já existe, reforçado via style inline para garantir) -->
-                  <span
-                    id="prontuario-paciente-nome"
-                    class="paciente-nome"
-                    style="font-size:1.35rem; font-weight:700;"
-                  >Paciente</span>
-                </div>
+    <!-- NOME DO PACIENTE (DESTAQUE PRINCIPAL) -->
+    <div class="prontuario-paciente-header">
+      <div class="prontuario-paciente-info">
+        <div class="paciente-nome-linha">
+          <!-- ❌ removido rótulo "Paciente" -->
+          <span
+            id="prontuario-paciente-nome"
+            class="paciente-nome"
+            style="font-size:1.45rem; font-weight:700;"
+          >
+            —
+          </span>
+        </div>
+      </div>
+    </div>
 
-                <div class="paciente-id-linha">
-                  <span class="texto-menor">
-                    ID Paciente:
-                    <span id="prontuario-paciente-id">—</span>
-                  </span>
-                </div>
+    <!-- DADOS CADASTRAIS DO PACIENTE -->
+    <div class="grid-2 mt-md" style="gap:.5rem 1.5rem;">
+      <div class="campo-inline">
+        <span class="campo-label">Idade</span>
+        <span id="prontuario-paciente-idade" class="campo-valor">—</span>
+      </div>
 
-                <!-- ✅ Novos campos do cadastro do paciente -->
-                <div class="grid-2 mt-sm" style="gap:.5rem 1rem;">
-                  <div class="campo-inline">
-                    <span class="campo-label">Idade</span>
-                    <span id="prontuario-paciente-idade" class="campo-valor">—</span>
-                  </div>
-                  <div class="campo-inline">
-                    <span class="campo-label">Profissão</span>
-                    <span id="prontuario-paciente-profissao" class="campo-valor">—</span>
-                  </div>
-                  <div class="campo-inline">
-                    <span class="campo-label">Plano de saúde</span>
-                    <span id="prontuario-paciente-plano" class="campo-valor">—</span>
-                  </div>
-                  <div class="campo-inline">
-                    <span class="campo-label">Carteirinha</span>
-                    <span id="prontuario-paciente-carteirinha" class="campo-valor">—</span>
-                  </div>
-                </div>
+      <div class="campo-inline">
+        <span class="campo-label">Profissão</span>
+        <span id="prontuario-paciente-profissao" class="campo-valor">—</span>
+      </div>
 
-              </div>
-            </div>
+      <div class="campo-inline">
+        <span class="campo-label">Plano de saúde</span>
+        <span id="prontuario-paciente-plano" class="campo-valor">—</span>
+      </div>
 
-            <div class="grid-2 mt-md prontuario-atendimento-grid">
-              <div>
-                <div class="campo-inline">
-                  <span class="campo-label">Data da consulta</span>
-                  <span id="info-agenda-data" class="campo-valor">—</span>
-                </div>
-                <div class="campo-inline">
-                  <span class="campo-label">Hora</span>
-                  <span id="info-agenda-hora" class="campo-valor">—</span>
-                </div>
-              </div>
-              <div>
-                <div class="campo-inline">
-                  <span class="campo-label">Status</span>
-                  <span id="info-agenda-status" class="campo-valor">—</span>
-                </div>
-                <div class="campo-inline">
-                  <span class="campo-label">ID Agenda</span>
-                  <span id="info-agenda-id" class="campo-valor">—</span>
-                </div>
-              </div>
-            </div>
+      <div class="campo-inline">
+        <span class="campo-label">Carteirinha</span>
+        <span id="prontuario-paciente-carteirinha" class="campo-valor">—</span>
+      </div>
+    </div>
 
-            <p class="msg-menor mt-sm texto-suave">
-              Quando o prontuário é aberto a partir da <strong>Agenda</strong>, estes dados
-              são preenchidos automaticamente usando o ID_Agenda e o ID_Paciente.
-            </p>
-          </div>
-        </section>
+  </div>
+</section>
+
 
         <section class="prontuario-acoes-clinicas" aria-label="Ações clínicas do prontuário">
           <button type="button" id="btnAcaoNovaEvolucao" class="btn btn-acao-clinica btn-acao-principal">

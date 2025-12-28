@@ -20,6 +20,7 @@
 
   let currentUserName = "Usuário";
 
+  // Chat refs
   let elProntuarioUserLabel = null;
   let elChatMessages = null;
   let elChatStatus = null;
@@ -28,9 +29,11 @@
   let elChatOpenAgenda = null;
   let elChatOpenFull = null;
 
+  // Evolução
   let historicoCompletoCarregado = false;
   let idEvolucaoEmEdicao = null;
 
+  // Receitas
   let receitasCompletoCarregado = false;
 
   // Timeline unificada + paginação
@@ -46,11 +49,11 @@
   };
 
   let tlCacheEvents = [];
-  let tlCursor = null; // cursor retornado pelo backend (para paginação)
-  let tlHasMore = false; // backend indica se há mais
+  let tlCursor = null;
+  let tlHasMore = false;
   let tlLoading = false;
 
-  // Evoluções paginadas (histórico completo)
+  // Evoluções paginadas
   let evoPaging = {
     btnMais: null,
     cursor: null,
@@ -59,7 +62,7 @@
     lista: [],
   };
 
-  // Receitas paginadas (lista completa)
+  // Receitas paginadas
   let recPaging = {
     btnMais: null,
     cursor: null,
@@ -90,7 +93,7 @@
   }
 
   // ============================================================
-  // Contexto / UI
+  // Contexto do Prontuário
   // ============================================================
 
   function getQueryParams() {
@@ -137,7 +140,7 @@
         params.pacienteNome ||
         (ctxStorage && (ctxStorage.nome_paciente || ctxStorage.nome)) ||
         (ctxState && (ctxState.nome || ctxState.nomeCompleto)) ||
-        "Paciente",
+        "—",
       data: params.data || (ctxStorage && ctxStorage.data) || (ctxState && ctxState.data) || "",
       hora:
         params.horario ||
@@ -157,25 +160,9 @@
     };
   }
 
-  function aplicarContextoNaUI(ctx) {
-    const elNome = qs("#prontuario-paciente-nome");
-    const elId = qs("#prontuario-paciente-id");
-    const elData = qs("#info-agenda-data");
-    const elHora = qs("#info-agenda-hora");
-    const elStatus = qs("#info-agenda-status");
-    const elAgendaId = qs("#info-agenda-id");
-    const meta = qs("#topbar-meta-context");
-
-    if (elNome) elNome.textContent = ctx.nome || "Paciente";
-    if (elId) elId.textContent = ctx.idPaciente || "—";
-
-    if (elData) elData.textContent = ctx.data ? String(ctx.data).split("-").reverse().join("/") : "—";
-    if (elHora) elHora.textContent = ctx.hora || "—";
-    if (elStatus) elStatus.textContent = ctx.status || "—";
-    if (elAgendaId) elAgendaId.textContent = ctx.idAgenda || "—";
-
-    if (meta) meta.textContent = ctx.idPaciente ? `Paciente #${ctx.idPaciente}` : "";
-  }
+  // ============================================================
+  // Datas / Formatos
+  // ============================================================
 
   function parseDataHora(raw) {
     if (!raw) return null;
@@ -217,15 +204,16 @@
   function formatTipoReceitaLabel_(raw) {
     const s = String(raw || "").trim();
     if (!s) return "Comum";
-
     const up = s.toUpperCase();
     if (up === "COMUM") return "Comum";
     if (up === "ESPECIAL") return "Especial";
-
     if (s === "Comum" || s === "Especial") return s;
-
     return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
   }
+
+  // ============================================================
+  // User
+  // ============================================================
 
   function loadUserFromLocalStorage() {
     try {
@@ -240,6 +228,67 @@
     }
 
     if (elProntuarioUserLabel) elProntuarioUserLabel.textContent = "Você: " + currentUserName;
+  }
+
+  // ============================================================
+  // ✅ Resumo do paciente (cadastro)
+  // ============================================================
+
+  function setTextOrDash_(selector, value) {
+    const el = qs(selector);
+    if (!el) return;
+    const s = value === null || value === undefined ? "" : String(value).trim();
+    el.textContent = s ? s : "—";
+  }
+
+  async function carregarResumoPaciente_(ctx) {
+    // Nome imediato pelo contexto
+    setTextOrDash_("#prontuario-paciente-nome", ctx.nome || "—");
+
+    if (!ctx.idPaciente) {
+      setTextOrDash_("#prontuario-paciente-idade", "—");
+      setTextOrDash_("#prontuario-paciente-profissao", "—");
+      setTextOrDash_("#prontuario-paciente-plano", "—");
+      setTextOrDash_("#prontuario-paciente-carteirinha", "—");
+      return;
+    }
+
+    try {
+      const data = await callApiDataTry_(
+        [
+          "Prontuario.Paciente.ObterResumo",
+          "Pacientes.ObterPorId",
+          "Pacientes.GetById",
+          "Paciente.ObterPorId",
+        ],
+        { idPaciente: ctx.idPaciente }
+      );
+
+      const pac = data && data.paciente ? data.paciente : data;
+
+      const nome =
+        (pac && (pac.nomeCompleto || pac.nome || pac.Nome || pac.nome_paciente)) ||
+        ctx.nome ||
+        "—";
+
+      const idade = pac && (pac.idade || pac.Idade);
+      const profissao = pac && (pac.profissao || pac.Profissao);
+      const plano =
+        pac && (pac.planoSaude || pac.plano || pac.convenio || pac.Convenio || pac.PlanoSaude);
+      const carteirinha =
+        pac && (pac.carteirinha || pac.numeroCarteirinha || pac.Carteirinha || pac.NumeroCarteirinha);
+
+      setTextOrDash_("#prontuario-paciente-nome", nome);
+      setTextOrDash_("#prontuario-paciente-idade", idade);
+      setTextOrDash_("#prontuario-paciente-profissao", profissao);
+      setTextOrDash_("#prontuario-paciente-plano", plano);
+      setTextOrDash_("#prontuario-paciente-carteirinha", carteirinha);
+    } catch (e) {
+      setTextOrDash_("#prontuario-paciente-idade", "—");
+      setTextOrDash_("#prontuario-paciente-profissao", "—");
+      setTextOrDash_("#prontuario-paciente-plano", "—");
+      setTextOrDash_("#prontuario-paciente-carteirinha", "—");
+    }
   }
 
   // ============================================================
@@ -320,6 +369,36 @@
     tlRender_(list);
   }
 
+  async function abrirPdfReceita(idReceita) {
+    if (!idReceita) {
+      global.alert("ID da receita não encontrado.");
+      return;
+    }
+
+    try {
+      const data = await callApiDataTry_(
+        ["Prontuario.Receita.GerarPDF", "Prontuario.Receita.GerarPdf", "Receita.GerarPDF", "Receita.GerarPdf"],
+        { idReceita }
+      );
+
+      const html = data && data.html ? String(data.html) : "";
+      if (!html) throw new Error("API retornou resposta sem HTML da receita.");
+
+      const win = global.open("", "_blank");
+      if (!win) {
+        global.alert("Não foi possível abrir a janela de impressão (pop-up bloqueado?).");
+        return;
+      }
+
+      win.document.open();
+      win.document.write(html);
+      win.document.close();
+      win.focus();
+    } catch (err) {
+      global.alert("Erro ao abrir o PDF da receita:\n\n" + (err && err.message ? err.message : String(err || "")));
+    }
+  }
+
   function tlRender_(events) {
     if (!tlEls.ul || !tlEls.vazio) return;
 
@@ -344,7 +423,13 @@
       const summary = ev.summary || "";
 
       const typeLabel =
-        ev.type === "EVOLUCAO" ? "Evolução" : ev.type === "RECEITA" ? "Receita" : ev.type === "CHAT" ? "Chat" : "Evento";
+        ev.type === "EVOLUCAO"
+          ? "Evolução"
+          : ev.type === "RECEITA"
+          ? "Receita"
+          : ev.type === "CHAT"
+          ? "Chat"
+          : "Evento";
       const badge = `<span class="badge">${typeLabel}</span>`;
 
       let actionsHtml = "";
@@ -352,12 +437,6 @@
         actionsHtml = `
           <div class="evo-actions">
             <button type="button" class="btn-evo-usar-modelo js-tl-abrir-receita" data-id="${ev.id}">Abrir PDF</button>
-          </div>
-        `;
-      } else if (ev.type === "EVOLUCAO" && ev.id) {
-        actionsHtml = `
-          <div class="evo-actions">
-            <button type="button" class="btn-evo-usar-modelo js-tl-usar-modelo" data-id="${ev.id}">Usar como modelo</button>
           </div>
         `;
       }
@@ -377,20 +456,6 @@
         btnAbrirPdf.addEventListener("click", (e) => {
           e.stopPropagation();
           abrirPdfReceita(btnAbrirPdf.dataset.id || ev.id);
-        });
-      }
-
-      const btnModelo = li.querySelector(".js-tl-usar-modelo");
-      if (btnModelo) {
-        btnModelo.addEventListener("click", (e) => {
-          e.stopPropagation();
-          abrirNovaEvolucao_();
-          const txt = qs("#textoEvolucao");
-          if (txt) {
-            txt.value = (ev.raw && (ev.raw.texto || ev.raw.Texto)) || ev.fullText || summary || "";
-            idEvolucaoEmEdicao = null;
-            txt.focus();
-          }
         });
       }
 
@@ -433,63 +498,6 @@
     tlEls.btnCarregarMais.disabled = !!tlLoading;
   }
 
-  function _normalizeEvolucaoFromTimelineRaw_(raw) {
-    const ev = raw || {};
-    return {
-      idEvolucao: ev.idEvolucao || ev.ID_Evolucao || ev.id || "",
-      autor: ev.autor || ev.profissional || "",
-      origem: ev.origem || "",
-      dataHoraRegistro: ev.dataHoraRegistro || ev.dataHora || ev.data || ev.criadoEm || "",
-      texto: ev.texto || "",
-    };
-  }
-
-  function _normalizeReceitaFromTimelineRaw_(raw) {
-    const rec = raw || {};
-    return {
-      idReceita: rec.idReceita || rec.ID_Receita || rec.id || "",
-      dataHoraCriacao: rec.dataHoraCriacao || rec.dataHora || rec.data || rec.criadoEm || "",
-      dataReceita: rec.dataReceita || rec.DataReceita || "",
-      tipoReceita: rec.tipoReceita || rec.TipoReceita || "",
-      status: rec.status || rec.Status || "",
-      textoMedicamentos: rec.textoMedicamentos || rec.TextoMedicamentos || "",
-      itens: rec.itens || rec.Itens || [],
-      observacoes: rec.observacoes || rec.Observacoes || "",
-    };
-  }
-
-  function updateUltimosCardsFromTimeline_() {
-    const ulEvo = qs("#listaEvolucoesPaciente");
-    const vazioEvo = qs("#listaEvolucoesPacienteVazia");
-    const ulRec = qs("#listaReceitasPaciente");
-    const vazioRec = qs("#listaReceitasPacienteVazia");
-
-    if (!ulEvo || !vazioEvo || !ulRec || !vazioRec) return;
-
-    const evEvent = (tlCacheEvents || []).find((e) => e && e.type === "EVOLUCAO");
-    const recEvent = (tlCacheEvents || []).find((e) => e && e.type === "RECEITA");
-
-    if (evEvent && evEvent.raw) {
-      renderListaEvolucoes([_normalizeEvolucaoFromTimelineRaw_(evEvent.raw)], ulEvo, vazioEvo);
-      historicoCompletoCarregado = false;
-    } else {
-      ulEvo.innerHTML = "";
-      vazioEvo.classList.remove("is-hidden");
-      vazioEvo.textContent = "Nenhuma evolução registrada para este paciente.";
-      historicoCompletoCarregado = false;
-    }
-
-    if (recEvent && recEvent.raw) {
-      renderListaReceitas([_normalizeReceitaFromTimelineRaw_(recEvent.raw)], ulRec, vazioRec);
-      receitasCompletoCarregado = false;
-    } else {
-      ulRec.innerHTML = "";
-      vazioRec.classList.remove("is-hidden");
-      vazioRec.textContent = "Nenhuma receita encontrada para este paciente.";
-      receitasCompletoCarregado = false;
-    }
-  }
-
   async function tlCarregarPagina_(ctx, opts) {
     if (!tlEls.ul || !tlEls.vazio) return;
 
@@ -507,25 +515,8 @@
       if (tlEls.meta) tlEls.meta.textContent = "—";
     }
 
-    const vazioEvo = qs("#listaEvolucoesPacienteVazia");
-    const vazioRec = qs("#listaReceitasPacienteVazia");
-    if (!append) {
-      if (vazioEvo) {
-        vazioEvo.classList.remove("is-hidden");
-        vazioEvo.textContent = "Carregando última evolução clínica...";
-      }
-      if (vazioRec) {
-        vazioRec.classList.remove("is-hidden");
-        vazioRec.textContent = "Carregando última receita...";
-      }
-    }
-
     if (!ctx.idPaciente) {
-      if (!append) {
-        tlEls.vazio.textContent = "Nenhum paciente selecionado.";
-        if (vazioEvo) vazioEvo.textContent = "Nenhum paciente selecionado.";
-        if (vazioRec) vazioRec.textContent = "Nenhum paciente selecionado.";
-      }
+      if (!append) tlEls.vazio.textContent = "Nenhum paciente selecionado.";
       tlCacheEvents = [];
       tlCursor = null;
       tlHasMore = false;
@@ -542,42 +533,24 @@
 
       const events = (data && (data.events || data.eventos)) || [];
       const nextCursor =
-        data && (data.nextCursor || (data.page && data.page.nextCursor)) ? data.nextCursor || data.page.nextCursor : null;
+        data && (data.nextCursor || (data.page && data.page.nextCursor))
+          ? data.nextCursor || data.page.nextCursor
+          : null;
       const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
 
-      if (!append) {
-        tlCacheEvents = Array.isArray(events) ? events : [];
-      } else {
-        tlCacheEvents = _dedupeAppend_(tlCacheEvents, Array.isArray(events) ? events : []);
-      }
+      if (!append) tlCacheEvents = Array.isArray(events) ? events : [];
+      else tlCacheEvents = _dedupeAppend_(tlCacheEvents, Array.isArray(events) ? events : []);
 
       tlCursor = nextCursor || null;
       tlHasMore = hasMore && !!tlCursor;
 
       tlApplyFilterAndRender_();
-      if (!append) updateUltimosCardsFromTimeline_();
     } catch (e) {
       if (!append) {
         tlCacheEvents = [];
         tlEls.vazio.classList.remove("is-hidden");
         tlEls.vazio.textContent = "Erro ao carregar timeline.";
         if (tlEls.meta) tlEls.meta.textContent = "—";
-
-        const ulEvo = qs("#listaEvolucoesPaciente");
-        const vazioEvo2 = qs("#listaEvolucoesPacienteVazia");
-        if (ulEvo) ulEvo.innerHTML = "";
-        if (vazioEvo2) {
-          vazioEvo2.classList.remove("is-hidden");
-          vazioEvo2.textContent = "Erro ao carregar evoluções.";
-        }
-
-        const ulRec = qs("#listaReceitasPaciente");
-        const vazioRec2 = qs("#listaReceitasPacienteVazia");
-        if (ulRec) ulRec.innerHTML = "";
-        if (vazioRec2) {
-          vazioRec2.classList.remove("is-hidden");
-          vazioRec2.textContent = "Erro ao carregar receitas.";
-        }
       }
     } finally {
       tlLoading = false;
@@ -597,170 +570,7 @@
   }
 
   // ============================================================
-  // Chat (card rápido)
-  // ============================================================
-
-  function renderProntuarioChatMessages(messages) {
-    if (!elChatMessages || !elChatStatus) return;
-
-    elChatMessages.innerHTML = "";
-
-    if (!messages || !messages.length) {
-      const empty = document.createElement("p");
-      empty.className = "msg-menor texto-suave";
-      empty.style.margin = "0";
-      empty.textContent = "Nenhuma anotação ainda para este paciente.";
-      elChatMessages.appendChild(empty);
-      elChatStatus.textContent = "0 mensagens";
-      return;
-    }
-
-    messages.forEach((msg) => {
-      const wrapper = document.createElement("div");
-      wrapper.className = "prontuario-chat-message";
-      wrapper.style.padding = "6px 8px";
-      wrapper.style.borderRadius = "8px";
-      wrapper.style.backgroundColor = "var(--bg-soft, #f3f4f6)";
-
-      const meta = document.createElement("div");
-      meta.style.display = "flex";
-      meta.style.justifyContent = "space-between";
-      meta.style.fontSize = "0.75rem";
-      meta.style.color = "#4b5563";
-      meta.style.marginBottom = "2px";
-
-      const senderSpan = document.createElement("span");
-      senderSpan.style.fontWeight = "500";
-      senderSpan.textContent = msg.sender || "Anônimo";
-
-      const timeSpan = document.createElement("span");
-      timeSpan.style.fontVariantNumeric = "tabular-nums";
-      timeSpan.textContent = formatTimeFromISO(msg.timestamp || msg.dataHora || msg.criadoEm || "");
-
-      meta.appendChild(senderSpan);
-      meta.appendChild(timeSpan);
-
-      const textDiv = document.createElement("div");
-      textDiv.style.whiteSpace = "pre-wrap";
-      textDiv.style.wordWrap = "break-word";
-      textDiv.style.color = "#111827";
-      textDiv.textContent = msg.message || msg.texto || "";
-
-      wrapper.appendChild(meta);
-      wrapper.appendChild(textDiv);
-
-      elChatMessages.appendChild(wrapper);
-    });
-
-    elChatStatus.textContent = messages.length === 1 ? "1 mensagem" : `${messages.length} mensagens`;
-    elChatMessages.scrollTop = elChatMessages.scrollHeight;
-  }
-
-  async function carregarChatPaciente(ctx) {
-    if (!elChatMessages || !elChatStatus) return;
-
-    if (!ctx.idPaciente) {
-      elChatMessages.innerHTML = "";
-      const empty = document.createElement("p");
-      empty.className = "msg-menor texto-suave";
-      empty.style.margin = "0";
-      empty.textContent = "Nenhum paciente selecionado para o chat.";
-      elChatMessages.appendChild(empty);
-      elChatStatus.textContent = "Chat indisponível (sem paciente).";
-      return;
-    }
-
-    try {
-      elChatStatus.textContent = "Carregando chat...";
-      elChatMessages.innerHTML = "";
-      const loading = document.createElement("p");
-      loading.className = "msg-menor texto-suave";
-      loading.style.margin = "0";
-      loading.textContent = "Carregando chat do paciente...";
-      elChatMessages.appendChild(loading);
-
-      const data = await callApiDataTry_(
-        ["Prontuario.Chat.ListByPaciente", "chat.listByPaciente", "Chat.ListByPaciente"],
-        { idPaciente: ctx.idPaciente }
-      );
-
-      const messages = (data && (data.messages || data.mensagens)) || (Array.isArray(data) ? data : []) || [];
-
-      renderProntuarioChatMessages(messages);
-
-      if (elChatOpenFull) {
-        try {
-          const base = new URL("chat.html", global.location.origin);
-          base.searchParams.set("pacienteId", ctx.idPaciente);
-          if (ctx.nome) base.searchParams.set("pacienteNome", ctx.nome);
-          if (ctx.idAgenda) base.searchParams.set("agendaId", ctx.idAgenda);
-          elChatOpenFull.href = base.toString();
-        } catch (e) {}
-      }
-
-      if (elChatOpenAgenda) {
-        if (ctx.idAgenda) {
-          try {
-            const baseA = new URL("agenda.html", global.location.origin);
-            baseA.searchParams.set("agendaId", ctx.idAgenda);
-            if (ctx.idPaciente) baseA.searchParams.set("pacienteId", ctx.idPaciente);
-            if (ctx.nome) baseA.searchParams.set("pacienteNome", ctx.nome);
-            if (ctx.data) baseA.searchParams.set("data", ctx.data);
-            if (ctx.hora) baseA.searchParams.set("horario", ctx.hora);
-            elChatOpenAgenda.href = baseA.toString();
-            elChatOpenAgenda.style.display = "inline-flex";
-          } catch (e) {
-            elChatOpenAgenda.style.display = "none";
-          }
-        } else {
-          elChatOpenAgenda.style.display = "none";
-        }
-      }
-    } catch (error) {
-      elChatMessages.innerHTML = "";
-      const errorDiv = document.createElement("p");
-      errorDiv.className = "msg-menor texto-suave";
-      errorDiv.style.margin = "0";
-      errorDiv.textContent = "Erro ao carregar mensagens do chat.";
-      elChatMessages.appendChild(errorDiv);
-      elChatStatus.textContent = "Erro ao carregar chat. Tente novamente mais tarde.";
-    }
-  }
-
-  async function enviarMensagemRapida(ctx) {
-    if (!ctx.idPaciente || !elChatInput || !elChatSend || !elChatStatus) return;
-
-    const text = elChatInput.value ? elChatInput.value.trim() : "";
-    if (!text) return;
-
-    try {
-      elChatSend.disabled = true;
-      elChatStatus.textContent = "Enviando...";
-
-      const data = await callApiDataTry_(
-        ["Prontuario.Chat.SendByPaciente", "chat.sendByPaciente", "Chat.SendByPaciente"],
-        { idPaciente: ctx.idPaciente, sender: currentUserName, message: text }
-      );
-
-      const messages = (data && (data.messages || data.mensagens)) || (Array.isArray(data) ? data : []) || [];
-
-      renderProntuarioChatMessages(messages);
-      elChatInput.value = "";
-      elChatStatus.textContent = "Mensagem enviada.";
-
-      if (PRONTIO && typeof PRONTIO.prontuarioRecarregarTimeline === "function") {
-        PRONTIO.prontuarioRecarregarTimeline();
-      }
-    } catch (error) {
-      global.alert("Erro ao enviar mensagem. Tente novamente.");
-      elChatStatus.textContent = "Erro ao enviar mensagem.";
-    } finally {
-      elChatSend.disabled = false;
-    }
-  }
-
-  // ============================================================
-  // Evoluções paginadas (Histórico completo)
+  // Evoluções (paginadas)
   // ============================================================
 
   function ordenarEvolucoes(lista) {
@@ -900,12 +710,12 @@
 
       const itemsPaged = data && (data.items || data.evolucoes || data.lista);
       let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
-
-      // garante ordenação no front como fallback
       lista = ordenarEvolucoes(lista);
 
       const nextCursor =
-        data && (data.nextCursor || (data.page && data.page.nextCursor)) ? data.nextCursor || data.page.nextCursor : null;
+        data && (data.nextCursor || (data.page && data.page.nextCursor))
+          ? data.nextCursor || data.page.nextCursor
+          : null;
       const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
 
       if (!append) evoPaging.lista = lista.slice();
@@ -929,88 +739,8 @@
   }
 
   // ============================================================
-  // Salvar evolução
+  // Receitas (paginadas) + PDF
   // ============================================================
-
-  function setMensagemEvolucao(obj) {
-    const el = qs("#mensagemEvolucao");
-    if (!el) return;
-    el.classList.remove("is-hidden", "msg-erro", "msg-sucesso");
-    el.textContent = (obj && obj.texto) || "";
-    if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
-    if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
-  }
-
-  async function salvarEvolucao(ctx, ev) {
-    ev.preventDefault();
-
-    const txt = qs("#textoEvolucao");
-    const texto = txt && txt.value ? txt.value.trim() : "";
-    if (!texto) {
-      setMensagemEvolucao({ tipo: "erro", texto: "Digite a evolução." });
-      return;
-    }
-
-    const payload = { idPaciente: ctx.idPaciente, idAgenda: ctx.idAgenda, texto, origem: "PRONTUARIO" };
-    if (idEvolucaoEmEdicao) payload.idEvolucao = idEvolucaoEmEdicao;
-
-    try {
-      await callApiDataTry_(["Prontuario.Evolucao.Salvar", "Evolucao.Salvar"], payload);
-
-      setMensagemEvolucao({
-        tipo: "sucesso",
-        texto: idEvolucaoEmEdicao ? "Evolução atualizada." : "Evolução registrada.",
-      });
-
-      if (txt) txt.value = "";
-      idEvolucaoEmEdicao = null;
-
-      if (PRONTIO && typeof PRONTIO.prontuarioRecarregarTimeline === "function") {
-        PRONTIO.prontuarioRecarregarTimeline();
-      }
-
-      // Se histórico completo estiver aberto, recarrega a primeira página
-      if (historicoCompletoCarregado) {
-        await carregarEvolucoesPaginadas_(ctx, { append: false });
-      }
-    } catch (e) {
-      setMensagemEvolucao({ tipo: "erro", texto: "Erro ao salvar evolução." });
-    }
-  }
-
-  // ============================================================
-  // Receitas paginadas (Lista completa) + abrir PDF
-  // ============================================================
-
-  async function abrirPdfReceita(idReceita) {
-    if (!idReceita) {
-      global.alert("ID da receita não encontrado.");
-      return;
-    }
-
-    try {
-      const data = await callApiDataTry_(
-        ["Prontuario.Receita.GerarPDF", "Prontuario.Receita.GerarPdf", "Receita.GerarPDF", "Receita.GerarPdf"],
-        { idReceita }
-      );
-
-      const html = data && data.html ? String(data.html) : "";
-      if (!html) throw new Error("API retornou resposta sem HTML da receita.");
-
-      const win = global.open("", "_blank");
-      if (!win) {
-        global.alert("Não foi possível abrir a janela de impressão (pop-up bloqueado?).");
-        return;
-      }
-
-      win.document.open();
-      win.document.write(html);
-      win.document.close();
-      win.focus();
-    } catch (err) {
-      global.alert("Erro ao abrir o PDF da receita:\n\n" + (err && err.message ? err.message : String(err || "")));
-    }
-  }
 
   function renderListaReceitas(lista, ul, vazio) {
     ul.innerHTML = "";
@@ -1146,7 +876,6 @@
       const itemsPaged = data && (data.items || data.receitas || data.lista);
       let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
 
-      // fallback: ordena por dataHoraCriacao desc
       lista = (lista || []).slice().sort((a, b) => {
         const da = parseDataHora(a.dataHoraCriacao || a.dataHora || a.data || a.criadoEm) || new Date(0);
         const db = parseDataHora(b.dataHoraCriacao || b.dataHora || b.data || b.criadoEm) || new Date(0);
@@ -1154,7 +883,9 @@
       });
 
       const nextCursor =
-        data && (data.nextCursor || (data.page && data.page.nextCursor)) ? data.nextCursor || data.page.nextCursor : null;
+        data && (data.nextCursor || (data.page && data.page.nextCursor))
+          ? data.nextCursor || data.page.nextCursor
+          : null;
       const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
 
       if (!append) recPaging.lista = lista.slice();
@@ -1178,6 +909,222 @@
   }
 
   // ============================================================
+  // Chat (card rápido)
+  // ============================================================
+
+  function renderProntuarioChatMessages(messages) {
+    if (!elChatMessages || !elChatStatus) return;
+
+    elChatMessages.innerHTML = "";
+
+    if (!messages || !messages.length) {
+      const empty = document.createElement("p");
+      empty.className = "msg-menor texto-suave";
+      empty.style.margin = "0";
+      empty.textContent = "Nenhuma anotação ainda para este paciente.";
+      elChatMessages.appendChild(empty);
+      elChatStatus.textContent = "0 mensagens";
+      return;
+    }
+
+    messages.forEach((msg) => {
+      const wrapper = document.createElement("div");
+      wrapper.className = "prontuario-chat-message";
+      wrapper.style.padding = "6px 8px";
+      wrapper.style.borderRadius = "8px";
+      wrapper.style.backgroundColor = "var(--bg-soft, #f3f4f6)";
+
+      const meta = document.createElement("div");
+      meta.style.display = "flex";
+      meta.style.justifyContent = "space-between";
+      meta.style.fontSize = "0.75rem";
+      meta.style.color = "#4b5563";
+      meta.style.marginBottom = "2px";
+
+      const senderSpan = document.createElement("span");
+      senderSpan.style.fontWeight = "500";
+      senderSpan.textContent = msg.sender || "Anônimo";
+
+      const timeSpan = document.createElement("span");
+      timeSpan.style.fontVariantNumeric = "tabular-nums";
+      timeSpan.textContent = formatTimeFromISO(msg.timestamp || msg.dataHora || msg.criadoEm || "");
+
+      meta.appendChild(senderSpan);
+      meta.appendChild(timeSpan);
+
+      const textDiv = document.createElement("div");
+      textDiv.style.whiteSpace = "pre-wrap";
+      textDiv.style.wordWrap = "break-word";
+      textDiv.style.color = "#111827";
+      textDiv.textContent = msg.message || msg.texto || "";
+
+      wrapper.appendChild(meta);
+      wrapper.appendChild(textDiv);
+
+      elChatMessages.appendChild(wrapper);
+    });
+
+    elChatStatus.textContent = messages.length === 1 ? "1 mensagem" : `${messages.length} mensagens`;
+    elChatMessages.scrollTop = elChatMessages.scrollHeight;
+  }
+
+  async function carregarChatPaciente(ctx) {
+    if (!elChatMessages || !elChatStatus) return;
+
+    if (!ctx.idPaciente) {
+      elChatMessages.innerHTML = "";
+      const empty = document.createElement("p");
+      empty.className = "msg-menor texto-suave";
+      empty.style.margin = "0";
+      empty.textContent = "Nenhum paciente selecionado para o chat.";
+      elChatMessages.appendChild(empty);
+      elChatStatus.textContent = "Chat indisponível (sem paciente).";
+      return;
+    }
+
+    try {
+      elChatStatus.textContent = "Carregando chat...";
+      elChatMessages.innerHTML = "";
+      const loading = document.createElement("p");
+      loading.className = "msg-menor texto-suave";
+      loading.style.margin = "0";
+      loading.textContent = "Carregando chat do paciente...";
+      elChatMessages.appendChild(loading);
+
+      const data = await callApiDataTry_(
+        ["Prontuario.Chat.ListByPaciente", "chat.listByPaciente", "Chat.ListByPaciente"],
+        { idPaciente: ctx.idPaciente }
+      );
+
+      const messages = (data && (data.messages || data.mensagens)) || (Array.isArray(data) ? data : []) || [];
+      renderProntuarioChatMessages(messages);
+
+      if (elChatOpenFull) {
+        try {
+          const base = new URL("chat.html", global.location.origin);
+          base.searchParams.set("pacienteId", ctx.idPaciente);
+          if (ctx.nome) base.searchParams.set("pacienteNome", ctx.nome);
+          if (ctx.idAgenda) base.searchParams.set("agendaId", ctx.idAgenda);
+          elChatOpenFull.href = base.toString();
+        } catch (e) {}
+      }
+
+      if (elChatOpenAgenda) {
+        if (ctx.idAgenda) {
+          try {
+            const baseA = new URL("agenda.html", global.location.origin);
+            baseA.searchParams.set("agendaId", ctx.idAgenda);
+            if (ctx.idPaciente) baseA.searchParams.set("pacienteId", ctx.idPaciente);
+            if (ctx.nome) baseA.searchParams.set("pacienteNome", ctx.nome);
+            if (ctx.data) baseA.searchParams.set("data", ctx.data);
+            if (ctx.hora) baseA.searchParams.set("horario", ctx.hora);
+            elChatOpenAgenda.href = baseA.toString();
+            elChatOpenAgenda.style.display = "inline-flex";
+          } catch (e) {
+            elChatOpenAgenda.style.display = "none";
+          }
+        } else {
+          elChatOpenAgenda.style.display = "none";
+        }
+      }
+    } catch (error) {
+      elChatMessages.innerHTML = "";
+      const errorDiv = document.createElement("p");
+      errorDiv.className = "msg-menor texto-suave";
+      errorDiv.style.margin = "0";
+      errorDiv.textContent = "Erro ao carregar mensagens do chat.";
+      elChatMessages.appendChild(errorDiv);
+      elChatStatus.textContent = "Erro ao carregar chat. Tente novamente mais tarde.";
+    }
+  }
+
+  async function enviarMensagemRapida(ctx) {
+    if (!ctx.idPaciente || !elChatInput || !elChatSend || !elChatStatus) return;
+
+    const text = elChatInput.value ? elChatInput.value.trim() : "";
+    if (!text) return;
+
+    try {
+      elChatSend.disabled = true;
+      elChatStatus.textContent = "Enviando...";
+
+      const data = await callApiDataTry_(
+        ["Prontuario.Chat.SendByPaciente", "chat.sendByPaciente", "Chat.SendByPaciente"],
+        { idPaciente: ctx.idPaciente, sender: currentUserName, message: text }
+      );
+
+      const messages = (data && (data.messages || data.mensagens)) || (Array.isArray(data) ? data : []) || [];
+      renderProntuarioChatMessages(messages);
+      elChatInput.value = "";
+      elChatStatus.textContent = "Mensagem enviada.";
+
+      // Atualiza também a timeline (sem duplicar regra de negócio)
+      if (PRONTIO && typeof PRONTIO.prontuarioRecarregarTimeline === "function") {
+        PRONTIO.prontuarioRecarregarTimeline();
+      }
+    } catch (error) {
+      global.alert("Erro ao enviar mensagem. Tente novamente.");
+      elChatStatus.textContent = "Erro ao enviar mensagem.";
+    } finally {
+      elChatSend.disabled = false;
+    }
+  }
+
+  // ============================================================
+  // Salvar evolução
+  // ============================================================
+
+  function setMensagemEvolucao(obj) {
+    const el = qs("#mensagemEvolucao");
+    if (!el) return;
+    el.classList.remove("is-hidden", "msg-erro", "msg-sucesso");
+    el.textContent = (obj && obj.texto) || "";
+    if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
+    if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
+  }
+
+  async function salvarEvolucao(ctx, ev) {
+    ev.preventDefault();
+
+    const txt = qs("#textoEvolucao");
+    const texto = txt && txt.value ? txt.value.trim() : "";
+    if (!texto) {
+      setMensagemEvolucao({ tipo: "erro", texto: "Digite a evolução." });
+      return;
+    }
+
+    const payload = { idPaciente: ctx.idPaciente, idAgenda: ctx.idAgenda, texto, origem: "PRONTUARIO" };
+    if (idEvolucaoEmEdicao) payload.idEvolucao = idEvolucaoEmEdicao;
+
+    try {
+      await callApiDataTry_(["Prontuario.Evolucao.Salvar", "Evolucao.Salvar"], payload);
+
+      setMensagemEvolucao({
+        tipo: "sucesso",
+        texto: idEvolucaoEmEdicao ? "Evolução atualizada." : "Evolução registrada.",
+      });
+
+      if (txt) txt.value = "";
+      idEvolucaoEmEdicao = null;
+
+      // Atualiza topo (caso cadastro tenha sido alterado fora)
+      carregarResumoPaciente_(ctx);
+
+      // Se histórico completo está aberto, recarrega a primeira página
+      if (historicoCompletoCarregado) {
+        carregarEvolucoesPaginadas_(ctx, { append: false });
+      }
+
+      // Atualiza timeline
+      if (PRONTIO && typeof PRONTIO.prontuarioRecarregarTimeline === "function") {
+        PRONTIO.prontuarioRecarregarTimeline();
+      }
+    } catch (e) {
+      setMensagemEvolucao({ tipo: "erro", texto: "Erro ao salvar evolução." });
+    }
+  }
+
+  // ============================================================
   // Init
   // ============================================================
 
@@ -1185,9 +1132,10 @@
     const ctx = carregarContextoProntuario();
     PRONTIO.prontuarioContexto = ctx;
 
-    aplicarContextoNaUI(ctx);
+    // ✅ Preenche topo com dados do cadastro do paciente
+    carregarResumoPaciente_(ctx);
 
-    // Timeline (paginação)
+    // Timeline
     tlEls.vazio = qs("#tlVazio");
     tlEls.ul = qs("#tlLista");
     tlEls.meta = qs("#tlMeta");
@@ -1207,17 +1155,6 @@
       const contexto = PRONTIO.prontuarioContexto || ctx;
       return tlRecarregar_(contexto);
     };
-
-    // Chat
-    elProntuarioUserLabel = document.getElementById("prontuario-current-user-label");
-    elChatMessages = qs("#prontuario-chat-messages");
-    elChatStatus = qs("#prontuario-chat-status");
-    elChatInput = qs("#prontuario-chat-input");
-    elChatSend = qs("#prontuario-chat-send");
-    elChatOpenAgenda = qs("#prontuario-open-agenda");
-    elChatOpenFull = qs("#prontuario-open-full-chat");
-
-    loadUserFromLocalStorage();
 
     // Botões de ações clínicas
     const btnNovaEvo = qs("#btnAcaoNovaEvolucao");
@@ -1247,12 +1184,11 @@
         carregarEvolucoesPaginadas_(ctx, { append: false });
       });
     }
-
     if (evoPaging.btnMais) {
       evoPaging.btnMais.addEventListener("click", () => carregarEvolucoesPaginadas_(ctx, { append: true }));
     }
 
-    // Receitas paginadas (lista completa)
+    // Receitas paginadas
     recPaging.btnMais = qs("#btnCarregarMaisReceitas");
     _setBtnMais_(recPaging.btnMais, false, false);
 
@@ -1263,26 +1199,21 @@
         carregarReceitasPaginadas_(ctx, { append: false });
       });
     }
-
     if (recPaging.btnMais) {
       recPaging.btnMais.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: true }));
     }
 
-    // Mantém compat: recarregar receitas quando necessário
-    PRONTIO.recarregarReceitasPaciente = function (opcoes) {
-      const contexto = PRONTIO.prontuarioContexto || ctx;
-      if (!contexto || !contexto.idPaciente) return;
+    // Chat refs
+    elProntuarioUserLabel = document.getElementById("prontuario-current-user-label");
+    elChatMessages = qs("#prontuario-chat-messages");
+    elChatStatus = qs("#prontuario-chat-status");
+    elChatInput = qs("#prontuario-chat-input");
+    elChatSend = qs("#prontuario-chat-send");
+    elChatOpenAgenda = qs("#prontuario-open-agenda");
+    elChatOpenFull = qs("#prontuario-open-full-chat");
 
-      const forceAll = opcoes && opcoes.apenasUltima === false;
-      if (forceAll || receitasCompletoCarregado) {
-        carregarReceitasPaginadas_(contexto, { append: false });
-      }
-    };
+    loadUserFromLocalStorage();
 
-    // Carregamento inicial (timeline continua sendo a fonte dos “últimos”)
-    tlRecarregar_(ctx);
-
-    // Chat
     if (elChatSend) elChatSend.addEventListener("click", () => enviarMensagemRapida(ctx));
     if (elChatInput) {
       elChatInput.addEventListener("keydown", (event) => {
@@ -1292,6 +1223,9 @@
         }
       });
     }
+
+    // Carregamentos iniciais
+    tlRecarregar_(ctx);
     carregarChatPaciente(ctx);
   }
 

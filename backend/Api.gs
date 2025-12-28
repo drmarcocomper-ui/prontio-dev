@@ -21,6 +21,10 @@
  * ✅ UPDATE (retrocompatível - AGENDA):
  * - PRONTIO_routeAction_ agora também roteia actions de Agenda_* para handleAgendaAction,
  *   igual já fazia para Pacientes_*.
+ *
+ * ✅ UPDATE (retrocompatível - PRONTUÁRIO):
+ * - PRONTIO_routeAction_ agora também roteia actions de Prontuario.* para handleProntuarioAction,
+ *   garantindo funcionamento mesmo sem Registry.
  */
 
 var PRONTIO_API_VERSION = typeof PRONTIO_API_VERSION !== "undefined" ? PRONTIO_API_VERSION : "1.0.0-DEV";
@@ -251,20 +255,9 @@ function doPost(e) {
 // Legacy routing helpers
 // ======================
 
-/**
- * Tenta rotear actions que não estão no Registry, sem quebrar instalações antigas.
- * Ordem:
- * 1) routeAction_ (se existir em algum arquivo do projeto)
- * 2) PRONTIO_routeAction_ (router padrão deste Api.gs)
- *
- * Retorna:
- * - data (qualquer valor) se roteou com sucesso
- * - null se não existe roteador legado
- */
 function _tryLegacyRoute_(action, payload, ctx) {
   try {
     if (typeof routeAction_ === "function") {
-      // Alguns legados aceitam (action,payload) apenas; outros aceitam (action,payload,ctx)
       try { return routeAction_(action, payload, ctx); } catch (_) { return routeAction_(action, payload); }
     }
   } catch (_) { }
@@ -279,15 +272,22 @@ function _tryLegacyRoute_(action, payload, ctx) {
 }
 
 /**
- * Router legado padrão (não conflita com routeAction_ se você já tiver outro).
- * ✅ Aqui incluímos suporte direto para:
- * - Pacientes_* via handlePacientesAction (Pacientes.gs)
- * - Agenda_* via handleAgendaAction (Agenda.gs)
- *
- * Mantém o máximo de retrocompatibilidade.
+ * Router legado padrão.
+ * ✅ Suporte direto para:
+ * - Pacientes_* via handlePacientesAction
+ * - Agenda_* via handleAgendaAction
+ * - ✅ Prontuario.* via handleProntuarioAction
  */
 function PRONTIO_routeAction_(action, payload, ctx) {
   var a = String(action || "");
+
+  // ✅ Prontuário (fachada)
+  if (a.indexOf("Prontuario.") === 0 || a.indexOf("Prontuario_") === 0) {
+    if (typeof handleProntuarioAction !== "function") {
+      _apiThrow_("INTERNAL_ERROR", "handleProntuarioAction não está disponível (Prontuario.gs não carregado?).", { action: action });
+    }
+    return handleProntuarioAction(action, payload);
+  }
 
   // Pacientes (novo/antigo)
   if (a.indexOf("Pacientes") === 0) {
@@ -297,17 +297,13 @@ function PRONTIO_routeAction_(action, payload, ctx) {
     return handlePacientesAction(action, payload);
   }
 
-  // ✅ Agenda (novo/antigo)
-  // Aceita "Agenda_" e também "Agenda" (caso algum legado use sem underscore)
+  // Agenda (novo/antigo)
   if (a.indexOf("Agenda_") === 0 || a.indexOf("Agenda") === 0) {
     if (typeof handleAgendaAction !== "function") {
       _apiThrow_("INTERNAL_ERROR", "handleAgendaAction não está disponível (Agenda.gs não carregado?).", { action: action });
     }
     return handleAgendaAction(action, payload);
   }
-
-  // Se quiser, adicione outros módulos legados aqui:
-  // if (a.indexOf("Evolucao_") === 0) return handleEvolucaoAction(action, payload);
 
   _apiThrow_("NOT_FOUND", "Action não registrada (Registry) e não suportada no legado.", { action: action });
 }
@@ -326,7 +322,6 @@ function _respondMaybeJsonp_(e, obj) {
 }
 
 function _jsonpOutput_(callbackName, obj) {
-  // Permite callbacks com "." e "$" (padrão JSONP), remove o resto.
   var cb = String(callbackName || "").replace(/[^\w.$]/g, "");
   if (!cb) cb = "__cb";
   var js = cb + "(" + JSON.stringify(obj) + ");";
@@ -338,7 +333,7 @@ function _jsonpOutput_(callbackName, obj) {
 }
 
 // ======================
-// Parsing + Response helpers (mantidos + pequenos reforços)
+// Parsing + Response helpers
 // ======================
 
 function _makeRequestId_() {
@@ -436,7 +431,6 @@ function _withCors_(textOutput) {
     textOutput.setHeader("Access-Control-Allow-Methods", CORS_ALLOW_METHODS);
     textOutput.setHeader("Access-Control-Allow-Headers", CORS_ALLOW_HEADERS);
 
-    // Anti-cache (importante para JSONP/GET em alguns cenários)
     textOutput.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
     textOutput.setHeader("Pragma", "no-cache");
     textOutput.setHeader("Expires", "0");
