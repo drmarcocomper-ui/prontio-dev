@@ -15,6 +15,9 @@
   function qs(sel) {
     return document.querySelector(sel);
   }
+  function qsa(sel) {
+    return Array.from(document.querySelectorAll(sel));
+  }
 
   // Estado
   let idEvolucaoEmEdicao = null;
@@ -38,6 +41,11 @@
     loading: false,
     lista: [],
   };
+
+  // Receita panel (UI-only)
+  let receitaPanel = null;
+  let receitaPanelAside = null;
+  let receitaPanelLastFocus = null;
 
   // ============================================================
   // Helpers de API
@@ -177,7 +185,7 @@
         { idPaciente: ctx.idPaciente }
       );
 
-      const pac = (data && data.paciente) ? data.paciente : (data && data.paciente ? data.paciente : data);
+      const pac = (data && data.paciente) ? data.paciente : data;
 
       const nome = (pac && (pac.nomeCompleto || pac.nomeExibicao || pac.nome || pac.Nome)) || ctx.nome || "—";
       const idade = pac && (pac.idade || pac.Idade);
@@ -199,6 +207,102 @@
   }
 
   // ============================================================
+  // ✅ Painel lateral de Receita (abre no prontuário, não navega)
+  // ============================================================
+
+  function _trapFocusInPanel_(panelAside, e) {
+    if (!panelAside) return;
+    if (e.key !== "Tab") return;
+
+    const focusables = panelAside.querySelectorAll(
+      'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    );
+    const list = Array.from(focusables).filter((el) => el.offsetParent !== null);
+    if (!list.length) return;
+
+    const first = list[0];
+    const last = list[list.length - 1];
+
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  function fecharReceitaPanel_() {
+    if (!receitaPanel) return;
+
+    receitaPanel.setAttribute("aria-hidden", "true");
+    receitaPanel.style.display = "none";
+
+    // restaura foco
+    try {
+      if (receitaPanelLastFocus && typeof receitaPanelLastFocus.focus === "function") {
+        receitaPanelLastFocus.focus();
+      }
+    } catch (_) {}
+
+    receitaPanelLastFocus = null;
+  }
+
+  function abrirReceitaPanel_() {
+    receitaPanel = receitaPanel || qs("#receitaPanel");
+    if (!receitaPanel) {
+      global.alert("Painel de receita não encontrado no HTML (#receitaPanel).");
+      return;
+    }
+
+    receitaPanelAside = receitaPanelAside || receitaPanel.querySelector(".slide-panel");
+    receitaPanelLastFocus = document.activeElement;
+
+    receitaPanel.style.display = "";
+    receitaPanel.setAttribute("aria-hidden", "false");
+
+    // foca no primeiro campo útil (data) ou no primeiro input
+    const focusTarget =
+      qs("#receitaData") ||
+      (receitaPanelAside ? receitaPanelAside.querySelector("input, textarea, button") : null);
+
+    if (focusTarget && typeof focusTarget.focus === "function") {
+      setTimeout(() => focusTarget.focus(), 0);
+    }
+  }
+
+  function setupReceitaPanelEvents_() {
+    receitaPanel = qs("#receitaPanel");
+    if (!receitaPanel) return;
+
+    receitaPanelAside = receitaPanel.querySelector(".slide-panel");
+
+    // fechar por botões data-close-receita
+    qsa('[data-close-receita]').forEach((btn) => {
+      btn.addEventListener("click", () => fecharReceitaPanel_());
+    });
+
+    // fechar clicando no backdrop (fora do aside)
+    receitaPanel.addEventListener("click", (ev) => {
+      if (!receitaPanelAside) return;
+      if (ev.target === receitaPanel) fecharReceitaPanel_();
+    });
+
+    // ESC + focus trap
+    document.addEventListener("keydown", (ev) => {
+      if (!receitaPanel || receitaPanel.style.display === "none") return;
+
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        fecharReceitaPanel_();
+        return;
+      }
+
+      _trapFocusInPanel_(receitaPanelAside, ev);
+    });
+  }
+
+  // ============================================================
   // Ações clínicas
   // ============================================================
 
@@ -210,20 +314,25 @@
     if (txt) txt.focus();
   }
 
-  function abrirPainelReceita_(ctx) {
+  function abrirReceitaNoPainel_(ctx) {
+    // Se existir um controlador oficial (page-receita.js), usa ele:
     if (typeof PRONTIO.abrirReceitaPanel === "function") {
       PRONTIO.abrirReceitaPanel();
       return;
     }
 
-    try {
-      const base = new URL("receita.html", global.location.origin);
-      if (ctx.idPaciente) base.searchParams.set("pacienteId", ctx.idPaciente);
-      if (ctx.nome) base.searchParams.set("pacienteNome", ctx.nome);
-      if (ctx.idAgenda) base.searchParams.set("agendaId", ctx.idAgenda);
-      global.location.href = base.toString();
-    } catch (e) {
-      global.alert("Não foi possível abrir a receita.");
+    // Caso contrário, abre o painel do próprio HTML do prontuário
+    // (UI apenas; regras de negócio continuam no backend)
+    abrirReceitaPanel_();
+
+    // Opcional: pré-preencher data com hoje se estiver vazio
+    const inputData = qs("#receitaData");
+    if (inputData && !inputData.value) {
+      const d = new Date();
+      const yyyy = String(d.getFullYear()).padStart(4, "0");
+      const mm = String(d.getMonth() + 1).padStart(2, "0");
+      const dd = String(d.getDate()).padStart(2, "0");
+      inputData.value = `${yyyy}-${mm}-${dd}`;
     }
   }
 
@@ -458,7 +567,6 @@
       if (txt) txt.value = "";
       idEvolucaoEmEdicao = null;
 
-      // Recarrega topo e lista, se necessário
       carregarResumoPaciente_(ctx);
       if (historicoCompletoCarregado) carregarEvolucoesPaginadas_(ctx, { append: false });
     } catch (e) {
@@ -577,13 +685,11 @@
       if (btnModelo) {
         btnModelo.addEventListener("click", (ev) => {
           ev.stopPropagation();
+          // Se houver controlador de receita, ele deve preencher o form.
           if (typeof PRONTIO.carregarItensReceitaNoForm === "function") {
             PRONTIO.carregarItensReceitaNoForm(itens, observacoes);
-          } else if (typeof PRONTIO.abrirReceitaPanel === "function") {
-            PRONTIO.abrirReceitaPanel();
-          } else {
-            global.alert("Painel de receita não disponível (page-receita.js não carregado?).");
           }
+          abrirReceitaPanel_();
         });
       }
 
@@ -676,12 +782,15 @@
     // Topo do paciente
     carregarResumoPaciente_(ctx);
 
+    // Setup painel receita
+    setupReceitaPanelEvents_();
+
     // Botões de ações clínicas
     const btnNovaEvo = qs("#btnAcaoNovaEvolucao");
     if (btnNovaEvo) btnNovaEvo.addEventListener("click", abrirNovaEvolucao_);
 
     const btnReceita = qs("#btnAcaoReceita");
-    if (btnReceita) btnReceita.addEventListener("click", () => abrirPainelReceita_(ctx));
+    if (btnReceita) btnReceita.addEventListener("click", () => abrirReceitaNoPainel_(ctx));
 
     const btnExames = qs("#btnAcaoExames");
     if (btnExames) btnExames.addEventListener("click", () => abrirExames_(ctx));
@@ -722,10 +831,6 @@
     if (recPaging.btnMais) {
       recPaging.btnMais.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: true }));
     }
-
-    // Carregamento inicial: mantém leve (últimos itens via primeira página)
-    // Evoluções e receitas só carregam quando usuário pedir "completo".
-    // (Se você quiser carregar a última evolução/receita automaticamente, dá para adicionar aqui.)
   }
 
   if (PRONTIO.registerPage) {
