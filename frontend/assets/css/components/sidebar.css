@@ -103,8 +103,6 @@ body.sidebar-compact .sidebar {
 
 /* =====================================
    ATIVO
-   - compat: .is-active / [data-active="true"]
-   - padrão do ui/sidebar.js: .active
 ===================================== */
 .sidebar-nav .nav-link.is-active,
 .sidebar-nav .nav-link[data-active="true"],
@@ -236,14 +234,16 @@ body.sidebar-compact .nav-badge {
 }
 
 /* =====================================
-   MOBILE (sidebar como slide)
+   MOBILE (sidebar como drawer)
    ✅ alinhado com o JS: max-width 900px
+   ✅ z-index ajustado para ficar acima do conteúdo e abaixo do topbar quando necessário
 ===================================== */
 @media (max-width: 900px) {
   .sidebar {
     left: -260px;
     position: fixed;
     transition: left 0.3s ease;
+    z-index: 9999;
   }
 
   body.sidebar-open .sidebar {
@@ -255,11 +255,11 @@ body.sidebar-compact .nav-badge {
     inset: 0;
     background: rgba(0,0,0,0.45);
     display: none;
+    z-index: 9998;
   }
 
   body.sidebar-open .sidebar-backdrop {
     display: block;
-    z-index: 15;
   }
 }
 
