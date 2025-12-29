@@ -1,14 +1,28 @@
 /**
- * PRONTIO - Receita (painel lateral no prontuário)
+ * PRONTIO - Receita (página receita.html)
  *
- * Melhorias (sem quebrar o que já funciona):
- * - Sugestões mais legíveis (nome + detalhes)
+ * ✅ PROFISSIONAL:
+ * - Este script roda SOMENTE em body[data-page-id="receita"]
+ *   (evita competir com o painel do Prontuário).
+ *
+ * Features:
+ * - Sugestões legíveis (nome + detalhes)
  * - Navegação por teclado (↑ ↓ Enter Esc)
  * - Debounce leve
  * - Fecha sugestões ao clicar fora
+ * - Submit: rascunho/final + impressão via PDF
  */
 
 (function (global, document) {
+  // ✅ Guard: não inicializa fora da página Receita
+  try {
+    const body = document && document.body;
+    const pageId = body && body.dataset ? String(body.dataset.pageId || "") : "";
+    if (pageId !== "receita") return;
+  } catch (_) {
+    return;
+  }
+
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
   const callApiData =
     (PRONTIO.api && PRONTIO.api.callApiData) ||
@@ -19,6 +33,10 @@
 
   function qs(sel) { return document.querySelector(sel); }
   function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
+
+  // ============================================================
+  // Estado do formulário
+  // ============================================================
 
   let itens = [];
   let nextItemId = 1;
@@ -33,6 +51,50 @@
   let activeListEl = null;
   let activeInputEl = null;
   let activeIndex = -1;
+
+  // ============================================================
+  // Contexto (página Receita pode ser acessada direto)
+  // ============================================================
+
+  function getQueryParams_() {
+    const params = new URLSearchParams(global.location.search || "");
+    const obj = {};
+    params.forEach((v, k) => (obj[k] = v));
+    return obj;
+  }
+
+  function getContextoPaciente_() {
+    const params = getQueryParams_();
+    let ctxStorage = null;
+
+    try {
+      const raw = global.localStorage.getItem("prontio.prontuarioContexto");
+      if (raw) ctxStorage = JSON.parse(raw);
+    } catch (_) {}
+
+    const idPaciente =
+      params.idPaciente ||
+      params.pacienteId ||
+      (ctxStorage && (ctxStorage.ID_Paciente || ctxStorage.idPaciente)) ||
+      (PRONTIO.prontuarioContexto && (PRONTIO.prontuarioContexto.idPaciente || PRONTIO.prontuarioContexto.ID_Paciente)) ||
+      "";
+
+    const idAgenda =
+      params.idAgenda ||
+      params.agendaId ||
+      (ctxStorage && (ctxStorage.ID_Agenda || ctxStorage.idAgenda)) ||
+      (PRONTIO.prontuarioContexto && (PRONTIO.prontuarioContexto.idAgenda || PRONTIO.prontuarioContexto.ID_Agenda)) ||
+      "";
+
+    return {
+      idPaciente: String(idPaciente || "").trim(),
+      idAgenda: String(idAgenda || "").trim()
+    };
+  }
+
+  // ============================================================
+  // Helpers de medicamento (normalização)
+  // ============================================================
 
   function getNome_(r) {
     return String(
@@ -69,6 +131,10 @@
     return parts.join(" • ");
   }
 
+  // ============================================================
+  // Catálogo (aba Medicamentos via API)
+  // ============================================================
+
   async function carregarCatalogo_() {
     if (catalogoCarregado) return catalogo;
 
@@ -85,6 +151,10 @@
     catalogoCarregado = true;
     return catalogo;
   }
+
+  // ============================================================
+  // Itens
+  // ============================================================
 
   function novoItem() {
     return {
@@ -118,85 +188,15 @@
     if (it) it[campo] = valor;
   }
 
+  // ============================================================
+  // Sugestões / teclado
+  // ============================================================
+
   function closeSugestoes_() {
     qsa("#receitaItensContainer .receita-item-sugestoes").forEach((c) => (c.innerHTML = ""));
     activeListEl = null;
     activeInputEl = null;
     activeIndex = -1;
-  }
-
-  function renderItens() {
-    const container = qs("#receitaItensContainer");
-    if (!container) return;
-
-    garantirItem();
-    container.innerHTML = "";
-
-    itens.forEach((item) => {
-      const el = document.createElement("div");
-      el.className = "receita-item-bloco";
-
-      el.innerHTML = `
-        <div class="receita-item-header">
-          <span class="texto-menor texto-suave">Remédio</span>
-          <button type="button" class="btn btn-xs btn-link js-remover">Remover</button>
-        </div>
-
-        <div class="receita-item-grid">
-          <input class="js-rem" placeholder="Remédio" value="${escapeHtml(item.remedio)}">
-          <input class="js-pos" placeholder="Posologia" value="${escapeHtml(item.posologia)}">
-          <input class="js-via" placeholder="Via" value="${escapeHtml(item.via)}">
-          <input class="js-qtd" placeholder="Quantidade" value="${escapeHtml(item.quantidade)}">
-          <input class="js-obs" placeholder="Observação" value="${escapeHtml(item.observacao)}">
-        </div>
-
-        <div class="receita-item-sugestoes texto-menor"></div>
-      `;
-
-      const sug = el.querySelector(".receita-item-sugestoes");
-      const inp = el.querySelector(".js-rem");
-
-      inp.addEventListener("input", (e) => {
-        atualizarItem(item.id, "remedio", e.target.value);
-        atualizarItem(item.id, "idRemedio", "");
-
-        // debounce leve
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-          mostrarSugestoes_(e.target.value, sug, item, inp);
-        }, 120);
-      });
-
-      inp.addEventListener("keydown", (e) => {
-        if (!activeListEl) return;
-
-        const buttons = Array.from(activeListEl.querySelectorAll("button"));
-        if (!buttons.length) return;
-
-        if (e.key === "ArrowDown") {
-          e.preventDefault();
-          activeIndex = Math.min(activeIndex + 1, buttons.length - 1);
-          buttons[activeIndex].focus();
-        } else if (e.key === "ArrowUp") {
-          e.preventDefault();
-          activeIndex = Math.max(activeIndex - 1, 0);
-          buttons[activeIndex].focus();
-        } else if (e.key === "Escape") {
-          e.preventDefault();
-          closeSugestoes_();
-          inp.blur();
-        }
-      });
-
-      el.querySelector(".js-pos").addEventListener("input", (e) => atualizarItem(item.id, "posologia", e.target.value));
-      el.querySelector(".js-via").addEventListener("input", (e) => atualizarItem(item.id, "via", e.target.value));
-      el.querySelector(".js-qtd").addEventListener("input", (e) => atualizarItem(item.id, "quantidade", e.target.value));
-      el.querySelector(".js-obs").addEventListener("input", (e) => atualizarItem(item.id, "observacao", e.target.value));
-
-      el.querySelector(".js-remover").addEventListener("click", () => removerItem(item.id));
-
-      container.appendChild(el);
-    });
   }
 
   function highlight_(text, term) {
@@ -249,7 +249,6 @@
         atualizarItem(item.id, "idRemedio", id);
         atualizarItem(item.id, "remedio", nome);
 
-        // autopreencher se existir
         atualizarItem(item.id, "via", getVia_(r));
         atualizarItem(item.id, "quantidade", getQtd_(r));
 
@@ -267,6 +266,87 @@
     activeIndex = -1;
   }
 
+  // ============================================================
+  // Render
+  // ============================================================
+
+  function renderItens() {
+    const container = qs("#receitaItensContainer");
+    if (!container) return;
+
+    garantirItem();
+    container.innerHTML = "";
+
+    itens.forEach((item) => {
+      const el = document.createElement("div");
+      el.className = "receita-item-bloco";
+
+      el.innerHTML = `
+        <div class="receita-item-header">
+          <span class="texto-menor texto-suave">Remédio</span>
+          <button type="button" class="btn btn-xs btn-link js-remover">Remover</button>
+        </div>
+
+        <div class="receita-item-grid">
+          <input class="js-rem" placeholder="Remédio" value="${escapeHtml(item.remedio)}">
+          <input class="js-pos" placeholder="Posologia" value="${escapeHtml(item.posologia)}">
+          <input class="js-via" placeholder="Via" value="${escapeHtml(item.via)}">
+          <input class="js-qtd" placeholder="Quantidade" value="${escapeHtml(item.quantidade)}">
+          <input class="js-obs" placeholder="Observação" value="${escapeHtml(item.observacao)}">
+        </div>
+
+        <div class="receita-item-sugestoes texto-menor"></div>
+      `;
+
+      const sug = el.querySelector(".receita-item-sugestoes");
+      const inp = el.querySelector(".js-rem");
+
+      inp.addEventListener("input", (e) => {
+        atualizarItem(item.id, "remedio", e.target.value);
+        atualizarItem(item.id, "idRemedio", "");
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          mostrarSugestoes_(e.target.value, sug, item, inp);
+        }, 120);
+      });
+
+      inp.addEventListener("keydown", (e) => {
+        if (!activeListEl) return;
+
+        const buttons = Array.from(activeListEl.querySelectorAll("button"));
+        if (!buttons.length) return;
+
+        if (e.key === "ArrowDown") {
+          e.preventDefault();
+          activeIndex = Math.min(activeIndex + 1, buttons.length - 1);
+          buttons[activeIndex].focus();
+        } else if (e.key === "ArrowUp") {
+          e.preventDefault();
+          activeIndex = Math.max(activeIndex - 1, 0);
+          buttons[activeIndex].focus();
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          closeSugestoes_();
+          inp.blur();
+        }
+      });
+
+      el.querySelector(".js-pos").addEventListener("input", (e) => atualizarItem(item.id, "posologia", e.target.value));
+      el.querySelector(".js-via").addEventListener("input", (e) => atualizarItem(item.id, "via", e.target.value));
+      el.querySelector(".js-qtd").addEventListener("input", (e) => atualizarItem(item.id, "quantidade", e.target.value));
+      el.querySelector(".js-obs").addEventListener("input", (e) => atualizarItem(item.id, "observacao", e.target.value));
+
+      el.querySelector(".js-remover").addEventListener("click", () => removerItem(item.id));
+
+      container.appendChild(el);
+    });
+  }
+
+  // ============================================================
+  // Submit
+  // ============================================================
+
   function itensParaPayload_() {
     return itens
       .filter((i) => (i.remedio && i.remedio.trim()) || (i.posologia && i.posologia.trim()))
@@ -283,13 +363,13 @@
   async function onSubmit_(ev) {
     ev.preventDefault();
 
-    const ctx = PRONTIO.prontuarioContexto || {};
-    const idPaciente = String(ctx.ID_Paciente || ctx.idPaciente || "").trim();
+    const ctxPaciente = getContextoPaciente_();
+    const idPaciente = ctxPaciente.idPaciente;
     if (!idPaciente) return alert("Paciente não identificado.");
 
     const payload = {
       idPaciente,
-      idAgenda: String(ctx.ID_Agenda || ctx.idAgenda || "").trim(),
+      idAgenda: ctxPaciente.idAgenda,
       dataReceita: qs("#receitaData")?.value || "",
       observacoes: qs("#receitaObservacoes")?.value || "",
       itens: itensParaPayload_(),
@@ -323,45 +403,17 @@
     itens = [novoItem()];
     renderItens();
     closeSugestoes_();
-
-    if (typeof PRONTIO.recarregarReceitasPaciente === "function") {
-      PRONTIO.recarregarReceitasPaciente({ apenasUltima: true });
-    }
-
-    if (typeof PRONTIO.fecharReceitaPanel === "function") {
-      PRONTIO.fecharReceitaPanel();
-    }
   }
 
-  function abrirPainel_() {
-    const panel = qs("#receitaPanel");
-    if (!panel) return;
-
-    panel.style.display = "flex";
-    panel.classList.add("is-open");
-    panel.setAttribute("aria-hidden", "false");
-
-    const data = qs("#receitaData");
-    if (data && !data.value) data.value = new Date().toISOString().slice(0, 10);
-
-    carregarCatalogo_().catch(() => {});
-  }
-
-  function fecharPainel_() {
-    const panel = qs("#receitaPanel");
-    if (!panel) return;
-
-    closeSugestoes_();
-    panel.classList.remove("is-open");
-    panel.style.display = "none";
-    panel.setAttribute("aria-hidden", "true");
-  }
+  // ============================================================
+  // Init
+  // ============================================================
 
   function init() {
-    const form = qs("#formReceitaProntuario");
-    const panel = qs("#receitaPanel");
-    const btnAbrir = qs("#btnAcaoReceita");
-    if (!form || !panel || !btnAbrir) return;
+    // Página receita pode ter form id="formReceita" ou reutilizar id="formReceitaProntuario"
+    const form = qs("#formReceita") || qs("#formReceitaProntuario");
+    const container = qs("#receitaItensContainer");
+    if (!form || !container) return;
 
     // fecha sugestões ao clicar fora
     document.addEventListener("click", (e) => {
@@ -370,22 +422,15 @@
       if (!clickedInside) closeSugestoes_();
     });
 
-    btnAbrir.addEventListener("click", abrirPainel_);
-
-    qsa("#receitaPanel [data-close-receita]").forEach((b) => {
-      b.addEventListener("click", (ev) => { ev.preventDefault(); fecharPainel_(); });
-    });
-
-    panel.addEventListener("click", (ev) => {
-      if (ev.target === panel) fecharPainel_();
-    });
-
     qs("#btnAdicionarMedicamento")?.addEventListener("click", adicionarItem);
     form.addEventListener("submit", onSubmit_);
 
-    PRONTIO.abrirReceitaPanel = abrirPainel_;
-    PRONTIO.fecharReceitaPanel = fecharPainel_;
+    // data default
+    const data = qs("#receitaData");
+    if (data && !data.value) data.value = new Date().toISOString().slice(0, 10);
 
+    // carrega catálogo e renderiza 1 item
+    carregarCatalogo_().catch(() => {});
     itens = [novoItem()];
     renderItens();
   }

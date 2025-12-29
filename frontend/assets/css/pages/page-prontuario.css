@@ -1,10 +1,9 @@
 /* ========================================= 
    PRONTIO - CSS específico do Prontuário
-   Escopo: somenta na página data-page-id="prontuario"
+   Escopo: somente na página data-page-id="prontuario"
 ========================================= */
 
 /* Layout centralizado do conteúdo */
-
 body[data-page-id="prontuario"] .content-prontuario {
   max-width: 1100px;
   margin: 0 auto 3rem;
@@ -55,7 +54,18 @@ body[data-page-id="prontuario"] .card-body-compact {
   padding-top: 0.6rem;
 }
 
-/* Cabeçalho do paciente */
+body[data-page-id="prontuario"] .campo-valor {
+  font-weight: 500;
+  color: var(--cor-texto-principal, #111827);
+}
+
+body[data-page-id="prontuario"] .texto-suave {
+  color: var(--cor-texto-suave, #6b7280);
+}
+
+/* =========================================
+   CABEÇALHO DO PACIENTE (RESUMO)
+========================================= */
 
 body[data-page-id="prontuario"] .card-paciente .prontuario-paciente-header {
   display: flex;
@@ -64,43 +74,21 @@ body[data-page-id="prontuario"] .card-paciente .prontuario-paciente-header {
   gap: 1.5rem;
 }
 
-body[data-page-id="prontuario"] .paciente-nome-linha .label {
-  font-size: 0.8rem;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--cor-texto-secundario, #4b5563);
-  margin-right: 0.5rem;
-}
-
 body[data-page-id="prontuario"] .paciente-nome {
   font-size: 1.18rem;
   font-weight: 600;
   color: var(--cor-texto-principal, #111827);
 }
 
-body[data-page-id="prontuario"] .paciente-id-linha {
-  margin-top: 0.25rem;
-  color: var(--cor-texto-secundario, #4b5563);
+/* 4 blocos: Idade / Profissão / Plano / Carteirinha */
+body[data-page-id="prontuario"] .prontuario-paciente-metrics {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
 }
 
-body[data-page-id="prontuario"] .prontuario-atendimento-grid .campo-inline {
-  display: flex;
-  justify-content: space-between;
-  font-size: 0.85rem;
-  margin-bottom: 0.25rem;
-}
-
-body[data-page-id="prontuario"] .campo-label {
-  color: var(--cor-texto-secundario, #4b5563);
-}
-
-body[data-page-id="prontuario"] .campo-valor {
-  font-weight: 500;
-  color: var(--cor-texto-principal, #111827);
-}
-
-body[data-page-id="prontuario"] .texto-suave {
-  color: var(--cor-texto-suave, #6b7280);
+body[data-page-id="prontuario"] .prontuario-paciente-metrics .metric .campo-valor {
+  margin-top: 0.2rem;
 }
 
 /* =========================================
@@ -175,7 +163,9 @@ body[data-page-id="prontuario"] .btn-acao-subtitulo {
   color: var(--cor-texto-secundario);
 }
 
-/* Formulário de evolução */
+/* =========================================
+   FORMULÁRIO DE EVOLUÇÃO
+========================================= */
 
 body[data-page-id="prontuario"] #formEvolucao textarea {
   resize: vertical;
@@ -208,7 +198,9 @@ body[data-page-id="prontuario"] #mensagemEvolucao.mensagem {
   margin-top: 0.75rem;
 }
 
-/* Timeline do histórico */
+/* =========================================
+   TIMELINE (Evoluções / Receitas)
+========================================= */
 
 body[data-page-id="prontuario"] .prontuario-timeline {
   position: relative;
@@ -232,34 +224,6 @@ body[data-page-id="prontuario"] .prontuario-timeline::before {
 }
 
 /* =========================================
-   RESPONSIVO
-========================================= */
-
-@media (max-width: 768px) {
-  body[data-page-id="prontuario"] .content-prontuario {
-    padding-inline: 0.75rem;
-  }
-
-  body[data-page-id="prontuario"] .card-prontuario {
-    border-radius: 10px;
-  }
-
-  body[data-page-id="prontuario"] .card-header-tight {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  body[data-page-id="prontuario"] .prontuario-acoes-clinicas {
-    flex-direction: column;
-  }
-
-  body[data-page-id="prontuario"] .btn-acao-clinica {
-    width: 100%;
-    justify-content: flex-start;
-  }
-}
-
-/* =========================================
    ✅ FIX: PAINEL LATERAL (RECEITA) — SOBRE A TELA, DA DIREITA
    Motivo: sem essas regras, o painel pode renderizar "embaixo" do conteúdo.
 ========================================= */
@@ -271,8 +235,8 @@ body[data-page-id="prontuario"] #receitaPanel.slide-panel-backdrop {
   background: rgba(15, 23, 42, 0.55);
   backdrop-filter: blur(2px);
   display: flex;
-  justify-content: flex-end; /* painel na direita */
-  align-items: stretch;      /* altura total */
+  justify-content: flex-end;
+  align-items: stretch;
 }
 
 body[data-page-id="prontuario"] #receitaPanel[aria-hidden="true"] {
@@ -286,7 +250,6 @@ body[data-page-id="prontuario"] #receitaPanel .slide-panel {
   border-left: 1px solid var(--cor-borda-suave, #e5e7eb);
   box-shadow: -18px 0 40px rgba(15, 23, 42, 0.22);
   overflow: auto;
-
   transform: translateX(0);
   animation: prontioPanelIn 180ms ease-out;
 }
@@ -310,11 +273,6 @@ body[data-page-id="prontuario"] #receitaPanel .slide-panel-header {
   border-bottom: 1px solid var(--cor-borda-suave, #e5e7eb);
 }
 
-/* OBS:
-   Removido o bloco do chat do page-prontuario.css para evitar conflito.
-   O chat do topo/janela passa a ser 100% controlado por:
-   assets/css/components/chat-topbar.css
-*/
 /* =========================================
    RECEITA — MINI-CARDS DE MEDICAMENTOS
 ========================================= */
@@ -369,3 +327,71 @@ body[data-page-id="prontuario"] .receita-med-grid input,
 body[data-page-id="prontuario"] .receita-med-grid select {
   width: 100%;
 }
+
+/* Chips de posologia (autocomplete inteligente) */
+body[data-page-id="prontuario"] .med-posologias {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+}
+
+body[data-page-id="prontuario"] .med-chip {
+  border: 1px solid var(--cor-borda-suave, #e5e7eb);
+  background: rgba(37, 99, 235, 0.06);
+  color: var(--cor-primaria, #2563eb);
+  border-radius: 999px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+body[data-page-id="prontuario"] .med-chip:hover {
+  background: rgba(37, 99, 235, 0.12);
+}
+
+/* =========================================
+   RESPONSIVO
+========================================= */
+
+@media (max-width: 768px) {
+  body[data-page-id="prontuario"] .content-prontuario {
+    padding-inline: 0.75rem;
+  }
+
+  body[data-page-id="prontuario"] .card-prontuario {
+    border-radius: 10px;
+  }
+
+  body[data-page-id="prontuario"] .card-header-tight {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  body[data-page-id="prontuario"] .prontuario-acoes-clinicas {
+    flex-direction: column;
+  }
+
+  body[data-page-id="prontuario"] .btn-acao-clinica {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  body[data-page-id="prontuario"] .prontuario-paciente-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  body[data-page-id="prontuario"] .receita-med-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 420px) {
+  body[data-page-id="prontuario"] .prontuario-paciente-metrics {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* OBS:
+   O chat do topo/janela é controlado por widgets próprios do sistema.
+*/

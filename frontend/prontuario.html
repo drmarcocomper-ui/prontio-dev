@@ -26,7 +26,7 @@
 
       <section class="content content-prontuario">
 
-        <!-- ✅ CARD: RESUMO DO PACIENTE (SEM CHAT / SEM TIMELINE UNIFICADA / SEM DADOS DE AGENDA) -->
+        <!-- CARD: RESUMO DO PACIENTE -->
         <section class="card card-prontuario card-paciente">
           <div class="card-body card-body-compact">
 
@@ -46,45 +46,28 @@
             <!-- Linha horizontal fina -->
             <hr style="border:none; border-top:1px solid var(--cor-borda-suave, #e5e7eb); margin:.85rem 0 1rem;">
 
-            <!-- 4 blocos lado a lado: label em cima, valor embaixo -->
-            <div style="display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:1rem;">
-              <div>
+            <!-- 4 blocos lado a lado (CSS controla responsivo) -->
+            <div class="prontuario-paciente-metrics">
+              <div class="metric">
                 <div class="texto-menor texto-suave">Idade</div>
-                <div id="prontuario-paciente-idade" class="campo-valor" style="margin-top:.2rem;">—</div>
+                <div id="prontuario-paciente-idade" class="campo-valor">—</div>
               </div>
 
-              <div>
+              <div class="metric">
                 <div class="texto-menor texto-suave">Profissão</div>
-                <div id="prontuario-paciente-profissao" class="campo-valor" style="margin-top:.2rem;">—</div>
+                <div id="prontuario-paciente-profissao" class="campo-valor">—</div>
               </div>
 
-              <div>
+              <div class="metric">
                 <div class="texto-menor texto-suave">Plano de saúde</div>
-                <div id="prontuario-paciente-plano" class="campo-valor" style="margin-top:.2rem;">—</div>
+                <div id="prontuario-paciente-plano" class="campo-valor">—</div>
               </div>
 
-              <div>
+              <div class="metric">
                 <div class="texto-menor texto-suave">Carteirinha</div>
-                <div id="prontuario-paciente-carteirinha" class="campo-valor" style="margin-top:.2rem;">—</div>
+                <div id="prontuario-paciente-carteirinha" class="campo-valor">—</div>
               </div>
             </div>
-
-            <!-- Responsivo simples (sem CSS extra): em telas pequenas, quebra bem -->
-            <style>
-              @media (max-width: 768px) {
-                body[data-page-id="prontuario"] .card-paciente > .card-body {
-                  padding-top: 0.9rem;
-                }
-                body[data-page-id="prontuario"] .card-paciente div[style*="grid-template-columns:repeat(4"] {
-                  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-                }
-              }
-              @media (max-width: 420px) {
-                body[data-page-id="prontuario"] .card-paciente div[style*="grid-template-columns:repeat(4"] {
-                  grid-template-columns: 1fr !important;
-                }
-              }
-            </style>
 
           </div>
         </section>
@@ -195,7 +178,7 @@
   <!-- Mantido: chat global do topo/janela (controlado por widget existente) -->
   <div id="chatWindow" class="chat-window" hidden aria-hidden="true"></div>
 
-  <!-- PAINEL DESLIZANTE: RECEITA -->
+  <!-- PAINEL DESLIZANTE: RECEITA (usado no Prontuário) -->
   <div id="receitaPanel" class="slide-panel-backdrop" aria-hidden="true" style="display:none;">
     <aside class="slide-panel" role="dialog" aria-modal="true">
       <header class="slide-panel-header">
@@ -214,7 +197,7 @@
           <div class="form-row">
             <label>Medicamentos</label>
             <div id="receitaItensContainer" class="receita-itens-container"></div>
-            <button type="button" class="btn btn-secondary btn-sm" id="btnAdicionarMedicamento">+ Adicionar outro medicamento</button>
+            <button type="button" class="btn btn-secondary btn-sm" id="btnAdicionarMedicamento">+ Adicionar medicamento</button>
             <p class="msg-menor texto-suave">Para cada medicamento, preencha pelo menos o nome e a posologia.</p>
           </div>
 

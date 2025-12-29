@@ -306,7 +306,7 @@
   }
 
   // ============================================================
-  // Receita — mini-cards + autocomplete (CSS oficial receita-autocomplete.css)
+  // Receita — mini-cards + autocomplete
   // ============================================================
 
   function _splitPosologias_(raw) {
@@ -412,19 +412,24 @@
   }
 
   async function _buscarSugestoesMedicamento_(q) {
-    const data = await callApiDataTry_(
-      ["Medicamentos.ListarAtivos", "Medicamentos_ListarAtivos"],
-      { q: q, limit: 12 }
-    );
+    try {
+      const data = await callApiDataTry_(
+        ["Medicamentos.ListarAtivos", "Medicamentos_ListarAtivos", "Remedios.ListarAtivos", "Remedios_ListarAtivos"],
+        { q: q, limit: 50 }
+      );
 
-    const meds = (data && data.medicamentos) ? data.medicamentos : [];
-    return (meds || [])
-      .map((m) => {
-        const nome = String(m.Nome_Medicacao || m.nome || "").trim();
-        const posologias = _splitPosologias_(m.Posologia || "");
-        return { nome, posologias };
-      })
-      .filter((x) => x.nome);
+      const meds = (data && data.medicamentos) ? data.medicamentos : [];
+      return (meds || [])
+        .map((m) => {
+          const nome = String(m.Nome_Medicacao || m.nome || "").trim();
+          const posologias = _splitPosologias_(m.Posologia || "");
+          return { nome, posologias };
+        })
+        .filter((x) => x.nome);
+    } catch (err) {
+      console.warn("[PRONTIO] Autocomplete Medicamentos falhou:", err);
+      return [];
+    }
   }
 
   function _wireAutocompleteOnCard_(cardEl) {
@@ -433,7 +438,6 @@
     const posologiaInput = cardEl.querySelector(".med-posologia");
     if (!bloco || !nomeInput || !posologiaInput) return;
 
-    // Fechar ao clicar fora
     document.addEventListener("click", (ev) => {
       if (!bloco.contains(ev.target)) _clearSugestoes_(bloco);
     });
@@ -446,17 +450,14 @@
       if (q.length < 2) return;
 
       medSuggestTimer = setTimeout(async () => {
-        try {
-          const items = await _buscarSugestoesMedicamento_(q);
-          _renderSugestoes_(bloco, q, items, (picked) => {
-            _clearSugestoes_(bloco);
-            nomeInput.value = picked.nome || nomeInput.value;
-            _renderPosologiaChips_(cardEl, picked.posologias || [], posologiaInput);
-            posologiaInput.focus();
-          });
-        } catch (_) {
+        const items = await _buscarSugestoesMedicamento_(q);
+
+        _renderSugestoes_(bloco, q, items, (picked) => {
           _clearSugestoes_(bloco);
-        }
+          nomeInput.value = picked.nome || nomeInput.value;
+          _renderPosologiaChips_(cardEl, picked.posologias || [], posologiaInput);
+          posologiaInput.focus();
+        });
       }, 180);
     });
 
@@ -477,9 +478,6 @@
     const card = document.createElement("div");
     card.className = "receita-med-card";
 
-    // ✅ IMPORTANTE: usa as classes do receita-autocomplete.css:
-    // - .receita-item-bloco como âncora
-    // - .receita-item-sugestoes como slot do dropdown
     card.innerHTML = `
       <div class="receita-med-header">
         <span class="receita-med-titulo">Medicamento ${receitaMedCounter}</span>
@@ -490,7 +488,7 @@
         <div class="full receita-item-bloco">
           <label class="texto-menor texto-suave">Medicamento *</label>
           <input type="text" class="med-nome" placeholder="Ex: Dipirona 500mg" required>
-          <div class="receita-item-sugestoes" aria-live="polite"></div>
+          <div class="receita-item-sugestoes texto-menor" aria-live="polite"></div>
         </div>
 
         <div class="full">
@@ -541,6 +539,88 @@
   }
 
   // ============================================================
+  // Receita — submit (rascunho/final + pdf)
+  // ============================================================
+
+  function _collectItensFromCards_() {
+    const cards = qsa("#receitaItensContainer .receita-med-card");
+    const out = [];
+
+    cards.forEach((card) => {
+      const nome = String(card.querySelector(".med-nome")?.value || "").trim();
+      const posologia = String(card.querySelector(".med-posologia")?.value || "").trim();
+      const duracao = String(card.querySelector(".med-duracao")?.value || "").trim();
+      const via = String(card.querySelector(".med-via")?.value || "").trim();
+
+      if (!nome && !posologia) return;
+
+      out.push({
+        remedio: nome,
+        posologia: posologia,
+        via: via,
+        quantidade: duracao, // compat simples
+        observacao: ""
+      });
+    });
+
+    return out;
+  }
+
+  async function onSubmitReceita_(ev) {
+    ev.preventDefault();
+
+    const ctx = PRONTIO.prontuarioContexto || {};
+    const idPaciente = String(ctx.idPaciente || ctx.ID_Paciente || "").trim();
+    if (!idPaciente) return global.alert("Paciente não identificado.");
+
+    const itens = _collectItensFromCards_();
+    if (!itens.length) return global.alert("Informe ao menos um medicamento.");
+
+    const payload = {
+      idPaciente: idPaciente,
+      idAgenda: String(ctx.idAgenda || ctx.ID_Agenda || "").trim(),
+      dataReceita: qs("#receitaData")?.value || "",
+      observacoes: qs("#receitaObservacoes")?.value || "",
+      itens: itens
+    };
+
+    const acao =
+      ev.submitter?.dataset?.acaoReceita === "rascunho"
+        ? "Receita.SalvarRascunho"
+        : "Receita.SalvarFinal";
+
+    const resp = await callApiData({ action: acao, payload: payload });
+
+    const idReceita =
+      (resp && (resp.idReceita || resp.ID_Receita)) ||
+      (resp && resp.receita && (resp.receita.idReceita || resp.receita.ID_Receita)) ||
+      "";
+
+    if (acao === "Receita.SalvarFinal" && idReceita) {
+      const pdf = await callApiData({ action: "Receita.GerarPdf", payload: { idReceita } });
+      const win = global.open("", "_blank");
+      if (!win) return global.alert("Pop-up bloqueado. Libere para imprimir a receita.");
+      win.document.open();
+      win.document.write((pdf && pdf.html) ? pdf.html : "");
+      win.document.close();
+    }
+
+    // limpa e fecha
+    if (qs("#receitaObservacoes")) qs("#receitaObservacoes").value = "";
+    if (qs("#receitaItensContainer")) qs("#receitaItensContainer").innerHTML = "";
+    receitaMedCounter = 0;
+    ensurePrimeiroMedicamento_();
+
+    // recarrega lista de receitas (últimas)
+    try {
+      const ctx2 = PRONTIO.prontuarioContexto || ctx;
+      carregarReceitasPaginadas_(ctx2, { append: false });
+    } catch (_) {}
+
+    fecharReceitaPanel_();
+  }
+
+  // ============================================================
   // Ações clínicas
   // ============================================================
 
@@ -553,20 +633,12 @@
   }
 
   function abrirReceitaNoPainel_(ctx) {
-    if (typeof PRONTIO.abrirReceitaPanel === "function") {
-      PRONTIO.abrirReceitaPanel();
-      return;
-    }
-
+    // ✅ No Prontuário, SEMPRE abre o painel local (não delega para page-receita.js)
     abrirReceitaPanel_();
 
     const inputData = qs("#receitaData");
     if (inputData && !inputData.value) {
-      const d = new Date();
-      const yyyy = String(d.getFullYear()).padStart(4, "0");
-      const mm = String(d.getMonth() + 1).padStart(2, "0");
-      const dd = String(d.getDate()).padStart(2, "0");
-      inputData.value = `${yyyy}-${mm}-${dd}`;
+      inputData.value = new Date().toISOString().slice(0, 10);
     }
 
     ensurePrimeiroMedicamento_();
@@ -767,6 +839,50 @@
   }
 
   // ============================================================
+  // Salvar evolução
+  // ============================================================
+
+  function setMensagemEvolucao(obj) {
+    const el = qs("#mensagemEvolucao");
+    if (!el) return;
+    el.classList.remove("is-hidden", "msg-erro", "msg-sucesso");
+    el.textContent = (obj && obj.texto) || "";
+    if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
+    if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
+  }
+
+  async function salvarEvolucao(ctx, ev) {
+    ev.preventDefault();
+
+    const txt = qs("#textoEvolucao");
+    const texto = txt && txt.value ? txt.value.trim() : "";
+    if (!texto) {
+      setMensagemEvolucao({ tipo: "erro", texto: "Digite a evolução." });
+      return;
+    }
+
+    const payload = { idPaciente: ctx.idPaciente, idAgenda: ctx.idAgenda, texto, origem: "PRONTUARIO" };
+    if (idEvolucaoEmEdicao) payload.idEvolucao = idEvolucaoEmEdicao;
+
+    try {
+      await callApiDataTry_(["Prontuario.Evolucao.Salvar", "Evolucao.Salvar"], payload);
+
+      setMensagemEvolucao({
+        tipo: "sucesso",
+        texto: idEvolucaoEmEdicao ? "Evolução atualizada." : "Evolução registrada.",
+      });
+
+      if (txt) txt.value = "";
+      idEvolucaoEmEdicao = null;
+
+      carregarResumoPaciente_(ctx);
+      if (historicoCompletoCarregado) carregarEvolucoesPaginadas_(ctx, { append: false });
+    } catch (e) {
+      setMensagemEvolucao({ tipo: "erro", texto: "Erro ao salvar evolução." });
+    }
+  }
+
+  // ============================================================
   // Receitas (lista + paginação + PDF)
   // ============================================================
 
@@ -824,8 +940,6 @@
 
       const status = rec.status || rec.Status || "";
       const texto = rec.textoMedicamentos || rec.TextoMedicamentos || "";
-      const itens = rec.itens || rec.Itens || [];
-      const observacoes = rec.observacoes || rec.Observacoes || "";
 
       const dataReceitaFmt = formatIsoDateToBR_(dataReceitaIso);
 
@@ -866,25 +980,9 @@
           ID Receita: ${idRec || "—"} · Clique para reabrir o PDF
         </div>
         ${metaExtra ? `<div class="receita-meta texto-menor texto-suave">${metaExtra}</div>` : ""}
-        <div class="receita-actions">
-          <button type="button" class="btn btn-xs btn-link js-receita-usar-modelo">Usar como modelo</button>
-        </div>
       `;
 
       li.addEventListener("click", () => abrirPdfReceita(li.dataset.idReceita || idRec));
-
-      const btnModelo = li.querySelector(".js-receita-usar-modelo");
-      if (btnModelo) {
-        btnModelo.addEventListener("click", (ev) => {
-          ev.stopPropagation();
-          if (typeof PRONTIO.carregarItensReceitaNoForm === "function") {
-            PRONTIO.carregarItensReceitaNoForm(itens, observacoes);
-          }
-          abrirReceitaPanel_();
-          ensurePrimeiroMedicamento_();
-        });
-      }
-
       ul.appendChild(li);
     });
   }
@@ -973,48 +1071,35 @@
     setupReceitaPanelEvents_();
 
     // Ações clínicas
-    const btnNovaEvo = qs("#btnAcaoNovaEvolucao");
-    if (btnNovaEvo) btnNovaEvo.addEventListener("click", abrirNovaEvolucao_);
+    qs("#btnAcaoNovaEvolucao")?.addEventListener("click", abrirNovaEvolucao_);
+    qs("#btnAcaoReceita")?.addEventListener("click", () => abrirReceitaNoPainel_(ctx));
+    qs("#btnAcaoExames")?.addEventListener("click", () => abrirExames_(ctx));
+    qs("#btnAcaoDocumentos")?.addEventListener("click", () => abrirDocumentos_(ctx));
 
-    const btnReceita = qs("#btnAcaoReceita");
-    if (btnReceita) btnReceita.addEventListener("click", () => abrirReceitaNoPainel_(ctx));
+    // Evolução salvar
+    qs("#formEvolucao")?.addEventListener("submit", (ev) => salvarEvolucao(ctx, ev));
 
-    const btnExames = qs("#btnAcaoExames");
-    if (btnExames) btnExames.addEventListener("click", () => abrirExames_(ctx));
+    // Receita (painel)
+    qs("#btnAdicionarMedicamento")?.addEventListener("click", () => criarMedicamentoCard_());
+    qs("#formReceitaProntuario")?.addEventListener("submit", onSubmitReceita_);
 
-    const btnDocs = qs("#btnAcaoDocumentos");
-    if (btnDocs) btnDocs.addEventListener("click", () => abrirDocumentos_(ctx));
-
-    // Botão adicionar medicamento
-    const btnAddMed = qs("#btnAdicionarMedicamento");
-    if (btnAddMed) btnAddMed.addEventListener("click", () => criarMedicamentoCard_());
-
-    // Evoluções
+    // Evoluções (paginadas)
     evoPaging.btnMais = qs("#btnCarregarMaisEvolucoes");
     _setBtnMais_(evoPaging.btnMais, false, false);
 
-    const btnHist = qs("#btnCarregarHistoricoPaciente");
-    if (btnHist) {
-      btnHist.addEventListener("click", () => {
-        historicoCompletoCarregado = true;
-        carregarEvolucoesPaginadas_(ctx, { append: false });
-      });
-    }
-    if (evoPaging.btnMais) {
-      evoPaging.btnMais.addEventListener("click", () => carregarEvolucoesPaginadas_(ctx, { append: true }));
-    }
+    qs("#btnCarregarHistoricoPaciente")?.addEventListener("click", () => {
+      historicoCompletoCarregado = true;
+      carregarEvolucoesPaginadas_(ctx, { append: false });
+    });
 
-    // Receitas
+    evoPaging.btnMais?.addEventListener("click", () => carregarEvolucoesPaginadas_(ctx, { append: true }));
+
+    // Receitas (lista)
     recPaging.btnMais = qs("#btnCarregarMaisReceitas");
     _setBtnMais_(recPaging.btnMais, false, false);
 
-    const btnReceitas = qs("#btnCarregarReceitasPaciente");
-    if (btnReceitas) {
-      btnReceitas.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: false }));
-    }
-    if (recPaging.btnMais) {
-      recPaging.btnMais.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: true }));
-    }
+    qs("#btnCarregarReceitasPaciente")?.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: false }));
+    recPaging.btnMais?.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: true }));
   }
 
   if (PRONTIO.registerPage) {
