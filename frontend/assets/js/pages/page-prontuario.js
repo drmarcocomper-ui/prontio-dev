@@ -1,5 +1,8 @@
+// frontend/assets/js/pages/page-prontuario.js
 (function (global, document) {
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
+  PRONTIO.pages = PRONTIO.pages || {};
+  PRONTIO._pageInited = PRONTIO._pageInited || {};
 
   const callApiData =
     (PRONTIO.api && PRONTIO.api.callApiData) ||
@@ -193,7 +196,7 @@
         { idPaciente: ctx.idPaciente }
       );
 
-      const pac = (data && data.paciente) ? data.paciente : data;
+      const pac = data && data.paciente ? data.paciente : data;
 
       const nome = (pac && (pac.nomeCompleto || pac.nomeExibicao || pac.nome || pac.Nome)) || ctx.nome || "—";
       const idade = pac && (pac.idade || pac.Idade);
@@ -307,7 +310,6 @@
 
   // ============================================================
   // Receita — mini-cards + autocomplete
-  // (Agora preenche Quantidade e Via vindo da aba Medicamentos)
   // ============================================================
 
   function _splitPosologias_(raw) {
@@ -373,7 +375,7 @@
       btn.type = "button";
 
       const nome = it.nome || "";
-      const sub = (it.posologias && it.posologias.length) ? it.posologias[0] : "";
+      const sub = it.posologias && it.posologias.length ? it.posologias[0] : "";
 
       btn.innerHTML = `
         <div class="rx-sug-title">${_highlightHtml_(nome, query)}</div>
@@ -419,7 +421,7 @@
         { q: q, limit: 50 }
       );
 
-      const meds = (data && data.medicamentos) ? data.medicamentos : [];
+      const meds = data && data.medicamentos ? data.medicamentos : [];
       return (meds || [])
         .map((m) => {
           const nome = String(m.Nome_Medicacao || m.nome || "").trim();
@@ -463,18 +465,18 @@
 
           nomeInput.value = picked.nome || nomeInput.value;
 
-          // ✅ chips de posologia
+          // chips de posologia
           _renderPosologiaChips_(cardEl, picked.posologias || [], posologiaInput);
 
-          // ✅ autopreenche Quantidade e Via vindos da planilha
+          // autopreenche Quantidade e Via vindos da planilha
           if (qtdInput && picked.quantidade) qtdInput.value = picked.quantidade;
           if (viaSelect && picked.via) {
-            // tenta casar com opções do select
             const val = String(picked.via).trim();
-            const opt = Array.from(viaSelect.options || []).find(o => String(o.value).trim().toLowerCase() === val.toLowerCase());
+            const opt = Array.from(viaSelect.options || []).find(
+              (o) => String(o.value).trim().toLowerCase() === val.toLowerCase()
+            );
             if (opt) viaSelect.value = opt.value;
             else {
-              // se não existir, coloca como primeira opção dinâmica
               const dyn = document.createElement("option");
               dyn.value = val;
               dyn.textContent = val;
@@ -505,7 +507,6 @@
     const card = document.createElement("div");
     card.className = "receita-med-card";
 
-    // ✅ Agora: Quantidade (em vez de Duração) + Via
     card.innerHTML = `
       <div class="receita-med-header">
         <span class="receita-med-titulo">Medicamento ${receitaMedCounter}</span>
@@ -587,7 +588,7 @@
         posologia: posologia,
         via: via,
         quantidade: quantidade,
-        observacao: ""
+        observacao: "",
       });
     });
 
@@ -609,7 +610,7 @@
       idAgenda: String(ctx.idAgenda || ctx.ID_Agenda || "").trim(),
       dataReceita: qs("#receitaData")?.value || "",
       observacoes: qs("#receitaObservacoes")?.value || "",
-      itens: itens
+      itens: itens,
     };
 
     const acao =
@@ -629,7 +630,7 @@
       const win = global.open("", "_blank");
       if (!win) return global.alert("Pop-up bloqueado. Libere para imprimir a receita.");
       win.document.open();
-      win.document.write((pdf && pdf.html) ? pdf.html : "");
+      win.document.write(pdf && pdf.html ? pdf.html : "");
       win.document.close();
     }
 
@@ -639,10 +640,10 @@
     receitaMedCounter = 0;
     ensurePrimeiroMedicamento_();
 
-    // recarrega lista de receitas (últimas)
+    // recarrega lista de receitas (apenas última)
     try {
       const ctx2 = PRONTIO.prontuarioContexto || ctx;
-      carregarReceitasPaginadas_(ctx2, { append: false });
+      carregarReceitasPaginadas_(ctx2, { append: false, limit: 1 });
     } catch (_) {}
 
     fecharReceitaPanel_();
@@ -660,15 +661,54 @@
     if (txt) txt.focus();
   }
 
-  function abrirReceitaNoPainel_(ctx) {
+  function resetFormReceitaPanel_() {
+    const inputData = qs("#receitaData");
+    if (inputData) inputData.value = new Date().toISOString().slice(0, 10);
+
+    const obs = qs("#receitaObservacoes");
+    if (obs) obs.value = "";
+
+    const cont = qs("#receitaItensContainer");
+    if (cont) cont.innerHTML = "";
+
+    receitaMedCounter = 0;
+    ensurePrimeiroMedicamento_();
+  }
+
+  function abrirReceitaNoPainelComoModelo_(rec) {
     abrirReceitaPanel_();
 
     const inputData = qs("#receitaData");
-    if (inputData && !inputData.value) {
-      inputData.value = new Date().toISOString().slice(0, 10);
+    if (inputData) {
+      const iso = String(rec?.dataReceita || rec?.DataReceita || "").trim();
+      inputData.value = iso && iso.length >= 10 ? iso.slice(0, 10) : new Date().toISOString().slice(0, 10);
     }
 
-    ensurePrimeiroMedicamento_();
+    const obs = qs("#receitaObservacoes");
+    if (obs) obs.value = String(rec?.observacoes || rec?.Observacoes || "").trim();
+
+    const cont = qs("#receitaItensContainer");
+    if (cont) cont.innerHTML = "";
+    receitaMedCounter = 0;
+
+    const itens = Array.isArray(rec?.itens) ? rec.itens : [];
+    if (itens.length) {
+      itens.forEach((it) => {
+        criarMedicamentoCard_({
+          nome: String(it?.nomeRemedio || it?.remedio || it?.nome || "").trim(),
+          posologia: String(it?.posologia || "").trim(),
+          quantidade: String(it?.quantidade || "").trim(),
+          via: String(it?.viaAdministracao || it?.via || "").trim(),
+        });
+      });
+    } else {
+      ensurePrimeiroMedicamento_();
+    }
+  }
+
+  function abrirReceitaNoPainel_(ctx) {
+    abrirReceitaPanel_();
+    resetFormReceitaPanel_(); // sempre em branco pelo botão principal
   }
 
   function abrirExames_(ctx) {
@@ -705,7 +745,7 @@
       .slice()
       .sort((a, b) => {
         const da = parseDataHora(a.dataHoraRegistro || a.dataHora || a.data || a.criadoEm) || new Date(0);
-        const db = parseDataHora(b.dataHoraRegistro || b.dataHora || b.data || b.criadoEm) || new Date(0);
+        const db = parseDataHora(b.dataHoraRegistro || b.dataHora || a.data || b.criadoEm) || new Date(0);
         return db - da;
       });
   }
@@ -836,12 +876,12 @@
       );
 
       const itemsPaged = data && (data.items || data.evolucoes || data.lista);
-      let lista = Array.isArray(itemsPaged) ? itemsPaged : (Array.isArray(data) ? data : []);
+      let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
       lista = ordenarEvolucoes(lista);
 
       const nextCursor =
         data && (data.nextCursor || (data.page && data.page.nextCursor))
-          ? (data.nextCursor || data.page.nextCursor)
+          ? data.nextCursor || data.page.nextCursor
           : null;
       const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
 
@@ -1000,14 +1040,40 @@
           ${tipo ? `<span class="receita-tipo badge">${tipo}</span>` : ""}
           ${status ? `<span class="receita-status texto-menor">${status}</span>` : ""}
         </div>
+
         <div class="receita-resumo texto-menor">
           ${primeiraLinha ? primeiraLinha : "(sem descrição de medicamentos)"}
         </div>
+
+        <div class="receita-actions">
+          <button type="button" class="btn btn-secondary btn-sm js-receita-modelo">Usar como modelo</button>
+          <button type="button" class="btn btn-secondary btn-sm js-receita-pdf">Abrir PDF</button>
+        </div>
+
         <div class="receita-meta texto-menor texto-suave">
-          ID Receita: ${idRec || "—"} · Clique para reabrir o PDF
+          ID Receita: ${idRec || "—"}
         </div>
         ${metaExtra ? `<div class="receita-meta texto-menor texto-suave">${metaExtra}</div>` : ""}
       `;
+
+      const btnModelo = li.querySelector(".js-receita-modelo");
+      const btnPdf = li.querySelector(".js-receita-pdf");
+
+      if (btnModelo) {
+        btnModelo.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          abrirReceitaNoPainelComoModelo_(rec);
+        });
+      }
+
+      if (btnPdf) {
+        btnPdf.addEventListener("click", (ev) => {
+          ev.preventDefault();
+          ev.stopPropagation();
+          abrirPdfReceita(idRec);
+        });
+      }
 
       li.addEventListener("click", () => abrirPdfReceita(li.dataset.idReceita || idRec));
       ul.appendChild(li);
@@ -1045,7 +1111,8 @@
     }
 
     try {
-      const payload = { idPaciente: ctx.idPaciente, limit: 25 };
+      const limit = opts && opts.limit ? Number(opts.limit) : 25;
+      const payload = { idPaciente: ctx.idPaciente, limit: limit };
       if (append && recPaging.cursor) payload.cursor = recPaging.cursor;
 
       const data = await callApiDataTry_(
@@ -1054,7 +1121,7 @@
       );
 
       const itemsPaged = data && (data.items || data.receitas || data.lista);
-      let lista = Array.isArray(itemsPaged) ? itemsPaged : (Array.isArray(data) ? data : []);
+      let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
 
       lista = (lista || []).slice().sort((a, b) => {
         const da = parseDataHora(a.dataHoraCriacao || a.dataHora || a.data || a.criadoEm) || new Date(0);
@@ -1064,7 +1131,7 @@
 
       const nextCursor =
         data && (data.nextCursor || (data.page && data.page.nextCursor))
-          ? (data.nextCursor || data.page.nextCursor)
+          ? data.nextCursor || data.page.nextCursor
           : null;
       const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
 
@@ -1091,6 +1158,10 @@
   // ============================================================
 
   function initProntuario() {
+    // ✅ trava anti-duplo-init (main.js + fallback, router, etc.)
+    if (PRONTIO._pageInited.prontuario === true) return;
+    PRONTIO._pageInited.prontuario = true;
+
     const ctx = carregarContextoProntuario();
     PRONTIO.prontuarioContexto = ctx;
 
@@ -1125,14 +1196,43 @@
     recPaging.btnMais = qs("#btnCarregarMaisReceitas");
     _setBtnMais_(recPaging.btnMais, false, false);
 
-    qs("#btnCarregarReceitasPaciente")?.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: false }));
+    // Por padrão: só a última receita
+    carregarReceitasPaginadas_(ctx, { append: false, limit: 1 });
+
+    // Botão: carregar 10 últimas
+    const btn10 = qs("#btnCarregarReceitasPaciente");
+    if (btn10) btn10.textContent = "Carregar 10 últimas";
+    btn10?.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: false, limit: 10 }));
+
+    // Paginação (se optar por exibir o botão)
     recPaging.btnMais?.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: true }));
   }
 
-  if (PRONTIO.registerPage) {
+  // ============================================================
+  // Registro no framework (main.js / router)
+  // ============================================================
+
+  // ✅ main.js chama PRONTIO.pages[pageId].init()
+  PRONTIO.pages.prontuario = PRONTIO.pages.prontuario || {};
+  PRONTIO.pages.prontuario.init = initProntuario;
+
+  // ✅ compat com router antigo (se estiver sendo usado em alguma instalação)
+  try {
+    if (PRONTIO.core && PRONTIO.core.router && typeof PRONTIO.core.router.register === "function") {
+      PRONTIO.core.router.register("prontuario", initProntuario);
+    }
+  } catch (_) {}
+
+  // ✅ compat com registerPage (se existir em algum módulo antigo)
+  if (typeof PRONTIO.registerPage === "function") {
     PRONTIO.registerPage("prontuario", initProntuario);
+  }
+
+  // ✅ fallback final (somente se não tiver main.js chamando)
+  // Mantém compatibilidade para abrir o HTML “solto” sem loader.
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initProntuario);
   } else {
-    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", initProntuario);
-    else initProntuario();
+    initProntuario();
   }
 })(window, document);

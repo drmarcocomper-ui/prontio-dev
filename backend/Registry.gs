@@ -1,3 +1,4 @@
+// backend/Registry.gs
 /**
  * ============================================================
  * PRONTIO - Registry.gs
@@ -480,9 +481,6 @@ function _Registry_build_() {
     lockKey: "AGENDA"
   };
 
-  // ✅ UPDATE: action pedida pelo modal/front (pré-validação de conflito)
-  // - Chamará o adapter existente no Agenda.gs: Agenda_ListarEventosDiaParaValidacao_(dataStr)
-  // - Retorna { items: [...] } (para ficar padronizado)
   map["Agenda_ListarEventosDiaParaValidacao"] = {
     action: "Agenda_ListarEventosDiaParaValidacao",
     handler: (typeof Agenda_ListarEventosDiaParaValidacao_ === "function")
@@ -538,7 +536,6 @@ function _Registry_build_() {
   // =========================
   // AGENDA (legados / compat)
   // =========================
-  // ✅ UPDATE: tenta usar Agenda_Legacy_*_ (novo módulo) e só então cai no routeAction_ (legado antigo)
   var agendaLegacyMap = [
     ["Agenda_ListarDia", "Agenda_Legacy_ListarDia_"],
     ["Agenda_ListarSemana", "Agenda_Legacy_ListarSemana_"],
@@ -594,6 +591,17 @@ function _Registry_build_() {
   map["Prontuario.Receita.ListarPorPaciente"] = {
     action: "Prontuario.Receita.ListarPorPaciente",
     handler: _prontuarioHandler_("Prontuario.Receita.ListarPorPaciente"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  // ✅ Nota: ListarPorPacientePaged é chamado pelo front do prontuário
+  map["Prontuario.Receita.ListarPorPacientePaged"] = {
+    action: "Prontuario.Receita.ListarPorPacientePaged",
+    handler: _prontuarioHandler_("Prontuario.Receita.ListarPorPacientePaged"),
     requiresAuth: true,
     roles: [],
     validations: [],

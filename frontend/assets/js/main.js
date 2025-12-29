@@ -1,3 +1,4 @@
+// frontend/assets/js/main.js
 (function (global, document) {
   "use strict";
 

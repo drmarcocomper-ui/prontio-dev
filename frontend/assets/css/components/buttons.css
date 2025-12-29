@@ -1,3 +1,4 @@
+/* frontend/assets/css/components/buttons.css */
 /* =====================================
    PRONTIO - BUTTONS (Design System)
    - Botões centrados no sistema de tokens
@@ -61,7 +62,6 @@
   transform: none;
   box-shadow: none;
 }
-
 
 /* =====================================
    VARIAÇÕES DE COR (SEMÂNTICAS)
@@ -141,7 +141,6 @@
   background-color: #b91c1c;
 }
 
-
 /* =====================================
    VARIAÇÕES DE TAMANHO
 ===================================== */
@@ -155,7 +154,6 @@
   padding: 12px 22px;
   font-size: 16px;
 }
-
 
 /* =====================================
    BOTÕES ICÔNICOS
@@ -186,7 +184,6 @@
   width: var(--icon-size-md);
   height: var(--icon-size-md);
 }
-
 
 /* =====================================
    GRUPOS DE BOTÕES

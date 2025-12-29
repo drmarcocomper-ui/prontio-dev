@@ -1,3 +1,4 @@
+/* frontend/assets/css/pages/page-prontuario.css */
 /* ========================================= 
    PRONTIO - CSS específico do Prontuário
    Escopo: somente na página data-page-id="prontuario"
@@ -225,7 +226,6 @@ body[data-page-id="prontuario"] .prontuario-timeline::before {
 
 /* =========================================
    ✅ FIX: PAINEL LATERAL (RECEITA) — SOBRE A TELA, DA DIREITA
-   Motivo: sem essas regras, o painel pode renderizar "embaixo" do conteúdo.
 ========================================= */
 
 body[data-page-id="prontuario"] #receitaPanel.slide-panel-backdrop {
@@ -348,6 +348,17 @@ body[data-page-id="prontuario"] .med-chip {
 
 body[data-page-id="prontuario"] .med-chip:hover {
   background: rgba(37, 99, 235, 0.12);
+}
+
+/* =========================================
+   RECEITAS — AÇÕES (Modelo / PDF)
+========================================= */
+
+body[data-page-id="prontuario"] .receita-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.55rem;
+  flex-wrap: wrap;
 }
 
 /* =========================================

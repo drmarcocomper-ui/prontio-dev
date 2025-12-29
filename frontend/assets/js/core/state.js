@@ -1,3 +1,4 @@
+// frontend/assets/js/core/state.js
 // =====================================
 // PRONTIO - core/state.js
 // Estado global leve do PRONTIO

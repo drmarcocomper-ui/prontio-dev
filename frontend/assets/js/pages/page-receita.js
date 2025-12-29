@@ -1,3 +1,4 @@
+// frontend/assets/js/pages/page-receita.js
 /**
  * PRONTIO - Receita (página receita.html)
  *
@@ -24,6 +25,9 @@
   }
 
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
+  PRONTIO.pages = PRONTIO.pages || {};
+  PRONTIO._pageInited = PRONTIO._pageInited || {};
+
   const callApiData =
     (PRONTIO.api && PRONTIO.api.callApiData) ||
     global.callApiData ||
@@ -410,6 +414,10 @@
   // ============================================================
 
   function init() {
+    // ✅ trava anti-duplo-init (main.js + fallback)
+    if (PRONTIO._pageInited.receita === true) return;
+    PRONTIO._pageInited.receita = true;
+
     // Página receita pode ter form id="formReceita" ou reutilizar id="formReceitaProntuario"
     const form = qs("#formReceita") || qs("#formReceitaProntuario");
     const container = qs("#receitaItensContainer");
@@ -435,6 +443,18 @@
     renderItens();
   }
 
+  // ✅ main.js chama PRONTIO.pages[pageId].init()
+  PRONTIO.pages.receita = PRONTIO.pages.receita || {};
+  PRONTIO.pages.receita.init = init;
+
+  // ✅ compat com router antigo (se existir)
+  try {
+    if (PRONTIO.core && PRONTIO.core.router && typeof PRONTIO.core.router.register === "function") {
+      PRONTIO.core.router.register("receita", init);
+    }
+  } catch (_) {}
+
+  // fallback (mantém compat p/ abrir HTML “solto”)
   document.readyState === "loading"
     ? document.addEventListener("DOMContentLoaded", init)
     : init();

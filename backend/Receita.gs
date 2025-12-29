@@ -1,3 +1,4 @@
+// backend/Receita.gs
 // Receita.gs (PRONTIO) — compatível com o front atual (page-receita.js)
 // - Actions: Receita.SalvarRascunho | Receita.SalvarFinal | Receita.ListarPorPaciente | Receita.GerarPdf
 // - Recebe payload.itens[] (com remedio/posologia/via/quantidade/observacao/idRemedio)
