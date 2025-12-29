@@ -15,12 +15,8 @@
       );
     };
 
-  function qs(sel) {
-    return document.querySelector(sel);
-  }
-  function qsa(sel) {
-    return Array.from(document.querySelectorAll(sel));
-  }
+  function qs(sel) { return document.querySelector(sel); }
+  function qsa(sel) { return Array.from(document.querySelectorAll(sel)); }
 
   // ============================================================
   // Estado geral
@@ -36,7 +32,7 @@
     hasMore: false,
     loading: false,
     lista: [],
-    lastLimit: 10, // ✅ guarda o último limit usado (10 por padrão)
+    lastLimit: 10,
   };
 
   // Receitas paginadas
@@ -52,6 +48,12 @@
   let receitaPanel = null;
   let receitaPanelAside = null;
   let receitaPanelLastFocus = null;
+
+  // Painel Documentos
+  let documentosPanel = null;
+  let documentosPanelAside = null;
+  let documentosPanelLastFocus = null;
+  let docTipoAtual = ""; // atestado | comparecimento | laudo | encaminhamento
 
   // Mini-cards de medicamento
   let receitaMedCounter = 0;
@@ -169,6 +171,15 @@
     btn.disabled = !!loading;
   }
 
+  function _escapeHtml_(s) {
+    return String(s || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
+  }
+
   // ============================================================
   // Topo do paciente
   // ============================================================
@@ -219,7 +230,7 @@
   }
 
   // ============================================================
-  // Painel lateral (Receita)
+  // Trap Focus (painéis)
   // ============================================================
 
   function _trapFocusInPanel_(panelAside, e) {
@@ -243,6 +254,10 @@
       first.focus();
     }
   }
+
+  // ============================================================
+  // Painel Receita (existente)
+  // ============================================================
 
   function fecharReceitaPanel_() {
     if (!receitaPanel) return;
@@ -295,22 +310,297 @@
       if (!receitaPanelAside) return;
       if (ev.target === receitaPanel) fecharReceitaPanel_();
     });
+  }
 
-    document.addEventListener("keydown", (ev) => {
-      if (!receitaPanel || receitaPanel.style.display === "none") return;
+  // ============================================================
+  // Painel Documentos (submenu + formulário)
+  // ============================================================
 
-      if (ev.key === "Escape") {
-        ev.preventDefault();
-        fecharReceitaPanel_();
+  function _docTipoLabel_(t) {
+    const tipo = String(t || "").toLowerCase();
+    if (tipo === "atestado") return "Atestado médico";
+    if (tipo === "comparecimento") return "Declaração de comparecimento";
+    if (tipo === "laudo") return "Laudo";
+    if (tipo === "encaminhamento") return "Encaminhamento";
+    return "Documentos";
+  }
+
+  function setMensagemDocumentos_(obj) {
+    const el = qs("#mensagemDocumentos");
+    if (!el) return;
+    el.classList.remove("is-hidden", "msg-erro", "msg-sucesso");
+    el.textContent = (obj && obj.texto) || "";
+    if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
+    if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
+  }
+
+  function _resetDocumentosUi_() {
+    const chooser = qs("#documentosChooser");
+    const formWrap = qs("#documentosFormWrap");
+    const title = qs("#documentosPanelTitulo");
+    const container = qs("#documentosFormContainer");
+    const msg = qs("#mensagemDocumentos");
+
+    docTipoAtual = "";
+    if (title) title.textContent = "Documentos";
+    if (container) container.innerHTML = "";
+    if (msg) msg.classList.add("is-hidden");
+    if (chooser) chooser.style.display = "";
+    if (formWrap) formWrap.style.display = "none";
+  }
+
+  function fecharDocumentosPanel_() {
+    if (!documentosPanel) return;
+
+    documentosPanel.setAttribute("aria-hidden", "true");
+    documentosPanel.style.display = "none";
+
+    _resetDocumentosUi_();
+
+    try {
+      if (documentosPanelLastFocus && typeof documentosPanelLastFocus.focus === "function") {
+        documentosPanelLastFocus.focus();
+      }
+    } catch (_) {}
+
+    documentosPanelLastFocus = null;
+  }
+
+  function abrirDocumentosPanel_() {
+    documentosPanel = documentosPanel || qs("#documentosPanel");
+    if (!documentosPanel) {
+      global.alert("Painel de documentos não encontrado no HTML (#documentosPanel).");
+      return;
+    }
+
+    documentosPanelAside = documentosPanelAside || documentosPanel.querySelector(".slide-panel");
+    documentosPanelLastFocus = document.activeElement;
+
+    _resetDocumentosUi_();
+
+    documentosPanel.style.display = "flex";
+    documentosPanel.setAttribute("aria-hidden", "false");
+
+    const chooser = qs("#documentosChooser");
+    const first = chooser ? chooser.querySelector("button") : null;
+    if (first && typeof first.focus === "function") setTimeout(() => first.focus(), 0);
+  }
+
+  function _renderDocForm_(tipo) {
+    const t = String(tipo || "").toLowerCase();
+    const title = qs("#documentosPanelTitulo");
+    const chooser = qs("#documentosChooser");
+    const formWrap = qs("#documentosFormWrap");
+    const container = qs("#documentosFormContainer");
+    if (!chooser || !formWrap || !container) return;
+
+    docTipoAtual = t;
+    if (title) title.textContent = _docTipoLabel_(t);
+
+    chooser.style.display = "none";
+    formWrap.style.display = "";
+
+    const hoje = new Date().toISOString().slice(0, 10);
+
+    let html = `
+      <div class="form-row">
+        <label for="docData">Data</label>
+        <input type="date" id="docData" value="${hoje}">
+      </div>
+
+      <div class="form-row">
+        <label for="docTexto">Texto</label>
+        <textarea id="docTexto" rows="6" placeholder="Digite o conteúdo do documento..."></textarea>
+      </div>
+    `;
+
+    if (t === "atestado") {
+      html = `
+        <div class="form-row">
+          <label for="docData">Data</label>
+          <input type="date" id="docData" value="${hoje}">
+        </div>
+
+        <div class="form-row">
+          <label for="docDias">Dias de afastamento</label>
+          <input type="number" id="docDias" min="0" step="1" placeholder="Ex: 2">
+        </div>
+
+        <div class="form-row">
+          <label for="docTexto">Observações</label>
+          <textarea id="docTexto" rows="5" placeholder="Ex: Atesto para os devidos fins..."></textarea>
+        </div>
+      `;
+    } else if (t === "comparecimento") {
+      html = `
+        <div class="form-row">
+          <label for="docData">Data</label>
+          <input type="date" id="docData" value="${hoje}">
+        </div>
+
+        <div class="form-row">
+          <label for="docHorario">Horário (opcional)</label>
+          <input type="text" id="docHorario" placeholder="Ex: 14:00 às 15:30">
+        </div>
+
+        <div class="form-row">
+          <label for="docTexto">Declaração</label>
+          <textarea id="docTexto" rows="5" placeholder="Ex: Declaro que o paciente compareceu..."></textarea>
+        </div>
+      `;
+    } else if (t === "laudo") {
+      html = `
+        <div class="form-row">
+          <label for="docData">Data</label>
+          <input type="date" id="docData" value="${hoje}">
+        </div>
+
+        <div class="form-row">
+          <label for="docTitulo">Título</label>
+          <input type="text" id="docTitulo" placeholder="Ex: Laudo clínico">
+        </div>
+
+        <div class="form-row">
+          <label for="docTexto">Conteúdo</label>
+          <textarea id="docTexto" rows="7" placeholder="Digite o laudo..."></textarea>
+        </div>
+      `;
+    } else if (t === "encaminhamento") {
+      html = `
+        <div class="form-row">
+          <label for="docData">Data</label>
+          <input type="date" id="docData" value="${hoje}">
+        </div>
+
+        <div class="form-row">
+          <label for="docDestino">Encaminhar para</label>
+          <input type="text" id="docDestino" placeholder="Ex: Ortopedia / Fisioterapia / Cardiologia">
+        </div>
+
+        <div class="form-row">
+          <label for="docTexto">Motivo / Observações</label>
+          <textarea id="docTexto" rows="5" placeholder="Ex: Encaminho para avaliação de..."></textarea>
+        </div>
+      `;
+    }
+
+    container.innerHTML = html;
+
+    const focusEl = container.querySelector("input, textarea, button");
+    if (focusEl && typeof focusEl.focus === "function") setTimeout(() => focusEl.focus(), 0);
+  }
+
+  function _collectDocPayload_(ctx) {
+    const t = String(docTipoAtual || "").toLowerCase();
+    const payload = {
+      idPaciente: String(ctx.idPaciente || "").trim(),
+      idAgenda: String(ctx.idAgenda || "").trim(),
+      tipoDocumento: t,
+      data: qs("#docData")?.value || "",
+      texto: qs("#docTexto")?.value || "",
+    };
+
+    if (t === "atestado") payload.dias = Number(qs("#docDias")?.value || 0);
+    if (t === "comparecimento") payload.horario = qs("#docHorario")?.value || "";
+    if (t === "laudo") payload.titulo = qs("#docTitulo")?.value || "";
+    if (t === "encaminhamento") payload.destino = qs("#docDestino")?.value || "";
+
+    return payload;
+  }
+
+  async function _gerarDocumento_(ctx) {
+    const t = String(docTipoAtual || "").toLowerCase();
+    if (!t) return;
+
+    const payload = _collectDocPayload_(ctx);
+    if (!payload.idPaciente) {
+      setMensagemDocumentos_({ tipo: "erro", texto: "Paciente não identificado." });
+      return;
+    }
+
+    // ✅ fallbacks (não quebra o que já existe)
+    const ACTIONS_BY_TYPE = {
+      atestado: ["Atestado.GerarPdf", "Atestado.GerarPDF", "Documentos.Atestado.GerarPdf", "Prontuario.Atestado.GerarPdf"],
+      comparecimento: ["Comparecimento.GerarPdf", "Comparecimento.GerarPDF", "Documentos.Comparecimento.GerarPdf", "Prontuario.Comparecimento.GerarPdf"],
+      laudo: ["Laudo.GerarPdf", "Laudo.GerarPDF", "Laudos.GerarPdf", "Prontuario.Laudo.GerarPdf"],
+      encaminhamento: ["Encaminhamento.GerarPdf", "Encaminhamento.GerarPDF", "Documentos.Encaminhamento.GerarPdf", "Prontuario.Encaminhamento.GerarPdf"],
+    };
+
+    setMensagemDocumentos_({ tipo: "sucesso", texto: "Gerando documento..." });
+
+    try {
+      const data = await callApiDataTry_(ACTIONS_BY_TYPE[t] || [], payload);
+
+      const html =
+        (data && data.html) ||
+        (data && data.documento && data.documento.html) ||
+        (data && data.pdf && data.pdf.html) ||
+        "";
+
+      if (!html) {
+        setMensagemDocumentos_({ tipo: "erro", texto: "A API não retornou HTML para impressão." });
         return;
       }
 
-      _trapFocusInPanel_(receitaPanelAside, ev);
+      const win = global.open("", "_blank");
+      if (!win) {
+        setMensagemDocumentos_({ tipo: "erro", texto: "Pop-up bloqueado. Libere para imprimir o documento." });
+        return;
+      }
+
+      win.document.open();
+      win.document.write(String(html));
+      win.document.close();
+      win.focus();
+
+      setMensagemDocumentos_({ tipo: "sucesso", texto: "Documento gerado." });
+    } catch (e) {
+      setMensagemDocumentos_({ tipo: "erro", texto: "Erro ao gerar documento." });
+    }
+  }
+
+  function setupDocumentosPanelEvents_(ctx) {
+    documentosPanel = qs("#documentosPanel");
+    if (!documentosPanel) return;
+
+    documentosPanelAside = documentosPanel.querySelector(".slide-panel");
+
+    // fechar
+    qsa("[data-close-documentos]").forEach((btn) => {
+      btn.addEventListener("click", () => fecharDocumentosPanel_());
+    });
+
+    // clique fora
+    documentosPanel.addEventListener("click", (ev) => {
+      if (!documentosPanelAside) return;
+      if (ev.target === documentosPanel) fecharDocumentosPanel_();
+    });
+
+    // submenu -> formulário
+    qsa("#documentosChooser .doc-choice").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const tipo = btn.getAttribute("data-doc") || "";
+        _renderDocForm_(tipo);
+      });
+    });
+
+    // voltar
+    qs("#btnDocVoltar")?.addEventListener("click", () => {
+      _resetDocumentosUi_();
+      const chooser = qs("#documentosChooser");
+      const first = chooser ? chooser.querySelector("button") : null;
+      if (first && typeof first.focus === "function") first.focus();
+    });
+
+    // submit
+    qs("#formDocumentoProntuario")?.addEventListener("submit", (ev) => {
+      ev.preventDefault();
+      _gerarDocumento_(ctx);
     });
   }
 
   // ============================================================
-  // Receita — mini-cards + autocomplete
+  // Receita — mini-cards + autocomplete (mantido)
   // ============================================================
 
   function _splitPosologias_(raw) {
@@ -321,15 +611,6 @@
     else if (s.includes(";")) parts = s.split(";");
     else parts = [s];
     return parts.map((p) => String(p || "").trim()).filter(Boolean).slice(0, 8);
-  }
-
-  function _escapeHtml_(s) {
-    return String(s || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#039;");
   }
 
   function _highlightHtml_(text, term) {
@@ -466,10 +747,8 @@
 
           nomeInput.value = picked.nome || nomeInput.value;
 
-          // chips de posologia
           _renderPosologiaChips_(cardEl, picked.posologias || [], posologiaInput);
 
-          // autopreenche Quantidade e Via vindos da planilha
           if (qtdInput && picked.quantidade) qtdInput.value = picked.quantidade;
           if (viaSelect && picked.via) {
             const val = String(picked.via).trim();
@@ -568,10 +847,6 @@
     if (container.children.length === 0) criarMedicamentoCard_();
   }
 
-  // ============================================================
-  // Receita — submit (rascunho/final + pdf)
-  // ============================================================
-
   function _collectItensFromCards_() {
     const cards = qsa("#receitaItensContainer .receita-med-card");
     const out = [];
@@ -635,13 +910,11 @@
       win.document.close();
     }
 
-    // limpa e fecha
     if (qs("#receitaObservacoes")) qs("#receitaObservacoes").value = "";
     if (qs("#receitaItensContainer")) qs("#receitaItensContainer").innerHTML = "";
     receitaMedCounter = 0;
     ensurePrimeiroMedicamento_();
 
-    // recarrega lista de receitas (apenas última)
     try {
       const ctx2 = PRONTIO.prontuarioContexto || ctx;
       carregarReceitasPaginadas_(ctx2, { append: false, limit: 1 });
@@ -709,7 +982,7 @@
 
   function abrirReceitaNoPainel_(ctx) {
     abrirReceitaPanel_();
-    resetFormReceitaPanel_(); // sempre em branco pelo botão principal
+    resetFormReceitaPanel_();
   }
 
   function abrirExames_(ctx) {
@@ -721,19 +994,6 @@
       global.location.href = base.toString();
     } catch (e) {
       global.alert("Não foi possível abrir Exames.");
-    }
-  }
-
-  function abrirDocumentos_(ctx) {
-    try {
-      const base = new URL("laudo.html", global.location.origin);
-      if (ctx.idPaciente) base.searchParams.set("pacienteId", ctx.idPaciente);
-      if (ctx.nome) base.searchParams.set("pacienteNome", ctx.nome);
-      if (ctx.idAgenda) base.searchParams.set("agendaId", ctx.idAgenda);
-      base.searchParams.set("from", "prontuario");
-      global.location.href = base.toString();
-    } catch (e) {
-      global.alert("Não foi possível abrir Documentos.");
     }
   }
 
@@ -797,8 +1057,8 @@
       li.innerHTML = `
         <div class="evo-header">
           <span class="evo-data">${dataFmt || ""}</span>
-          ${autor ? `<span class="evo-autor">${autor}</span>` : ""}
-          ${origem ? `<span class="evo-origem badge">${origem}</span>` : ""}
+          ${autor ? `<span class="evo-autor">${_escapeHtml_(autor)}</span>` : ""}
+          ${origem ? `<span class="evo-origem badge">${_escapeHtml_(origem)}</span>` : ""}
         </div>
         <div class="evo-texto">${String(ev.texto || "").replace(/\n/g, "<br>")}</div>
         ${botoesHTML}
@@ -847,7 +1107,6 @@
     if (evoPaging.loading) return;
     evoPaging.loading = true;
 
-    // ✅ limit configurável (padrão 10); mantém retrocompat
     let limit = Number(opts.limit);
     if (!limit || isNaN(limit) || limit < 1) limit = 10;
     if (limit > 200) limit = 200;
@@ -868,7 +1127,6 @@
 
     if (!append) {
       vazio.classList.remove("is-hidden");
-      // ✅ mensagem compatível com o fluxo: se limit==1, carrega a última
       vazio.textContent = limit === 1 ? "Carregando última evolução clínica..." : "Carregando evoluções...";
       ul.innerHTML = "";
       evoPaging.lista = [];
@@ -954,9 +1212,6 @@
 
       carregarResumoPaciente_(ctx);
 
-      // ✅ Recarrega a lista conforme o estado atual:
-      // - se já carregou algo, recarrega 1 (última) por padrão
-      // - se estava em modo paginado (10), recarrega 10
       if (historicoCompletoCarregado) {
         const currentLimit = evoPaging.lastLimit && evoPaging.lastLimit > 0 ? evoPaging.lastLimit : 1;
         carregarEvolucoesPaginadas_(ctx, { append: false, limit: currentLimit });
@@ -1175,7 +1430,6 @@
   // ============================================================
 
   function initProntuario() {
-    // ✅ trava anti-duplo-init (main.js + fallback, router, etc.)
     if (PRONTIO._pageInited.prontuario === true) return;
     PRONTIO._pageInited.prontuario = true;
 
@@ -1183,13 +1437,18 @@
     PRONTIO.prontuarioContexto = ctx;
 
     carregarResumoPaciente_(ctx);
+
+    // Painéis
     setupReceitaPanelEvents_();
+    setupDocumentosPanelEvents_(ctx);
 
     // Ações clínicas
     qs("#btnAcaoNovaEvolucao")?.addEventListener("click", abrirNovaEvolucao_);
     qs("#btnAcaoReceita")?.addEventListener("click", () => abrirReceitaNoPainel_(ctx));
     qs("#btnAcaoExames")?.addEventListener("click", () => abrirExames_(ctx));
-    qs("#btnAcaoDocumentos")?.addEventListener("click", () => abrirDocumentos_(ctx));
+
+    // ✅ Documentos agora abre o painel (não navega)
+    qs("#btnAcaoDocumentos")?.addEventListener("click", () => abrirDocumentosPanel_());
 
     // Evolução salvar
     qs("#formEvolucao")?.addEventListener("submit", (ev) => salvarEvolucao(ctx, ev));
@@ -1198,13 +1457,7 @@
     qs("#btnAdicionarMedicamento")?.addEventListener("click", () => criarMedicamentoCard_());
     qs("#formReceitaProntuario")?.addEventListener("submit", onSubmitReceita_);
 
-    // ==========================================================
-    // ✅ EVOLUÇÕES — novo comportamento:
-    // - carrega 1 (última) ao abrir
-    // - botão principal: carrega 10 últimas
-    // - botão "carregar mais": pagina 10 em 10
-    // ==========================================================
-
+    // Evoluções (paginadas)
     evoPaging.btnMais = qs("#btnCarregarMaisEvolucoes");
     _setBtnMais_(evoPaging.btnMais, false, false);
 
@@ -1220,49 +1473,51 @@
       carregarEvolucoesPaginadas_(ctx, { append: true, limit: 10 })
     );
 
-    // ✅ Por padrão: apenas a última evolução
     carregarEvolucoesPaginadas_(ctx, { append: false, limit: 1 });
 
-    // ==========================================================
-    // RECEITAS (lista)
-    // ==========================================================
+    // Receitas (lista)
     recPaging.btnMais = qs("#btnCarregarMaisReceitas");
     _setBtnMais_(recPaging.btnMais, false, false);
 
-    // Por padrão: só a última receita
     carregarReceitasPaginadas_(ctx, { append: false, limit: 1 });
 
-    // Botão: carregar 10 últimas
     const btn10 = qs("#btnCarregarReceitasPaciente");
     if (btn10) btn10.textContent = "Carregar 10 últimas";
     btn10?.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: false, limit: 10 }));
 
-    // Paginação (se optar por exibir o botão)
     recPaging.btnMais?.addEventListener("click", () => carregarReceitasPaginadas_(ctx, { append: true }));
+
+    // ✅ ESC + TrapFocus para painel aberto (Receita / Documentos)
+    document.addEventListener("keydown", (ev) => {
+      const receitaOpen = receitaPanel && receitaPanel.style.display !== "none";
+      const docsOpen = documentosPanel && documentosPanel.style.display !== "none";
+      if (!receitaOpen && !docsOpen) return;
+
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        if (docsOpen) fecharDocumentosPanel_();
+        else if (receitaOpen) fecharReceitaPanel_();
+        return;
+      }
+
+      if (docsOpen) _trapFocusInPanel_(documentosPanelAside, ev);
+      if (receitaOpen) _trapFocusInPanel_(receitaPanelAside, ev);
+    });
   }
 
-  // ============================================================
-  // Registro no framework (main.js / router)
-  // ============================================================
-
-  // ✅ main.js chama PRONTIO.pages[pageId].init()
   PRONTIO.pages.prontuario = PRONTIO.pages.prontuario || {};
   PRONTIO.pages.prontuario.init = initProntuario;
 
-  // ✅ compat com router antigo (se estiver sendo usado em alguma instalação)
   try {
     if (PRONTIO.core && PRONTIO.core.router && typeof PRONTIO.core.router.register === "function") {
       PRONTIO.core.router.register("prontuario", initProntuario);
     }
   } catch (_) {}
 
-  // ✅ compat com registerPage (se existir em algum módulo antigo)
   if (typeof PRONTIO.registerPage === "function") {
     PRONTIO.registerPage("prontuario", initProntuario);
   }
 
-  // ✅ fallback final (somente se não tiver main.js chamando)
-  // Mantém compatibilidade para abrir o HTML “solto” sem loader.
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", initProntuario);
   } else {

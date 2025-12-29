@@ -31,7 +31,6 @@
         <section class="card card-prontuario card-paciente" aria-label="Resumo do paciente">
           <div class="card-body card-body-compact">
 
-            <!-- Nome do paciente (destaque) -->
             <div class="prontuario-paciente-header">
               <div class="prontuario-paciente-info">
                 <div class="paciente-nome-linha">
@@ -44,10 +43,8 @@
               </div>
             </div>
 
-            <!-- Linha horizontal fina -->
             <hr style="border:none; border-top:1px solid var(--cor-borda-suave, #e5e7eb); margin:.85rem 0 1rem;">
 
-            <!-- 4 blocos lado a lado (CSS controla responsivo) -->
             <div class="prontuario-paciente-metrics" aria-label="Dados do paciente">
               <div class="metric">
                 <div class="texto-menor texto-suave">Idade</div>
@@ -99,11 +96,12 @@
             </span>
           </button>
 
+          <!-- ✅ Agora abre submenu + formulário em painel lateral (sem sair do prontuário) -->
           <button type="button" id="btnAcaoDocumentos" class="btn btn-acao-clinica">
             <span class="btn-acao-icone" aria-hidden="true">📄</span>
             <span class="btn-acao-texto">
               <span class="btn-acao-titulo">Documentos</span>
-              <span class="btn-acao-subtitulo">Atestados, laudos e mais</span>
+              <span class="btn-acao-subtitulo">Atestado, comparecimento, laudo, encaminhamento</span>
             </span>
           </button>
         </section>
@@ -144,7 +142,6 @@
               <span class="card-subtitle">Evoluções clínicas (mais recente no topo).</span>
             </div>
             <div style="display:flex; gap:.5rem; align-items:center; flex-wrap:wrap;">
-              <!-- ✅ Coerente com o JS: carrega 10 últimas -->
               <button id="btnCarregarHistoricoPaciente" class="btn btn-secondary btn-sm" type="button">
                 Carregar 10 últimas
               </button>
@@ -157,11 +154,7 @@
             <p class="msg-menor" id="listaEvolucoesPacienteVazia" role="status" aria-live="polite">
               Carregando última evolução clínica...
             </p>
-            <ul
-              id="listaEvolucoesPaciente"
-              class="lista-evolucoes prontuario-timeline mt-md"
-              aria-label="Lista de evoluções"
-            ></ul>
+            <ul id="listaEvolucoesPaciente" class="lista-evolucoes prontuario-timeline mt-md" aria-label="Lista de evoluções"></ul>
           </div>
         </section>
 
@@ -185,11 +178,7 @@
             <p class="msg-menor" id="listaReceitasPacienteVazia" role="status" aria-live="polite">
               Carregando última receita...
             </p>
-            <ul
-              id="listaReceitasPaciente"
-              class="lista-receitas prontuario-timeline mt-md"
-              aria-label="Lista de receitas"
-            ></ul>
+            <ul id="listaReceitasPaciente" class="lista-receitas prontuario-timeline mt-md" aria-label="Lista de receitas"></ul>
           </div>
         </section>
 
@@ -197,10 +186,9 @@
     </main>
   </div>
 
-  <!-- Mantido: chat global do topo/janela (controlado por widget existente) -->
   <div id="chatWindow" class="chat-window" hidden aria-hidden="true"></div>
 
-  <!-- PAINEL DESLIZANTE: RECEITA (usado no Prontuário) -->
+  <!-- PAINEL DESLIZANTE: RECEITA -->
   <div id="receitaPanel" class="slide-panel-backdrop" aria-hidden="true" style="display:none;">
     <aside class="slide-panel" role="dialog" aria-modal="true">
       <header class="slide-panel-header">
@@ -239,7 +227,44 @@
     </aside>
   </div>
 
-  <!-- MODAL: SOBRE -->
+  <!-- ✅ PAINEL DESLIZANTE: DOCUMENTOS -->
+  <div id="documentosPanel" class="slide-panel-backdrop" aria-hidden="true" style="display:none;">
+    <aside class="slide-panel" role="dialog" aria-modal="true">
+      <header class="slide-panel-header">
+        <h2 id="documentosPanelTitulo">Documentos</h2>
+        <button type="button" class="slide-panel-close" aria-label="Fechar" data-close-documentos>✕</button>
+      </header>
+
+      <div class="slide-panel-body">
+        <!-- Submenu -->
+        <div id="documentosChooser" class="doc-chooser" aria-label="Escolher tipo de documento">
+          <button type="button" class="btn btn-secondary doc-choice" data-doc="atestado">Atestado médico</button>
+          <button type="button" class="btn btn-secondary doc-choice" data-doc="comparecimento">Declaração de comparecimento</button>
+          <button type="button" class="btn btn-secondary doc-choice" data-doc="laudo">Laudo</button>
+          <button type="button" class="btn btn-secondary doc-choice" data-doc="encaminhamento">Encaminhamento</button>
+        </div>
+
+        <!-- Formulário (render dinâmico) -->
+        <div id="documentosFormWrap" class="doc-form-wrap" style="display:none;">
+          <div class="doc-form-top">
+            <button type="button" class="btn btn-secondary btn-sm" id="btnDocVoltar">← Voltar</button>
+          </div>
+
+          <form id="formDocumentoProntuario" class="form-vertical" aria-label="Formulário de documento">
+            <div id="documentosFormContainer"></div>
+
+            <div class="form-row form-row-actions form-row-actions-inline">
+              <button type="button" class="btn btn-secondary" data-close-documentos>Cancelar</button>
+              <button type="submit" class="btn btn-primary">Gerar e imprimir</button>
+            </div>
+          </form>
+
+          <div id="mensagemDocumentos" class="mensagem is-hidden" role="status" aria-live="polite"></div>
+        </div>
+      </div>
+    </aside>
+  </div>
+
   <div id="modalSobreSistema" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalSobreSistemaTitulo">
     <div class="modal modal--lg">
       <div class="modal-header">
@@ -261,4 +286,3 @@
   <script src="assets/js/main.js"></script>
 </body>
 </html>
-
