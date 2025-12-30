@@ -29,6 +29,11 @@
  * ✅ FIX (SEM QUEBRAR):
  * - AgendaConfig_Obter / AgendaConfig_Salvar / Agenda_ValidarConflito agora verificam os handlers
  *   em call-time (na execução), evitando “congelar” _Registry_missingHandler_ caso a ordem de carregamento varie.
+ *
+ * ✅ MELHORIA (SEM QUEBRAR - USUÁRIOS):
+ * - Passa ctx também para as ações administrativas de usuários (Listar/Criar/Atualizar/AlterarSenha),
+ *   mantendo compat e habilitando auditoria/permissões consistentes no Usuarios.gs.
+ * - Registra Usuarios_EnsureSchema (admin) para utilitário de manutenção (não afeta outros módulos).
  */
 
 var REGISTRY_ACTIONS = null;
@@ -194,7 +199,7 @@ function _Registry_build_() {
   // =========================
   map["Usuarios_Listar"] = {
     action: "Usuarios_Listar",
-    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_Listar", payload); },
+    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_Listar", payload, ctx); },
     requiresAuth: true,
     roles: ["admin"],
     validations: [],
@@ -204,7 +209,7 @@ function _Registry_build_() {
 
   map["Usuarios_Criar"] = {
     action: "Usuarios_Criar",
-    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_Criar", payload); },
+    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_Criar", payload, ctx); },
     requiresAuth: true,
     roles: ["admin"],
     validations: [],
@@ -214,7 +219,7 @@ function _Registry_build_() {
 
   map["Usuarios_Atualizar"] = {
     action: "Usuarios_Atualizar",
-    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_Atualizar", payload); },
+    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_Atualizar", payload, ctx); },
     requiresAuth: true,
     roles: ["admin"],
     validations: [],
@@ -224,7 +229,7 @@ function _Registry_build_() {
 
   map["Usuarios_AlterarSenha"] = {
     action: "Usuarios_AlterarSenha",
-    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_AlterarSenha", payload); },
+    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_AlterarSenha", payload, ctx); },
     requiresAuth: true,
     roles: ["admin"],
     validations: [],
@@ -250,6 +255,17 @@ function _Registry_build_() {
     validations: [],
     requiresLock: true,
     lockKey: "Usuarios_AlterarMinhaSenha"
+  };
+
+  // ✅ utilitário (admin): garantir schema da aba Usuarios (não afeta outros módulos)
+  map["Usuarios_EnsureSchema"] = {
+    action: "Usuarios_EnsureSchema",
+    handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_EnsureSchema", payload, ctx); },
+    requiresAuth: true,
+    roles: ["admin"],
+    validations: [],
+    requiresLock: true,
+    lockKey: "Usuarios_EnsureSchema"
   };
 
   // =========================
@@ -767,6 +783,18 @@ function _Registry_build_() {
     requiresAuth: true,
     roles: [],
     validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["agenda.nextPatient"] = {
+    action: "agenda.nextPatient",
+    handler: (typeof ChatCompat_Agenda_NextPatient_ === "function")
+      ? ChatCompat_Agenda_NextPatient_
+      : _Registry_missingHandler_("ChatCompat_Agenda_NextPatient_"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
     requiresLock: true,
     lockKey: "ATENDIMENTO"
   };
@@ -1095,6 +1123,7 @@ function Registry_ListActions(ctx, payload) {
     hasReceita: keys.indexOf("Receita.GerarPdf") >= 0,
     hasMedicamentos: keys.indexOf("Medicamentos.ListarAtivos") >= 0,
     hasAgendaListarEventosDiaParaValidacao: keys.indexOf("Agenda_ListarEventosDiaParaValidacao") >= 0,
-    hasPacientesCriar: keys.indexOf("Pacientes_Criar") >= 0
+    hasPacientesCriar: keys.indexOf("Pacientes_Criar") >= 0,
+    hasUsuariosEnsureSchema: keys.indexOf("Usuarios_EnsureSchema") >= 0
   };
 }

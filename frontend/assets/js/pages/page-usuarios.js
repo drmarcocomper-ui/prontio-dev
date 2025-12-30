@@ -10,14 +10,11 @@
 // - Usuarios_Atualizar
 // - Usuarios_ResetSenhaAdmin
 //
-// IDs esperados no HTML:
-// - usuariosMsg, usuariosBusca, usuariosFiltroAtivo
-// - btnRecarregar, btnNovoUsuario
-// - usuariosTbody, usuariosCount
-// - modalUsuario + campos: usuarioId, usuarioNome, usuarioLogin, usuarioEmail, usuarioPerfil, usuarioAtivo, usuarioSenha
-// - btnSalvarUsuario, modalUsuarioMsg, modalUsuarioTitle
-// - modalResetSenha + campos: resetUserId, resetUserLabel, resetNovaSenha, resetAtivar
-// - btnConfirmarReset, modalResetMsg
+// MELHORIAS (SEM QUEBRAR):
+// - Modais: prioriza padrão "hidden + aria-hidden" (main.js), mantendo fallback.
+// - Senha: desabilita campo ao editar (senha só para novo usuário).
+// - UX: Enter salva (no modal e reset), botão busy por operação, validação básica de e-mail.
+// - Render/estado: evita mensagens "sucesso" em sequência e mantém tabela consistente.
 // =====================================
 
 (function (global, document) {
@@ -52,7 +49,6 @@
   }
 
   function escHtml_(s) {
-    // Compatível (evita depender de replaceAll em ambientes antigos)
     return String(s || "")
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -62,137 +58,55 @@
   }
 
   function getCallApiData_() {
-    // Preferência: PRONTIO.api.callApiData
     if (api && typeof api.callApiData === "function") return api.callApiData;
-    // Compat global
     if (typeof global.callApiData === "function") return global.callApiData;
     throw new Error("PRONTIO.api.callApiData não está disponível.");
   }
 
-  function getCurrentUser_() {
-    // Preferência: auth.getUser()
-    try {
-      if (auth && typeof auth.getUser === "function") {
-        const u = auth.getUser();
-        if (u) return u;
-      }
-    } catch (_) {}
-
-    // Fallback: tentar localStorage (best-effort)
-    try {
-      const ls = global.localStorage;
-      if (!ls) return null;
-
-      const raw =
-        ls.getItem("prontio.auth.user") ||
-        ls.getItem("prontio_auth_user") ||
-        ls.getItem("prontio.user") ||
-        "";
-      if (!raw) return null;
-
-      const obj = JSON.parse(raw);
-      return obj && typeof obj === "object" ? obj : null;
-    } catch (_) {}
-
-    return null;
-  }
-
-  function isAdmin_() {
-    try {
-      const u = getCurrentUser_();
-      const perfil = (u && (u.perfil || u.role) ? String(u.perfil || u.role) : "").toLowerCase();
-      return perfil === "admin";
-    } catch (_) {
-      return false;
-    }
+  function isHidden_(el) {
+    if (!el) return true;
+    if (el.hidden === true) return true;
+    if (el.getAttribute("aria-hidden") === "true") return true;
+    if (el.classList.contains("is-hidden")) return true; // legado
+    return false;
   }
 
   function openModalById_(id) {
     const el = $(id);
     if (!el) return;
 
-    // Suporta dois padrões sem quebrar:
-    // 1) ".modal.is-hidden" (HTML atual)
-    // 2) hidden + .is-open (main.js antigo)
-    // 3) ".modal-overlay.hidden/.visible" (outros módulos)
-    if (el.classList.contains("is-hidden")) {
-      el.classList.remove("is-hidden");
-      el.setAttribute("aria-hidden", "false");
-      return;
-    }
-
-    if (el.hasAttribute("hidden") || el.hidden === true) {
-      el.hidden = false;
-      el.classList.add("is-open");
-      el.setAttribute("aria-hidden", "false");
-      return;
-    }
-
-    if (el.classList.contains("hidden")) {
-      el.classList.remove("hidden");
-      el.classList.add("visible");
-      el.setAttribute("aria-hidden", "false");
-      return;
-    }
-
-    // fallback
-    el.classList.add("is-open");
+    // padrão main.js: hidden + aria-hidden
     el.hidden = false;
+    el.classList.add("is-open");
+    el.classList.remove("is-hidden");
     el.setAttribute("aria-hidden", "false");
+
+    // foco inicial best-effort
+    try {
+      const focusable = el.querySelector("input,select,textarea,button");
+      if (focusable) focusable.focus();
+    } catch (_) {}
   }
 
   function closeModalById_(id) {
     const el = $(id);
     if (!el) return;
 
-    if (el.classList.contains("is-hidden")) {
-      // já fechado
-      el.setAttribute("aria-hidden", "true");
-      return;
-    }
-
-    if (el.classList.contains("modal-overlay") || el.classList.contains("visible") || el.classList.contains("hidden")) {
-      el.classList.remove("visible");
-      el.classList.add("hidden");
-      el.setAttribute("aria-hidden", "true");
-      return;
-    }
-
-    // padrão ".modal"
-    el.classList.add("is-hidden");
     el.classList.remove("is-open");
+    el.classList.add("is-hidden"); // compat visual antiga
     el.hidden = true;
     el.setAttribute("aria-hidden", "true");
   }
 
-  function bindModalClosers_() {
+  function bindModalClosersCompat_() {
+    // main.js já faz bindTriggers, mas mantemos este compat como best-effort
     document.querySelectorAll("[data-modal-close]").forEach((el) => {
-      if (el.dataset._boundClose === "1") return;
-      el.dataset._boundClose = "1";
+      if (el.dataset._boundCloseUsuarios === "1") return;
+      el.dataset._boundCloseUsuarios = "1";
       el.addEventListener("click", () => {
         const target = el.getAttribute("data-modal-close");
         if (target) closeModalById_(target);
       });
-    });
-
-    // Clique no backdrop (se existir)
-    document.querySelectorAll(".modal-backdrop").forEach((bg) => {
-      if (bg.dataset._boundBackdrop === "1") return;
-      bg.dataset._boundBackdrop = "1";
-      bg.addEventListener("click", () => {
-        const target = bg.getAttribute("data-modal-close");
-        if (target) closeModalById_(target);
-      });
-    });
-
-    // ESC fecha modais do módulo
-    if (document.body.getAttribute("data-usuarios-esc-bound") === "1") return;
-    document.body.setAttribute("data-usuarios-esc-bound", "1");
-
-    document.addEventListener("keydown", (ev) => {
-      if (ev.key !== "Escape") return;
-      closeModalById_("modalUsuario");
-      closeModalById_("modalResetSenha");
     });
   }
 
@@ -203,10 +117,48 @@
     btn.setAttribute("aria-busy", busy ? "true" : "false");
   }
 
+  function setTableLoading_(text) {
+    const tbody = $("usuariosTbody");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-muted">${escHtml_(text || "Carregando...")}</td></tr>`;
+  }
+
+  function setTableEmpty_(text) {
+    const tbody = $("usuariosTbody");
+    if (!tbody) return;
+    tbody.innerHTML = `<tr><td colspan="6" class="text-muted">${escHtml_(text || "Nenhum usuário encontrado.")}</td></tr>`;
+  }
+
+  function isAuthOrPermissionError_(err) {
+    const code = String(err && err.code ? err.code : "").toUpperCase();
+    if (!code) return false;
+    return (
+      code === "AUTH_REQUIRED" ||
+      code === "AUTH_EXPIRED" ||
+      code === "AUTH_TOKEN_EXPIRED" ||
+      code === "AUTH_NO_TOKEN" ||
+      code === "PERMISSION_DENIED"
+    );
+  }
+
+  function looksLikeEmail_(email) {
+    email = String(email || "").trim();
+    if (!email) return true;
+    // simples e seguro (não "valida RFC", só evita erros óbvios)
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+  }
+
   // ---------- state ----------
   let USERS = [];
   let FILTER_TEXT = "";
   let FILTER_ATIVO = "todos"; // todos | ativos | inativos
+  let IN_FLIGHT = false;
+
+  function setInFlight_(v) {
+    IN_FLIGHT = !!v;
+    setButtonBusy_("btnRecarregar", IN_FLIGHT);
+    // btnNovoUsuario é aberto por data-modal-open, então não travamos sempre
+  }
 
   // ---------- API wrappers ----------
   async function apiList_() {
@@ -258,11 +210,10 @@
     if (!tbody) return;
 
     const rows = getFiltered_();
-
     tbody.innerHTML = "";
 
     if (!rows.length) {
-      tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Nenhum usuário encontrado.</td></tr>`;
+      setTableEmpty_("Nenhum usuário encontrado.");
       if (countEl) countEl.textContent = "0 usuário(s)";
       return;
     }
@@ -306,13 +257,12 @@
 
   // ---------- load ----------
   async function refresh_() {
+    if (IN_FLIGHT) return;
+    setInFlight_(true);
+
     showMsg_("usuariosMsg", "", "info");
 
-    const tbody = $("usuariosTbody");
-    const countEl = $("usuariosCount");
-    if (!tbody) return;
-
-    // Garante que usuário está logado (best-effort); quem faz redirect normalmente é auth.js
+    // best-effort: garantir sessão
     try {
       if (auth && typeof auth.ensureSession === "function") {
         await auth.ensureSession({ redirect: true });
@@ -321,31 +271,51 @@
       }
     } catch (_) {}
 
-    if (!isAdmin_()) {
-      USERS = [];
-      tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Apenas administradores podem gerenciar usuários.</td></tr>`;
-      if (countEl) countEl.textContent = "";
-      return;
-    }
+    setTableLoading_("Carregando...");
 
     try {
-      tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Carregando...</td></tr>`;
       const list = await apiList_();
       USERS = Array.isArray(list) ? list : [];
       render_();
-      showMsg_("usuariosMsg", "Usuários carregados.", "success");
+      // mensagem mais discreta (evita "sucesso" repetitivo)
+      showMsg_("usuariosMsg", "", "info");
     } catch (e) {
-      tbody.innerHTML = `<tr><td colspan="6" class="text-muted">Erro ao carregar.</td></tr>`;
-      showMsg_("usuariosMsg", (e && e.message) ? e.message : "Falha ao carregar usuários.", "error");
+      USERS = [];
+      const countEl = $("usuariosCount");
+      if (countEl) countEl.textContent = "";
+
+      if (isAuthOrPermissionError_(e)) {
+        setTableEmpty_("Apenas administradores podem gerenciar usuários.");
+        showMsg_("usuariosMsg", e.message || "Sem permissão para listar usuários.", "warning");
+        return;
+      }
+
+      setTableEmpty_("Erro ao carregar usuários.");
+      showMsg_("usuariosMsg", e && e.message ? e.message : "Falha ao carregar usuários.", "error");
+    } finally {
+      setInFlight_(false);
     }
   }
 
   // ---------- modal: create/edit ----------
+  function setSenhaMode_(isCreate) {
+    const senhaEl = $("usuarioSenha");
+    if (!senhaEl) return;
+
+    if (isCreate) {
+      senhaEl.disabled = false;
+      senhaEl.placeholder = "Defina a senha inicial";
+      senhaEl.setAttribute("autocomplete", "new-password");
+    } else {
+      senhaEl.value = "";
+      senhaEl.disabled = true;
+      senhaEl.placeholder = "Senha é definida no reset (admin)";
+    }
+  }
+
   function openCreate_() {
     showMsg_("modalUsuarioMsg", "", "info");
-
-    const titleEl = $("modalUsuarioTitle");
-    if (titleEl) titleEl.textContent = "Novo usuário";
+    if ($("modalUsuarioTitle")) $("modalUsuarioTitle").textContent = "Novo usuário";
 
     if ($("usuarioId")) $("usuarioId").value = "";
     if ($("usuarioNome")) $("usuarioNome").value = "";
@@ -355,14 +325,13 @@
     if ($("usuarioAtivo")) $("usuarioAtivo").value = "true";
     if ($("usuarioSenha")) $("usuarioSenha").value = "";
 
+    setSenhaMode_(true);
     openModalById_("modalUsuario");
   }
 
   function openEdit_(u) {
     showMsg_("modalUsuarioMsg", "", "info");
-
-    const titleEl = $("modalUsuarioTitle");
-    if (titleEl) titleEl.textContent = "Editar usuário";
+    if ($("modalUsuarioTitle")) $("modalUsuarioTitle").textContent = "Editar usuário";
 
     if ($("usuarioId")) $("usuarioId").value = u.id || "";
     if ($("usuarioNome")) $("usuarioNome").value = u.nome || u.nomeCompleto || "";
@@ -370,12 +339,16 @@
     if ($("usuarioEmail")) $("usuarioEmail").value = u.email || "";
     if ($("usuarioPerfil")) $("usuarioPerfil").value = u.perfil || "secretaria";
     if ($("usuarioAtivo")) $("usuarioAtivo").value = u.ativo ? "true" : "false";
-    if ($("usuarioSenha")) $("usuarioSenha").value = ""; // não edita senha aqui
+    if ($("usuarioSenha")) $("usuarioSenha").value = "";
 
+    setSenhaMode_(false);
     openModalById_("modalUsuario");
   }
 
   async function saveUser_() {
+    if (IN_FLIGHT) return;
+    setInFlight_(true);
+
     showMsg_("modalUsuarioMsg", "", "info");
     setButtonBusy_("btnSalvarUsuario", true);
 
@@ -393,8 +366,12 @@
         return;
       }
 
+      if (!looksLikeEmail_(email)) {
+        showMsg_("modalUsuarioMsg", "E-mail inválido.", "error");
+        return;
+      }
+
       if (!id) {
-        // criar
         if (!senha) {
           showMsg_("modalUsuarioMsg", "Informe a senha inicial para criar o usuário.", "error");
           return;
@@ -402,7 +379,6 @@
         await apiCreate_({ nome, login, email, perfil, senha });
         showMsg_("usuariosMsg", "Usuário criado com sucesso.", "success");
       } else {
-        // atualizar
         await apiUpdate_({ id, nome, login, email, perfil, ativo });
         showMsg_("usuariosMsg", "Usuário atualizado com sucesso.", "success");
       }
@@ -410,9 +386,14 @@
       closeModalById_("modalUsuario");
       await refresh_();
     } catch (e) {
-      showMsg_("modalUsuarioMsg", (e && e.message) ? e.message : "Falha ao salvar usuário.", "error");
+      if (isAuthOrPermissionError_(e)) {
+        showMsg_("modalUsuarioMsg", e.message || "Sem permissão para esta ação.", "warning");
+      } else {
+        showMsg_("modalUsuarioMsg", e && e.message ? e.message : "Falha ao salvar usuário.", "error");
+      }
     } finally {
       setButtonBusy_("btnSalvarUsuario", false);
+      setInFlight_(false);
     }
   }
 
@@ -421,7 +402,9 @@
     showMsg_("modalResetMsg", "", "info");
 
     if ($("resetUserId")) $("resetUserId").value = u.id || "";
-    if ($("resetUserLabel")) $("resetUserLabel").textContent = `${u.nome || u.nomeCompleto || "Usuário"} (${u.login || u.email || u.id})`;
+    if ($("resetUserLabel")) $("resetUserLabel").textContent =
+      `${u.nome || u.nomeCompleto || "Usuário"} (${u.login || u.email || u.id})`;
+
     if ($("resetNovaSenha")) $("resetNovaSenha").value = "";
     if ($("resetAtivar")) $("resetAtivar").checked = true;
 
@@ -429,6 +412,9 @@
   }
 
   async function confirmReset_() {
+    if (IN_FLIGHT) return;
+    setInFlight_(true);
+
     showMsg_("modalResetMsg", "", "info");
     setButtonBusy_("btnConfirmarReset", true);
 
@@ -439,6 +425,7 @@
 
       if (!id) return showMsg_("modalResetMsg", "Usuário inválido para reset.", "error");
       if (!senha) return showMsg_("modalResetMsg", "Informe a nova senha.", "error");
+      if (String(senha || "").length < 6) return showMsg_("modalResetMsg", "Senha deve ter pelo menos 6 caracteres.", "error");
 
       await apiResetSenha_({ id, senha, ativar });
       showMsg_("usuariosMsg", "Senha resetada com sucesso.", "success");
@@ -446,20 +433,28 @@
       closeModalById_("modalResetSenha");
       await refresh_();
     } catch (e) {
-      showMsg_("modalResetMsg", (e && e.message) ? e.message : "Falha ao resetar senha.", "error");
+      if (isAuthOrPermissionError_(e)) {
+        showMsg_("modalResetMsg", e.message || "Sem permissão para esta ação.", "warning");
+      } else {
+        showMsg_("modalResetMsg", e && e.message ? e.message : "Falha ao resetar senha.", "error");
+      }
     } finally {
       setButtonBusy_("btnConfirmarReset", false);
+      setInFlight_(false);
     }
   }
 
   // ---------- actions ----------
   async function toggleAtivo_(u) {
+    if (IN_FLIGHT) return;
+
     showMsg_("usuariosMsg", "", "info");
 
     const novoAtivo = !u.ativo;
     const ok = global.confirm(`Confirma ${novoAtivo ? "ATIVAR" : "DESATIVAR"} o usuário "${u.nome || u.nomeCompleto || u.id}"?`);
     if (!ok) return;
 
+    setInFlight_(true);
     try {
       await apiUpdate_({
         id: u.id,
@@ -473,15 +468,20 @@
       showMsg_("usuariosMsg", `Usuário ${novoAtivo ? "ativado" : "desativado"} com sucesso.`, "success");
       await refresh_();
     } catch (e) {
-      showMsg_("usuariosMsg", (e && e.message) ? e.message : "Falha ao atualizar status.", "error");
+      if (isAuthOrPermissionError_(e)) {
+        showMsg_("usuariosMsg", e.message || "Sem permissão para esta ação.", "warning");
+      } else {
+        showMsg_("usuariosMsg", e && e.message ? e.message : "Falha ao atualizar status.", "error");
+      }
+    } finally {
+      setInFlight_(false);
     }
   }
 
   // ---------- init ----------
   function bind_() {
-    bindModalClosers_();
+    bindModalClosersCompat_();
 
-    // binds
     const btnRecarregar = $("btnRecarregar");
     const btnNovoUsuario = $("btnNovoUsuario");
     const btnSalvarUsuario = $("btnSalvarUsuario");
@@ -499,12 +499,11 @@
       let t = null;
       busca.addEventListener("input", (ev) => {
         const v = String(ev.target.value || "");
-        // debounce leve
         if (t) clearTimeout(t);
         t = setTimeout(() => {
           FILTER_TEXT = v;
           render_();
-        }, 80);
+        }, 120);
       });
     }
 
@@ -514,6 +513,35 @@
         render_();
       });
     }
+
+    // Enter salva no modal de usuário
+    const modalUsuario = $("modalUsuario");
+    if (modalUsuario && modalUsuario.getAttribute("data-usuarios-enter-bound") !== "1") {
+      modalUsuario.setAttribute("data-usuarios-enter-bound", "1");
+      modalUsuario.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        const tag = String(ev.target && ev.target.tagName ? ev.target.tagName : "").toLowerCase();
+        if (tag === "textarea") return;
+        // não salva se o modal estiver fechado
+        if (isHidden_(modalUsuario)) return;
+        ev.preventDefault();
+        saveUser_();
+      });
+    }
+
+    // Enter confirma reset
+    const modalReset = $("modalResetSenha");
+    if (modalReset && modalReset.getAttribute("data-usuarios-enter-bound") !== "1") {
+      modalReset.setAttribute("data-usuarios-enter-bound", "1");
+      modalReset.addEventListener("keydown", (ev) => {
+        if (ev.key !== "Enter") return;
+        const tag = String(ev.target && ev.target.tagName ? ev.target.tagName : "").toLowerCase();
+        if (tag === "textarea") return;
+        if (isHidden_(modalReset)) return;
+        ev.preventDefault();
+        confirmReset_();
+      });
+    }
   }
 
   function initUsuariosPage() {
@@ -521,7 +549,6 @@
     const pageId = (body && body.dataset && (body.dataset.pageId || body.dataset.page)) || "";
     if (String(pageId).toLowerCase() !== "usuarios") return;
 
-    // evita double-init
     if (body.getAttribute("data-usuarios-inited") === "1") return;
     body.setAttribute("data-usuarios-inited", "1");
 
@@ -529,7 +556,7 @@
     refresh_();
   }
 
-  // ✅ Integra com o loader do main.js (evita bug de DOMContentLoaded já ter passado)
+  // ✅ Integra com loader do main.js
   if (typeof PRONTIO.registerPage === "function") {
     PRONTIO.registerPage("usuarios", initUsuariosPage);
   } else {

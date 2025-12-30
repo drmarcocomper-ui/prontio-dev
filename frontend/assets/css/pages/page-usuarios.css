@@ -131,8 +131,15 @@ body[data-page="usuarios"] .usuarios-footer {
 /* =====================================
    Modal
 ===================================== */
+
+/* ✅ Compat: padrão do main.js e do HTML (hidden) */
+body[data-page="usuarios"] .modal[hidden] {
+  display: none !important;
+}
+
+/* ✅ Compat legado: se algum modal usar is-hidden */
 body[data-page="usuarios"] .modal.is-hidden {
-  display: none;
+  display: none !important;
 }
 
 body[data-page="usuarios"] .form-grid {
