@@ -1,3 +1,4 @@
+// backend/Migrations.gs
 /**
  * ============================================================
  * PRONTIO - Migrations.gs (FASE 4)
@@ -31,6 +32,10 @@ var MIGRATIONS_META_HEADERS = ["key", "value", "updatedAt"];
  * - Adicionar novas abas para os 4 módulos:
  *   Clinica, Profissionais, Usuarios (compatível com Usuarios.gs),
  *   AgendaDisponibilidade, AgendaExcecoes, AgendaEventos, AgendaAcl.
+ *
+ * ✅ UPDATE (Documentos):
+ * - Adiciona aba "Encaminhamento" para busca (formulário) com header garantido.
+ * - Adiciona aba "CID" para autocomplete de CID / doença com header garantido.
  */
 var MIGRATIONS_SHEETS = {
   "__meta": MIGRATIONS_META_HEADERS,
@@ -230,6 +235,30 @@ var MIGRATIONS_SHEETS = {
     "ativo",
     "criadoEm",
     "atualizadoEm"
+  ],
+
+  // =========================
+  // DOCUMENTOS (buscas / autocomplete)
+  // =========================
+
+  /**
+   * Encaminhamento (para autocomplete no painel Documentos)
+   * Colunas exatamente como você descreveu (inclui acento em "Avaliação").
+   */
+  "Encaminhamento": [
+    "Encaminhamento",
+    "NomeDoProfissional",
+    "Avaliação",
+    "Telefone"
+  ],
+
+  /**
+   * CID (autocomplete por CID ou nome da doença)
+   */
+  "CID": [
+    "CID",
+    "Descricao",
+    "Sinonimos"
   ]
 };
 

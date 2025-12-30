@@ -55,11 +55,18 @@
   let documentosPanelLastFocus = null;
   let docTipoAtual = ""; // atestado | comparecimento | laudo | encaminhamento
 
+  // ✅ Estado de autocomplete do painel Documentos
+  let docState = {
+    atestado: { cidObj: null }, // { codigo, descricao }
+    encaminhamento: { pick: null } // {encaminhamento,nomeProfissional,avaliacao,telefone}
+  };
+
   // Mini-cards de medicamento
   let receitaMedCounter = 0;
 
   // Autocomplete (debounce)
   let medSuggestTimer = null;
+  let docSuggestTimer = null;
 
   // ============================================================
   // Helpers de API
@@ -342,6 +349,9 @@
     const msg = qs("#mensagemDocumentos");
 
     docTipoAtual = "";
+    docState.atestado.cidObj = null;
+    docState.encaminhamento.pick = null;
+
     if (title) title.textContent = "Documentos";
     if (container) container.innerHTML = "";
     if (msg) msg.classList.add("is-hidden");
@@ -386,6 +396,202 @@
     if (first && typeof first.focus === "function") setTimeout(() => first.focus(), 0);
   }
 
+  // -----------------------------
+  // ✅ Autocomplete (Documentos)
+  // -----------------------------
+
+  function _looksLikeCidCode_(s) {
+    const up = String(s || "").trim().toUpperCase();
+    if (!up) return false;
+    return /^[A-Z]\d{2}(\.\d{1,2})?$/.test(up) || /^[A-Z]\d{1,2}(\.\d{1,2})?$/.test(up);
+  }
+
+  function _ensureSuggestSlot_(wrapEl, className) {
+    if (!wrapEl) return null;
+    let slot = wrapEl.querySelector("." + className);
+    if (slot) return slot;
+
+    slot = document.createElement("div");
+    slot.className = className;
+    slot.style.marginTop = "6px";
+    slot.style.border = "1px solid var(--cor-borda-suave, #e5e7eb)";
+    slot.style.borderRadius = "10px";
+    slot.style.overflow = "hidden";
+    slot.style.display = "none";
+    slot.style.background = "var(--cor-fundo, #fff)";
+    wrapEl.appendChild(slot);
+    return slot;
+  }
+
+  function _hideSuggestSlot_(slot) {
+    if (!slot) return;
+    slot.innerHTML = "";
+    slot.style.display = "none";
+  }
+
+  function _renderSuggestList_(slot, items, renderItemHtml, onPick) {
+    if (!slot) return;
+    slot.innerHTML = "";
+    if (!items || !items.length) {
+      slot.style.display = "none";
+      return;
+    }
+
+    const ul = document.createElement("ul");
+    ul.style.listStyle = "none";
+    ul.style.margin = "0";
+    ul.style.padding = "0";
+
+    items.slice(0, 12).forEach((it) => {
+      const li = document.createElement("li");
+      li.style.borderTop = "1px solid var(--cor-borda-suave, #e5e7eb)";
+
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.style.width = "100%";
+      btn.style.textAlign = "left";
+      btn.style.padding = "10px 12px";
+      btn.style.border = "0";
+      btn.style.background = "transparent";
+      btn.style.cursor = "pointer";
+
+      btn.innerHTML = renderItemHtml(it);
+      btn.addEventListener("click", () => onPick(it));
+
+      li.appendChild(btn);
+      ul.appendChild(li);
+    });
+
+    if (ul.firstChild) ul.firstChild.style.borderTop = "0";
+    slot.appendChild(ul);
+    slot.style.display = "block";
+  }
+
+  async function _buscarCid_(q) {
+    const data = await callApiDataTry_(["Prontuario.CID.Buscar"], { q, limit: 12 });
+    const items = (data && data.items) ? data.items : [];
+    return Array.isArray(items) ? items : [];
+  }
+
+  async function _buscarEncaminhamento_(q) {
+    const data = await callApiDataTry_(["Prontuario.Encaminhamento.Buscar"], { q, limit: 12 });
+    const items = (data && data.items) ? data.items : [];
+    return Array.isArray(items) ? items : [];
+  }
+
+  function _wireCidAutocomplete_() {
+    const input = qs("#docCidBusca");
+    const hint = qs("#docCidHint");
+    if (!input) return;
+
+    const row = input.closest(".form-row");
+    const slot = _ensureSuggestSlot_(row, "doc-suggest-slot");
+
+    document.addEventListener("click", (ev) => {
+      if (!row) return;
+      if (!row.contains(ev.target)) _hideSuggestSlot_(slot);
+    });
+
+    input.addEventListener("input", () => {
+      const q = String(input.value || "").trim();
+
+      docState.atestado.cidObj = null;
+      if (hint) hint.textContent = "";
+
+      if (docSuggestTimer) clearTimeout(docSuggestTimer);
+      _hideSuggestSlot_(slot);
+
+      if (q.length < 2) return;
+
+      docSuggestTimer = setTimeout(async () => {
+        let items = [];
+        try { items = await _buscarCid_(q); } catch (_) { items = []; }
+
+        _renderSuggestList_(
+          slot,
+          items,
+          (it) => {
+            const cid = _escapeHtml_(it.cid || "");
+            const desc = _escapeHtml_(it.descricao || "");
+            return `<div style="font-weight:700;font-size:13px;">${cid}</div><div style="font-size:12px;color:#6b7280;margin-top:2px;">${desc}</div>`;
+          },
+          (picked) => {
+            _hideSuggestSlot_(slot);
+            const cid = String(picked.cid || "").trim().toUpperCase();
+            const desc = String(picked.descricao || "").trim();
+
+            docState.atestado.cidObj = { codigo: cid, descricao: desc };
+            input.value = cid + (desc ? " - " + desc : "");
+            if (hint) hint.textContent = cid ? `Selecionado: ${cid}${desc ? " — " + desc : ""}` : "";
+          }
+        );
+      }, 180);
+    });
+  }
+
+  function _wireEncaminhamentoAutocomplete_() {
+    const input = qs("#docEncBusca");
+    if (!input) return;
+
+    const row = input.closest(".form-row");
+    const slot = _ensureSuggestSlot_(row, "doc-suggest-slot");
+
+    document.addEventListener("click", (ev) => {
+      if (!row) return;
+      if (!row.contains(ev.target)) _hideSuggestSlot_(slot);
+    });
+
+    input.addEventListener("input", () => {
+      const q = String(input.value || "").trim();
+      docState.encaminhamento.pick = null;
+
+      if (docSuggestTimer) clearTimeout(docSuggestTimer);
+      _hideSuggestSlot_(slot);
+
+      if (q.length < 2) return;
+
+      docSuggestTimer = setTimeout(async () => {
+        let items = [];
+        try { items = await _buscarEncaminhamento_(q); } catch (_) { items = []; }
+
+        _renderSuggestList_(
+          slot,
+          items,
+          (it) => {
+            const enc = _escapeHtml_(it.encaminhamento || "");
+            const nome = _escapeHtml_(it.nomeProfissional || "");
+            const tel = _escapeHtml_(it.telefone || "");
+            const line2 = [nome, tel].filter(Boolean).join(" • ");
+            return `<div style="font-weight:700;font-size:13px;">${enc || "(sem título)"}</div>${
+              line2 ? `<div style="font-size:12px;color:#6b7280;margin-top:2px;">${line2}</div>` : ""
+            }`;
+          },
+          (picked) => {
+            _hideSuggestSlot_(slot);
+            docState.encaminhamento.pick = picked || null;
+
+            const enc = String(picked.encaminhamento || "").trim();
+            const nome = String(picked.nomeProfissional || "").trim();
+            const tel = String(picked.telefone || "").trim();
+            const aval = String(picked.avaliacao || "").trim();
+
+            const fEnc = qs("#docEncEncaminhamento");
+            const fNome = qs("#docEncNome");
+            const fTel = qs("#docEncTelefone");
+            const fAval = qs("#docEncAvaliacao");
+
+            if (fEnc) fEnc.value = enc;
+            if (fNome) fNome.value = nome;
+            if (fTel) fTel.value = tel;
+            if (fAval) fAval.value = aval;
+
+            input.value = enc || nome || "";
+          }
+        );
+      }, 180);
+    });
+  }
+
   // ✅ Atualizado: campos completos por documento
   function _renderDocForm_(tipo) {
     const t = String(tipo || "").toLowerCase();
@@ -423,18 +629,27 @@
         </div>
 
         <div class="form-row">
-          <label for="docDias">Dias de afastamento</label>
+          <label for="docDias">Dias de afastamento (opcional)</label>
           <input type="number" id="docDias" min="0" step="1" placeholder="Ex: 2">
+          <small class="texto-menor texto-suave">O texto principal será gerado automaticamente.</small>
         </div>
 
         <div class="form-row">
-          <label for="docCid">CID (opcional)</label>
-          <input type="text" id="docCid" placeholder="Ex: M54.5">
+          <label for="docCidBusca">CID ou doença (opcional)</label>
+          <input type="text" id="docCidBusca" placeholder="Ex: N20.0 ou 'cálculo do rim'">
+          <small id="docCidHint" class="texto-menor texto-suave"></small>
         </div>
 
         <div class="form-row">
-          <label for="docTexto">Texto / Observações</label>
-          <textarea id="docTexto" rows="6" placeholder="Ex: Atesto para os devidos fins..."></textarea>
+          <label class="texto-menor texto-suave" style="display:flex;align-items:center;gap:.5rem;">
+            <input type="checkbox" id="docExibirCid" checked>
+            Exibir CID no documento (se selecionado)
+          </label>
+        </div>
+
+        <div class="form-row">
+          <label for="docObs">Observações (opcional)</label>
+          <textarea id="docObs" rows="3" placeholder="Campo opcional para observações adicionais."></textarea>
         </div>
       `;
     } else if (t === "comparecimento") {
@@ -484,8 +699,24 @@
         </div>
 
         <div class="form-row">
-          <label for="docDestino">Encaminhar para</label>
-          <input type="text" id="docDestino" placeholder="Ex: Ortopedia / Fisioterapia / Cardiologia">
+          <label for="docEncBusca">Buscar profissional/serviço</label>
+          <input type="text" id="docEncBusca" placeholder="Digite nome, serviço, telefone...">
+          <small class="texto-menor texto-suave">Sugestões vêm da aba "Encaminhamento".</small>
+        </div>
+
+        <div class="form-row">
+          <label for="docEncEncaminhamento">Encaminhamento</label>
+          <input type="text" id="docEncEncaminhamento" placeholder="Ex: Ortopedia / Fisioterapia / Cardiologia">
+        </div>
+
+        <div class="form-row">
+          <label for="docEncNome">Nome do profissional (opcional)</label>
+          <input type="text" id="docEncNome" placeholder="Nome do profissional">
+        </div>
+
+        <div class="form-row">
+          <label for="docEncTelefone">Telefone (opcional)</label>
+          <input type="text" id="docEncTelefone" placeholder="(xx) xxxxx-xxxx">
         </div>
 
         <div class="form-row">
@@ -499,19 +730,28 @@
         </div>
 
         <div class="form-row">
-          <label for="docTexto">Motivo / Observações</label>
-          <textarea id="docTexto" rows="6" placeholder="Ex: Encaminho para avaliação de..."></textarea>
+          <label for="docEncAvaliacao">Avaliação / Motivo</label>
+          <textarea id="docEncAvaliacao" rows="6" placeholder="Ex: Encaminho para avaliação de..."></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="docObs">Observações (opcional)</label>
+          <textarea id="docObs" rows="3" placeholder="Campo opcional para observações adicionais."></textarea>
         </div>
       `;
     }
 
     container.innerHTML = html;
 
+    // wires
+    if (t === "atestado") _wireCidAutocomplete_();
+    if (t === "encaminhamento") _wireEncaminhamentoAutocomplete_();
+
     const focusEl = container.querySelector("input, textarea, select, button");
     if (focusEl && typeof focusEl.focus === "function") setTimeout(() => focusEl.focus(), 0);
   }
 
-  // ✅ Atualizado: captura campos novos (CID / entrada/saída / prioridade)
+  // ✅ Atualizado: payload novo + compatível
   function _collectDocPayload_(ctx) {
     const t = String(docTipoAtual || "").toLowerCase();
     const payload = {
@@ -524,23 +764,53 @@
 
     if (t === "atestado") {
       payload.dias = Number(qs("#docDias")?.value || 0);
-      payload.cid = String(qs("#docCid")?.value || "").trim();
+      payload.exibirCid = !!qs("#docExibirCid")?.checked;
+      payload.observacoes = String(qs("#docObs")?.value || "").trim();
+
+      // Texto principal será gerado no backend
+      payload.texto = "";
+
+      if (docState.atestado.cidObj) {
+        payload.cidObj = {
+          codigo: String(docState.atestado.cidObj.codigo || "").trim(),
+          descricao: String(docState.atestado.cidObj.descricao || "").trim(),
+        };
+        payload.cid = payload.cidObj.codigo || "";
+      } else {
+        const raw = String(qs("#docCidBusca")?.value || "").trim();
+        const token = raw.split("-")[0].trim().split(/\s+/)[0].trim();
+        payload.cid = _looksLikeCidCode_(token) ? token.toUpperCase() : "";
+      }
+
+      return payload;
     }
 
     if (t === "comparecimento") {
-      // compat: se existir docHorario antigo, também envia
       payload.entrada = String(qs("#docEntrada")?.value || "").trim();
       payload.saida = String(qs("#docSaida")?.value || "").trim();
       payload.horario = String(qs("#docHorario")?.value || "").trim();
+      return payload;
     }
 
     if (t === "laudo") {
       payload.titulo = String(qs("#docTitulo")?.value || "").trim();
+      return payload;
     }
 
     if (t === "encaminhamento") {
-      payload.destino = String(qs("#docDestino")?.value || "").trim();
       payload.prioridade = String(qs("#docPrioridade")?.value || "").trim();
+      payload.observacoes = String(qs("#docObs")?.value || "").trim();
+
+      payload.encaminhamento = String(qs("#docEncEncaminhamento")?.value || "").trim();
+      payload.nomeProfissional = String(qs("#docEncNome")?.value || "").trim();
+      payload.telefone = String(qs("#docEncTelefone")?.value || "").trim();
+      payload.avaliacao = String(qs("#docEncAvaliacao")?.value || "").trim();
+
+      // compat antigo
+      payload.destino = payload.encaminhamento;
+      payload.texto = payload.avaliacao || payload.texto;
+
+      return payload;
     }
 
     return payload;

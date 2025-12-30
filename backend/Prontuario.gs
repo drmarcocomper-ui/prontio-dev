@@ -30,11 +30,15 @@
  * Timeline unificada (Evolução + Receita + Chat):
  * - Prontuario.Timeline.ListarPorPaciente         ✅ paginação por cursor (ts)
  *
- * ✅ Documentos (novo — retorna {html} pronto para imprimir):
+ * ✅ Documentos (retorna {html} pronto para imprimir):
  * - Prontuario.Atestado.GerarPdf
  * - Prontuario.Comparecimento.GerarPdf
  * - Prontuario.Laudo.GerarPdf
  * - Prontuario.Encaminhamento.GerarPdf
+ *
+ * ✅ Buscas (autocomplete):
+ * - Prontuario.CID.Buscar
+ * - Prontuario.Encaminhamento.Buscar
  */
 
 function _prontuarioThrow_(code, message, details) {
@@ -78,6 +82,38 @@ function _prontuarioResumo_(text, maxLen) {
   if (!maxLen || maxLen < 10) maxLen = 240;
   if (s.length <= maxLen) return s;
   return s.slice(0, maxLen - 1) + "…";
+}
+
+// ============================================================
+// Helpers: normalização / busca (accent-insensitive)
+// ============================================================
+
+function _prontuarioNorm_(s) {
+  s = String(s || "").trim().toLowerCase();
+  if (!s) return "";
+  var map = {
+    "á":"a","à":"a","â":"a","ã":"a","ä":"a",
+    "é":"e","è":"e","ê":"e","ë":"e",
+    "í":"i","ì":"i","î":"i","ï":"i",
+    "ó":"o","ò":"o","ô":"o","õ":"o","ö":"o",
+    "ú":"u","ù":"u","û":"u","ü":"u",
+    "ç":"c"
+  };
+  return s.replace(/[áàâãäéèêëíìîïóòôõöúùûüç]/g, function (ch) { return map[ch] || ch; });
+}
+
+function _prontuarioLooksLikeCid_(q) {
+  var s = String(q || "").trim().toUpperCase();
+  if (!s) return false;
+  return /^[A-Z]\d{2}(\.\d{1,2})?$/.test(s) || /^[A-Z]\d{1,2}(\.\d{1,2})?$/.test(s);
+}
+
+function _prontuarioClamp_(n, min, max, dflt) {
+  n = (n === undefined || n === null) ? dflt : Number(n);
+  if (isNaN(n)) n = dflt;
+  if (n < min) n = min;
+  if (n > max) n = max;
+  return Math.floor(n);
 }
 
 // ============================================================
@@ -157,6 +193,13 @@ function handleProntuarioAction(action, payload) {
     case "Prontuario.Encaminhamento.GerarPdf":
       _prontuarioAssertRequired_(payload, ["idPaciente"]);
       return _prontuarioDocEncaminhamentoGerarPdf_(payload);
+
+    // ===================== BUSCAS / AUTOCOMPLETE ==============
+    case "Prontuario.CID.Buscar":
+      return _prontuarioCidBuscar_(payload);
+
+    case "Prontuario.Encaminhamento.Buscar":
+      return _prontuarioEncaminhamentoBuscar_(payload);
 
     default:
       _prontuarioThrow_(
@@ -319,6 +362,125 @@ function _prontuarioCalcIdadeFromAny_(raw) {
 }
 
 // ============================================================
+// BUSCAS / AUTOCOMPLETE
+// ============================================================
+
+function _prontuarioGetCachedList_(cacheKey, sheetName, ttlSeconds) {
+  ttlSeconds = _prontuarioClamp_(ttlSeconds, 30, 60 * 60 * 6, 1800); // default 30min
+  var cached = null;
+
+  try {
+    if (typeof Cache_getJson_ === "function") cached = Cache_getJson_(cacheKey);
+  } catch (_) { cached = null; }
+
+  if (cached && Array.isArray(cached)) return cached;
+
+  if (typeof Repo_list_ !== "function") {
+    _prontuarioThrow_(
+      "PRONTUARIO_REPO_MISSING",
+      "Repo_list_ não disponível (Repository.gs não carregado?).",
+      { sheetName: sheetName }
+    );
+  }
+
+  var list = [];
+  try {
+    list = Repo_list_(sheetName) || [];
+  } catch (_) {
+    list = [];
+  }
+
+  try {
+    if (typeof Cache_setJson_ === "function") Cache_setJson_(cacheKey, list, ttlSeconds);
+  } catch (_) {}
+
+  return list;
+}
+
+function _prontuarioCidBuscar_(payload) {
+  payload = payload || {};
+  var q = String(payload.q || "").trim();
+  var limit = _prontuarioClamp_(payload.limit, 1, 50, 12);
+
+  if (!q) return { items: [] };
+
+  var list = _prontuarioGetCachedList_("prontuario:cid:list:v1", "CID", 60 * 60 * 6); // 6h
+  if (!list.length) return { items: [] };
+
+  var qUp = q.toUpperCase().trim();
+  var qNorm = _prontuarioNorm_(q);
+  var isCid = _prontuarioLooksLikeCid_(qUp);
+
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var row = list[i] || {};
+    var cid = String(row.CID || row.cid || "").trim().toUpperCase();
+    var desc = String(row.Descricao || row.descricao || row.Descrição || "").trim();
+    var sinon = String(row.Sinonimos || row.sinonimos || "").trim();
+
+    if (!cid && !desc) continue;
+
+    var hit = false;
+
+    if (isCid) {
+      if (cid.indexOf(qUp) === 0) hit = true;
+      else if (_prontuarioNorm_(desc).indexOf(qNorm) >= 0) hit = true;
+    } else {
+      if (_prontuarioNorm_(desc).indexOf(qNorm) >= 0) hit = true;
+      else if (sinon && _prontuarioNorm_(sinon).indexOf(qNorm) >= 0) hit = true;
+      else if (cid && cid.indexOf(qUp) === 0) hit = true;
+    }
+
+    if (!hit) continue;
+
+    out.push({ cid: cid, descricao: desc });
+    if (out.length >= limit) break;
+  }
+
+  return { items: out };
+}
+
+function _prontuarioEncaminhamentoBuscar_(payload) {
+  payload = payload || {};
+  var q = String(payload.q || "").trim();
+  var limit = _prontuarioClamp_(payload.limit, 1, 50, 12);
+
+  if (!q) return { items: [] };
+
+  var list = _prontuarioGetCachedList_("prontuario:encaminhamento:list:v1", "Encaminhamento", 60 * 60); // 1h
+  if (!list.length) return { items: [] };
+
+  var qNorm = _prontuarioNorm_(q);
+
+  var out = [];
+  for (var i = 0; i < list.length; i++) {
+    var row = list[i] || {};
+
+    // Headers exatamente como na aba "Encaminhamento" criada:
+    var enc = String(row["Encaminhamento"] || "").trim();
+    var nome = String(row["NomeDoProfissional"] || "").trim();
+    var aval = String(row["Avaliação"] || "").trim();
+    var tel = String(row["Telefone"] || "").trim();
+
+    if (!enc && !nome && !aval && !tel) continue;
+
+    var hay = _prontuarioNorm_(enc + " " + nome + " " + aval + " " + tel);
+    if (hay.indexOf(qNorm) < 0) continue;
+
+    out.push({
+      encaminhamento: enc,
+      nomeProfissional: nome,
+      avaliacao: aval,
+      telefone: tel
+    });
+
+    if (out.length >= limit) break;
+  }
+
+  return { items: out };
+}
+
+// ============================================================
 // Documentos — helpers HTML + geradores
 // ============================================================
 
@@ -352,7 +514,7 @@ function _prontuarioDocGetPacienteNome_(idPaciente) {
 }
 
 /**
- * ✅ Atualização: se DocsCabecalho.gs estiver presente, usa buildCabecalhoHtml_() no topo.
+ * ✅ Se DocsCabecalho.gs estiver presente, usa buildCabecalhoHtml_() no topo.
  * (fallback silencioso se não existir)
  */
 function _prontuarioDocBaseHtml_(titulo, pacienteNome, corpoHtml, dataIso) {
@@ -397,33 +559,76 @@ function _prontuarioDocBaseHtml_(titulo, pacienteNome, corpoHtml, dataIso) {
   );
 }
 
-// --------- ATESTADO ---------
+// --------- ATESTADO (texto oficial + CID estruturado + compat) ---------
 function _prontuarioDocAtestadoGerarPdf_(payload) {
   var idPaciente = String(payload.idPaciente || "").trim();
   var dataIso = String(payload.data || "").trim();
+
   var dias = Number(payload.dias || 0) || 0;
-  var cid = String(payload.cid || "").trim();
-  var texto = String(payload.texto || "").trim();
+
+  // compat antigo
+  var cidStr = String(payload.cid || "").trim();
+  var textoLivre = String(payload.texto || "").trim();
+
+  // novo
+  var cidObj = payload && payload.cidObj ? payload.cidObj : null;
+  var exibirCid = (payload && payload.exibirCid !== undefined) ? !!payload.exibirCid : true;
+  var observacoes = String(payload.observacoes || "").trim();
+
+  var cidCodigo = "";
+  var cidDesc = "";
+  if (cidObj && typeof cidObj === "object") {
+    cidCodigo = String(cidObj.codigo || cidObj.CID || cidObj.cid || "").trim();
+    cidDesc = String(cidObj.descricao || cidObj.Descricao || cidObj.descrição || "").trim();
+  }
 
   var pacienteNome = _prontuarioDocGetPacienteNome_(idPaciente);
 
-  if (!texto) {
-    texto = "Atesto para os devidos fins que o(a) paciente acima identificado(a) esteve sob atendimento médico.";
+  // Texto oficial automático se texto livre vier vazio
+  var texto = "";
+  if (textoLivre) {
+    texto = textoLivre;
+  } else {
+    if (dias > 0) {
+      texto =
+        "Atesto, para os devidos fins, que o(a) paciente acima identificado(a) esteve sob atendimento médico nesta data, " +
+        "necessitando de afastamento de suas atividades por " + String(dias) + " dia(s).";
+    } else {
+      texto =
+        "Atesto, para os devidos fins, que o(a) paciente acima identificado(a) esteve sob atendimento médico nesta data.";
+    }
   }
 
   var corpo = "";
   if (dias > 0) {
-    corpo += "<div class='label'>Afastamento</div><div class='content'>" + _prontuarioHtmlEscape_(String(dias)) + " dia(s)</div><br>";
+    corpo += "<div class='label'>Afastamento</div><div class='content'>" +
+      _prontuarioHtmlEscape_(String(dias)) + " dia(s)</div><br>";
   }
-  if (cid) {
-    corpo += "<div class='label'>CID</div><div class='content'>" + _prontuarioHtmlEscape_(cid) + "</div><br>";
+
+  var cidToPrint = "";
+  if (exibirCid) {
+    if (cidCodigo || cidDesc) {
+      cidToPrint = cidCodigo ? cidCodigo : "";
+      if (cidDesc) cidToPrint = cidToPrint ? (cidToPrint + " - " + cidDesc) : cidDesc;
+    } else if (cidStr) {
+      cidToPrint = cidStr;
+    }
   }
-  corpo += "<div class='label'>Texto</div><div class='content'>" + _prontuarioHtmlEscape_(texto) + "</div>";
+
+  if (cidToPrint) {
+    corpo += "<div class='label'>CID</div><div class='content'>" + _prontuarioHtmlEscape_(cidToPrint) + "</div><br>";
+  }
+
+  corpo += "<div class='label'>Declaração</div><div class='content'>" + _prontuarioHtmlEscape_(texto) + "</div>";
+
+  if (observacoes) {
+    corpo += "<br><br><div class='label'>Observações</div><div class='content'>" + _prontuarioHtmlEscape_(observacoes) + "</div>";
+  }
 
   return { html: _prontuarioDocBaseHtml_("Atestado médico", pacienteNome, corpo, dataIso) };
 }
 
-// --------- COMPARECIMENTO (refinado) ---------
+// --------- COMPARECIMENTO (mantido) ---------
 function _prontuarioDocComparecimentoGerarPdf_(payload) {
   var idPaciente = String(payload.idPaciente || "").trim();
   var dataIso = String(payload.data || "").trim();
@@ -441,7 +646,6 @@ function _prontuarioDocComparecimentoGerarPdf_(payload) {
 
   var corpo = "";
 
-  // Horário: preferir entrada/saída; manter compat com horário livre
   if (entrada || saida) {
     corpo += "<div class='label'>Horário</div><div class='content'>" +
       _prontuarioHtmlEscape_("Entrada: " + (entrada || "—") + " · Saída: " + (saida || "—")) +
@@ -457,7 +661,7 @@ function _prontuarioDocComparecimentoGerarPdf_(payload) {
   return { html: _prontuarioDocBaseHtml_("Declaração de comparecimento", pacienteNome, corpo, dataIso) };
 }
 
-// --------- LAUDO ---------
+// --------- LAUDO (mantido) ---------
 function _prontuarioDocLaudoGerarPdf_(payload) {
   var idPaciente = String(payload.idPaciente || "").trim();
   var dataIso = String(payload.data || "").trim();
@@ -475,29 +679,51 @@ function _prontuarioDocLaudoGerarPdf_(payload) {
   return { html: _prontuarioDocBaseHtml_("Laudo", pacienteNome, corpo, dataIso) };
 }
 
-// --------- ENCAMINHAMENTO ---------
+// --------- ENCAMINHAMENTO (estruturado + compat) ---------
 function _prontuarioDocEncaminhamentoGerarPdf_(payload) {
   var idPaciente = String(payload.idPaciente || "").trim();
   var dataIso = String(payload.data || "").trim();
+
+  // compat antigo
   var destino = String(payload.destino || "").trim();
   var prioridade = String(payload.prioridade || "").trim();
   var texto = String(payload.texto || "").trim();
 
+  // novo
+  var encaminhamento = String(payload.encaminhamento || "").trim();
+  var nomeProfissional = String(payload.nomeProfissional || "").trim();
+  var telefone = String(payload.telefone || "").trim();
+  var avaliacao = String(payload.avaliacao || "").trim();
+  var observacoes = String(payload.observacoes || "").trim();
+
   var pacienteNome = _prontuarioDocGetPacienteNome_(idPaciente);
 
-  if (!texto) {
+  if (!avaliacao && !texto) {
     texto = "Encaminho o(a) paciente acima para avaliação / seguimento.";
   }
 
+  var servico = encaminhamento || destino;
+  var corpoTexto = avaliacao || texto;
+
   var corpo = "";
-  if (destino) {
-    corpo += "<div class='label'>Destino</div><div class='content'>" + _prontuarioHtmlEscape_(destino) + "</div><br>";
+  if (servico) {
+    corpo += "<div class='label'>Encaminhamento</div><div class='content'>" + _prontuarioHtmlEscape_(servico) + "</div><br>";
+  }
+  if (nomeProfissional) {
+    corpo += "<div class='label'>Profissional</div><div class='content'>" + _prontuarioHtmlEscape_(nomeProfissional) + "</div><br>";
+  }
+  if (telefone) {
+    corpo += "<div class='label'>Telefone</div><div class='content'>" + _prontuarioHtmlEscape_(telefone) + "</div><br>";
   }
   if (prioridade) {
     corpo += "<div class='label'>Prioridade</div><div class='content'>" + _prontuarioHtmlEscape_(prioridade) + "</div><br>";
   }
 
-  corpo += "<div class='label'>Motivo / Observações</div><div class='content'>" + _prontuarioHtmlEscape_(texto) + "</div>";
+  corpo += "<div class='label'>Avaliação / Motivo</div><div class='content'>" + _prontuarioHtmlEscape_(corpoTexto) + "</div>";
+
+  if (observacoes) {
+    corpo += "<br><br><div class='label'>Observações</div><div class='content'>" + _prontuarioHtmlEscape_(observacoes) + "</div>";
+  }
 
   return { html: _prontuarioDocBaseHtml_("Encaminhamento", pacienteNome, corpo, dataIso) };
 }
