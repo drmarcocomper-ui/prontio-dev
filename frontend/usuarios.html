@@ -58,8 +58,11 @@
           </div>
 
           <div class="usuarios-toolbar-right">
-            <button id="btnRecarregar" class="btn btn-secondary">Recarregar</button>
-            <button id="btnNovoUsuario" class="btn btn-primary">Novo usuário</button>
+            <button id="btnRecarregar" class="btn btn-secondary" type="button">Recarregar</button>
+            <!-- ✅ main.js abre via data-modal-open -->
+            <button id="btnNovoUsuario" class="btn btn-primary" type="button" data-modal-open="modalUsuario">
+              Novo usuário
+            </button>
           </div>
         </div>
 
@@ -95,7 +98,8 @@
   </div>
 
   <!-- Modal: Criar/Editar -->
-  <div id="modalUsuario" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="modalUsuarioTitle">
+  <!-- ✅ Agora controlado por hidden + data-modal-open/close (main.js) -->
+  <div id="modalUsuario" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalUsuarioTitle" aria-hidden="true">
     <div class="modal-backdrop" data-modal-close="modalUsuario"></div>
     <div class="modal-panel">
       <div class="modal-header">
@@ -161,7 +165,8 @@
   </div>
 
   <!-- Modal: Reset de senha (admin) -->
-  <div id="modalResetSenha" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="modalResetSenhaTitle">
+  <!-- ✅ Agora controlado por hidden + data-modal-open/close (main.js) -->
+  <div id="modalResetSenha" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalResetSenhaTitle" aria-hidden="true">
     <div class="modal-backdrop" data-modal-close="modalResetSenha"></div>
     <div class="modal-panel">
       <div class="modal-header">
@@ -217,6 +222,8 @@
     </div>
   </div>
 
+  <!-- ✅ O main.js continua sendo o ÚNICO script no HTML:
+       ele carrega automaticamente page-usuarios.js via PAGE_MANIFEST -->
   <script src="assets/js/main.js"></script>
 </body>
 </html>

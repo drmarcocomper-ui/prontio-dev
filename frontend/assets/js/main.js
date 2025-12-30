@@ -301,9 +301,48 @@
   // ============================================================
   // Modais
   // ============================================================
+  function _openModal_(modal) {
+    if (!modal) return;
+
+    // Suporta 2 padrões (sem quebrar):
+    // 1) .modal-overlay.hidden/.visible + aria-hidden (Agenda)
+    // 2) .modal.is-open + modal.hidden (Usuários antigo)
+    const hasHiddenClass = modal.classList.contains("hidden");
+    const hasOverlay = modal.classList.contains("modal-overlay") || modal.classList.contains("modal-backdrop");
+
+    if (hasHiddenClass || hasOverlay) {
+      modal.classList.remove("hidden");
+      modal.classList.add("visible");
+      modal.setAttribute("aria-hidden", "false");
+      return;
+    }
+
+    modal.classList.add("is-open");
+    modal.hidden = false;
+    modal.setAttribute("aria-hidden", "false");
+  }
+
+  function _closeModal_(modal) {
+    if (!modal) return;
+
+    // padrão 1
+    if (modal.classList.contains("visible") || modal.classList.contains("modal-overlay") || modal.classList.contains("hidden")) {
+      modal.classList.remove("visible");
+      modal.classList.add("hidden");
+      modal.setAttribute("aria-hidden", "true");
+      return;
+    }
+
+    // padrão 2
+    modal.classList.remove("is-open");
+    modal.hidden = true;
+    modal.setAttribute("aria-hidden", "true");
+  }
+
   function bindModalTriggers_(doc) {
     const root = doc || document;
 
+    // OPEN
     root.querySelectorAll("[data-modal-open]").forEach(function (opener) {
       if (opener.getAttribute("data-modal-bound") === "1") return;
       opener.setAttribute("data-modal-bound", "1");
@@ -313,12 +352,11 @@
         const id = opener.getAttribute("data-modal-open");
         const modal = document.getElementById(id);
         if (!modal) return;
-        modal.classList.add("is-open");
-        modal.hidden = false;
-        modal.setAttribute("aria-hidden", "false");
+        _openModal_(modal);
       });
     });
 
+    // CLOSE (botões)
     root.querySelectorAll("[data-modal-close]").forEach(function (closer) {
       if (closer.getAttribute("data-modal-bound") === "1") return;
       closer.setAttribute("data-modal-bound", "1");
@@ -328,11 +366,52 @@
         const id = closer.getAttribute("data-modal-close");
         const modal = document.getElementById(id);
         if (!modal) return;
-        modal.classList.remove("is-open");
-        modal.hidden = true;
-        modal.setAttribute("aria-hidden", "true");
+        _closeModal_(modal);
       });
     });
+
+    // CLOSE (clique fora) — compat com modal-overlay/backdrop
+    root.querySelectorAll(".modal-overlay, .modal-backdrop").forEach(function (overlay) {
+      if (overlay.getAttribute("data-modal-overlay-bound") === "1") return;
+      overlay.setAttribute("data-modal-overlay-bound", "1");
+
+      overlay.addEventListener("click", function (ev) {
+        // se clicar no próprio overlay/backdrop, fecha
+        if (ev.target !== overlay) return;
+
+        // tenta achar um modal pai conhecido:
+        // - overlay pode ser o próprio modal (.modal-overlay)
+        // - ou pode ser um child (.modal-backdrop) dentro de #modalX
+        let modal = overlay;
+        if (!modal.id) {
+          const parent = overlay.closest(".modal-overlay, .modal");
+          if (parent) modal = parent;
+          else {
+            // fallback: tenta subir para um elemento com id
+            const idParent = overlay.closest("[id]");
+            if (idParent) modal = idParent;
+          }
+        }
+        _closeModal_(modal);
+      });
+    });
+
+    // ESC fecha modal aberto (best-effort)
+    if (root === document) {
+      if (document.body.getAttribute("data-modals-esc-bound") === "1") return;
+      document.body.setAttribute("data-modals-esc-bound", "1");
+
+      document.addEventListener("keydown", function (e) {
+        if (e.key !== "Escape") return;
+
+        // tenta achar o primeiro modal visível
+        const open1 = document.querySelector(".modal-overlay.visible:not(.hidden)");
+        if (open1) return _closeModal_(open1);
+
+        const open2 = document.querySelector(".modal.is-open");
+        if (open2) return _closeModal_(open2);
+      });
+    }
   }
 
   PRONTIO.ui.modals.bindTriggers = bindModalTriggers_;

@@ -33,12 +33,39 @@
  * - Este arquivo mantém aliases para schemas antigos (Nome, senhaHash, PasswordHash, etc).
  *
  * ✅ FIX (SEM QUEBRAR):
- * - getUsuariosSheet_ agora tenta PRONTIO_getDb_ -> Repo_getDb_ -> ActiveSpreadsheet,
- *   alinhando com Auth.gs / AgendaConfig.gs.
- * - Usuarios_findByLoginForAuth_ retorna também nomeCompleto (sem quebrar quem usa "nome").
+ * - getUsuariosSheet_ tenta PRONTIO_getDb_ -> Repo_getDb_ -> ActiveSpreadsheet.
+ * - Usuarios_findByLoginForAuth_ retorna também nomeCompleto.
+ * - Segurança: quando ctx.user existir (Registry), exige admin para ações administrativas.
  */
 
 var USUARIOS_SHEET_NAME = "Usuarios";
+
+// ======================
+// Helpers de permissão (sem quebrar legado)
+// ======================
+
+function _usuariosIsAdminCtx_(ctx) {
+  try {
+    if (!ctx || !ctx.user) return null; // null = sem ctx (legado)
+    var perfil = String(ctx.user.perfil || ctx.user.role || "").trim().toLowerCase();
+    return perfil === "admin";
+  } catch (_) {
+    return false;
+  }
+}
+
+function _usuariosRequireAdminIfCtx_(ctx, actionName) {
+  var isAdmin = _usuariosIsAdminCtx_(ctx);
+  // Se não veio ctx, não bloqueia (legado).
+  if (isAdmin === null) return;
+
+  if (isAdmin !== true) {
+    var err = new Error("Sem permissão para esta ação.");
+    err.code = (Errors && Errors.CODES && Errors.CODES.PERMISSION_DENIED) ? Errors.CODES.PERMISSION_DENIED : "PERMISSION_DENIED";
+    err.details = { action: String(actionName || ""), requiredRole: "admin" };
+    throw err;
+  }
+}
 
 /**
  * Dispatcher de ações (chamado pelo Registry/Api).
@@ -49,17 +76,25 @@ var USUARIOS_SHEET_NAME = "Usuarios";
 function handleUsuariosAction(action, payload, ctx) {
   switch (action) {
     case "Usuarios_Listar":
+      _usuariosRequireAdminIfCtx_(ctx, action);
       return Usuarios_Listar_(payload);
+
     case "Usuarios_Criar":
+      _usuariosRequireAdminIfCtx_(ctx, action);
       return Usuarios_Criar_(payload);
+
     case "Usuarios_Atualizar":
+      _usuariosRequireAdminIfCtx_(ctx, action);
       return Usuarios_Atualizar_(payload);
+
     case "Usuarios_AlterarSenha":
+      _usuariosRequireAdminIfCtx_(ctx, action);
       return Usuarios_AlterarSenha_(payload);
 
     // ✅ Pilar C (PROD): reset/admin por ID ou por login/email
     // ✅ Pilar G (auditoria): precisa ctx para registrar quem fez o reset
     case "Usuarios_ResetSenhaAdmin":
+      _usuariosRequireAdminIfCtx_(ctx, action);
       return Usuarios_ResetSenhaAdmin_(payload, ctx);
 
     // ✅ Pilar E (self-service): alterar a própria senha (exige ctx.user)
@@ -69,6 +104,7 @@ function handleUsuariosAction(action, payload, ctx) {
 
     // ✅ utilitário (não registrado no Registry por padrão): garante colunas oficiais no header
     case "Usuarios_EnsureSchema":
+      _usuariosRequireAdminIfCtx_(ctx, action);
       return Usuarios_EnsureSchema_(payload);
 
     default:
@@ -198,8 +234,8 @@ function _uBuildIdx_(header) {
     permissoesCustomizadas: _uFindCol_(header, ["PermissoesCustomizadasJson", "PermissoesCustomizadas", "permissoesCustomizadas"]),
 
     // ✅ Vinculações
-    idClinica: _uFindCol_(header, ["ID_Clinica", "idClinica", "idClinicaRef", "idClinicaUsuario"]),
-    idProfissional: _uFindCol_(header, ["ID_Profissional", "idProfissional", "idProfissionalRef"]),
+    idClinica: _uFindCol_(header, ["ID_Clinica", "idClinica", "idClinicaRef", "idClinicaUsuario", "idClinica"]),
+    idProfissional: _uFindCol_(header, ["ID_Profissional", "idProfissional", "idProfissionalRef", "idProfissional"]),
 
     // Datas
     criadoEm: _uFindCol_(header, ["CriadoEm", "criadoEm"]),
@@ -261,7 +297,6 @@ function Usuarios_EnsureSchema_(payload) {
   }
 
   if (added.length) {
-    // escreve header expandido
     sheet.getRange(1, 1, 1, header.length).setValues([header]);
   }
 
@@ -287,15 +322,17 @@ function Usuarios_Listar_(payload) {
     var row = values[i];
     if (!row[idx.id]) continue;
 
+    var nome = idx.nome >= 0 ? String(_uGet_(row, idx.nome) || "") : "";
+
     lista.push({
       id: String(_uGet_(row, idx.id) || ""),
-      nome: idx.nome >= 0 ? String(_uGet_(row, idx.nome) || "") : "",
+      nome: nome,
+      nomeCompleto: nome, // ✅ compat para o front/Auth
       login: idx.login >= 0 ? String(_uGet_(row, idx.login) || "") : "",
       email: idx.email >= 0 ? String(_uGet_(row, idx.email) || "") : "",
       perfil: idx.perfil >= 0 ? String(_uGet_(row, idx.perfil) || "") : "",
       ativo: idx.ativo >= 0 ? boolFromCell_(_uGet_(row, idx.ativo)) : false,
 
-      // ✅ novos campos (se existirem)
       registroProfissional: idx.registroProfissional >= 0 ? String(_uGet_(row, idx.registroProfissional) || "") : "",
       conselhoProfissional: idx.conselhoProfissional >= 0 ? String(_uGet_(row, idx.conselhoProfissional) || "") : "",
       especialidade: idx.especialidade >= 0 ? String(_uGet_(row, idx.especialidade) || "") : "",
@@ -317,10 +354,8 @@ function Usuarios_Listar_(payload) {
 
 /**
  * Busca usuário por identificador para autenticação (inclui senhaHash).
- * ✅ Pilar A: Aceita Login OU Email (case-insensitive). Prioriza Login.
- *
- * ✅ FIX (SEM QUEBRAR):
- * - Retorna também nomeCompleto (alias de "nome") para o Auth.gs usar sem depender de colunas antigas.
+ * ✅ Aceita Login OU Email (case-insensitive). Prioriza Login.
+ * Retorna também nomeCompleto.
  */
 function Usuarios_findByLoginForAuth_(identifier) {
   identifier = (identifier || "").toString().trim().toLowerCase();
@@ -352,14 +387,13 @@ function Usuarios_findByLoginForAuth_(identifier) {
     var rowEmail = idx.email >= 0 ? String(_uGet_(row, idx.email) || "").trim().toLowerCase() : "";
 
     var nomeRaw = idx.nome >= 0 ? String(_uGet_(row, idx.nome) || "") : "";
-    var nomeCompleto = nomeRaw; // coluna NomeCompleto/alias
+    var nomeCompleto = nomeRaw;
 
-    // Prioridade 1: Login
     if (rowLogin && rowLogin === identifier) {
       return {
         id: String(_uGet_(row, idx.id) || ""),
         nome: nomeRaw,
-        nomeCompleto: nomeCompleto, // ✅ novo (compat)
+        nomeCompleto: nomeCompleto,
         login: idx.login >= 0 ? String(_uGet_(row, idx.login) || "") : "",
         email: idx.email >= 0 ? String(_uGet_(row, idx.email) || "") : "",
         perfil: idx.perfil >= 0 ? String(_uGet_(row, idx.perfil) || "") : "",
@@ -368,12 +402,11 @@ function Usuarios_findByLoginForAuth_(identifier) {
       };
     }
 
-    // Fallback: Email
     if (!foundByEmail && rowEmail && rowEmail === identifier) {
       foundByEmail = {
         id: String(_uGet_(row, idx.id) || ""),
         nome: nomeRaw,
-        nomeCompleto: nomeCompleto, // ✅ novo (compat)
+        nomeCompleto: nomeCompleto,
         login: idx.login >= 0 ? String(_uGet_(row, idx.login) || "") : "",
         email: idx.email >= 0 ? String(_uGet_(row, idx.email) || "") : "",
         perfil: idx.perfil >= 0 ? String(_uGet_(row, idx.perfil) || "") : "",
@@ -388,7 +421,6 @@ function Usuarios_findByLoginForAuth_(identifier) {
 
 /**
  * Localiza linha por ID_Usuario.
- * Retorna { sheet, rowIndex, row, header, idx } ou null.
  */
 function Usuarios_findRowById_(id) {
   id = (id || "").toString().trim();
@@ -417,7 +449,6 @@ function Usuarios_findRowById_(id) {
 
 /**
  * Localiza linha por Login OU Email (case-insensitive).
- * Retorna { sheet, rowIndex, row, header, idx } ou null.
  */
 function Usuarios_findRowByIdentifier_(identifier) {
   identifier = (identifier || "").toString().trim().toLowerCase();
@@ -489,7 +520,6 @@ function Usuarios_markUltimoLogin_(id) {
 
 /**
  * Cria usuário.
- * Observação: respeita o header atual da aba (NomeCompleto, etc.)
  */
 function Usuarios_Criar_(payload) {
   payload = payload || {};
@@ -500,7 +530,6 @@ function Usuarios_Criar_(payload) {
   var perfil = String(payload.perfil || "").trim() || "secretaria";
   var senha = String(payload.senha || "");
 
-  // ✅ campos profissionais (opcional)
   var registroProfissional = String(payload.registroProfissional || payload.documentoRegistro || "").trim();
   var conselhoProfissional = String(payload.conselhoProfissional || "").trim();
   var especialidade = String(payload.especialidade || "").trim();
@@ -544,7 +573,6 @@ function Usuarios_Criar_(payload) {
   if (idx.ativo >= 0) novaLinha[idx.ativo] = true;
   if (idx.senhaHash >= 0) novaLinha[idx.senhaHash] = senhaHash;
 
-  // ✅ novos campos se existirem no header
   if (idx.registroProfissional >= 0) novaLinha[idx.registroProfissional] = registroProfissional;
   if (idx.conselhoProfissional >= 0) novaLinha[idx.conselhoProfissional] = conselhoProfissional;
   if (idx.especialidade >= 0) novaLinha[idx.especialidade] = especialidade;
@@ -557,7 +585,7 @@ function Usuarios_Criar_(payload) {
   return {
     id: novoId,
     nome: nome,
-    nomeCompleto: nome, // compat útil
+    nomeCompleto: nome,
     login: login,
     email: email,
     perfil: perfil,
@@ -583,7 +611,6 @@ function Usuarios_Atualizar_(payload) {
   if (typeof payload.ativo === "boolean") ativo = payload.ativo;
   else ativo = boolFromCell_(payload.ativo);
 
-  // ✅ novos campos opcionais
   var registroProfissional = payload.registroProfissional !== undefined ? String(payload.registroProfissional || "").trim() : null;
   var conselhoProfissional = payload.conselhoProfissional !== undefined ? String(payload.conselhoProfissional || "").trim() : null;
   var especialidade = payload.especialidade !== undefined ? String(payload.especialidade || "").trim() : null;
@@ -634,7 +661,6 @@ function Usuarios_Atualizar_(payload) {
   if (idx.perfil >= 0) rowValues[idx.perfil] = perfil;
   if (idx.ativo >= 0) rowValues[idx.ativo] = ativo;
 
-  // ✅ novos campos (se existirem no header e vierem no payload)
   if (idx.registroProfissional >= 0 && registroProfissional !== null) rowValues[idx.registroProfissional] = registroProfissional;
   if (idx.conselhoProfissional >= 0 && conselhoProfissional !== null) rowValues[idx.conselhoProfissional] = conselhoProfissional;
   if (idx.especialidade >= 0 && especialidade !== null) rowValues[idx.especialidade] = especialidade;
@@ -646,7 +672,7 @@ function Usuarios_Atualizar_(payload) {
   return {
     id: id,
     nome: nome,
-    nomeCompleto: nome, // compat útil
+    nomeCompleto: nome,
     login: login,
     email: email,
     perfil: perfil,
@@ -658,7 +684,6 @@ function Usuarios_Atualizar_(payload) {
 /**
  * ✅ Altera/reset senha de um usuário (admin).
  * payload: { id, senha }
- * (mantido para compatibilidade com chamadas existentes)
  */
 function Usuarios_AlterarSenha_(payload) {
   payload = payload || {};
@@ -692,21 +717,6 @@ function Usuarios_AlterarSenha_(payload) {
  * ============================================================
  * Pilar C — Reset de senha ADMIN (PROD)
  * ============================================================
- * payload aceito:
- * - { id: "USR_001", senha: "nova" }
- * - { identifier: "marco" | "marco@exemplo.com", senha: "nova" }
- * - { login: "...", senha: "nova" }  (alias)
- * - { email: "...", senha: "nova" }  (alias)
- *
- * opcionais:
- * - { ativar: true } -> marca Ativo=TRUE se existir coluna
- *
- * Retorna sem vazar hash:
- * { ok:true, id, login, email, ativo? }
- *
- * ✅ Pilar G:
- * - recebe ctx para auditar quem executou e quem foi afetado
- * - NÃO loga senha/token (Audit_securityEvent_ sanitiza)
  */
 function Usuarios_ResetSenhaAdmin_(payload, ctx) {
   payload = payload || {};
@@ -719,7 +729,7 @@ function Usuarios_ResetSenhaAdmin_(payload, ctx) {
   var ativar;
   if (typeof payload.ativar === "boolean") ativar = payload.ativar;
   else if (payload.ativar !== undefined) ativar = boolFromCell_(payload.ativar);
-  else ativar = null; // não altera por padrão
+  else ativar = null;
 
   if (!senha) _usuariosThrow_("USUARIOS_SENHA_OBRIGATORIA", "Senha é obrigatória.", null);
   if (!id && !identifier) _usuariosThrow_("USUARIOS_ID_OU_IDENTIFICADOR_OBRIGATORIO", "Informe id ou identifier (login/email).", null);
@@ -746,7 +756,7 @@ function Usuarios_ResetSenhaAdmin_(payload, ctx) {
     found.sheet.getRange(found.rowIndex, idx.atualizadoEm + 1).setValue(new Date());
   }
 
-  // ✅ Pilar G: auditoria best-effort (sem senha)
+  // Auditoria best-effort (sem senha)
   try {
     var targetId = idx.id >= 0 ? String(_uGet_(found.row, idx.id) || "") : "";
     var targetLogin = idx.login >= 0 ? String(_uGet_(found.row, idx.login) || "") : "";
@@ -777,18 +787,6 @@ function Usuarios_ResetSenhaAdmin_(payload, ctx) {
  * ============================================================
  * Pilar E — Alterar senha do PRÓPRIO usuário
  * ============================================================
- * payload:
- * - { senhaAtual, novaSenha }
- *
- * Regras:
- * - usuário deve estar autenticado (ctx.user)
- * - valida senha atual
- * - grava nova senha
- * - não permite trocar senha de outro usuário
- *
- * ✅ Pilar G:
- * - audita DENY quando senha atual inválida
- * - audita SUCCESS quando troca ocorre
  */
 function Usuarios_AlterarMinhaSenha_(payload, ctx) {
   payload = payload || {};
@@ -824,7 +822,6 @@ function Usuarios_AlterarMinhaSenha_(payload, ctx) {
 
   var senhaHashAtual = String(_uGet_(found.row, idx.senhaHash) || "");
   if (!Usuarios_verifyPassword_(senhaAtual, senhaHashAtual)) {
-    // ✅ Pilar G: auditoria DENY best-effort
     try {
       if (typeof Audit_securityEvent_ === "function") {
         Audit_securityEvent_(
@@ -844,12 +841,10 @@ function Usuarios_AlterarMinhaSenha_(payload, ctx) {
   var novaHash = hashSenha_(novaSenha);
   found.sheet.getRange(found.rowIndex, idx.senhaHash + 1).setValue(novaHash);
 
-  // Opcional: reativar (não faz aqui; isso é admin-only no Pilar C)
   if (idx.atualizadoEm >= 0) {
     found.sheet.getRange(found.rowIndex, idx.atualizadoEm + 1).setValue(new Date());
   }
 
-  // ✅ Pilar G: auditoria SUCCESS best-effort
   try {
     if (typeof Audit_securityEvent_ === "function") {
       Audit_securityEvent_(
