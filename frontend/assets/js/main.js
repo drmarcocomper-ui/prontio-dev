@@ -15,7 +15,7 @@
   PRONTIO._mainBootstrapRan = true;
 
   // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
-  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.7.9";
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.8.0";
   PRONTIO.APP_VERSION = APP_VERSION;
 
   // ============================================================
