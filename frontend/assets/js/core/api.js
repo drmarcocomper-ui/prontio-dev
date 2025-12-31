@@ -17,6 +17,12 @@
  * - Não faz auto-logout por PERMISSION_DENIED (normalmente significa falta de role).
  * - Mantém compat: se vier PERMISSION_DENIED com details.reason === "AUTH_REQUIRED",
  *   então trata como auth e pode redirecionar.
+ *
+ * ✅ MELHORIA (SEM QUEBRAR - PASSO 1.3):
+ * - Erro lançado preserva code/details + também anexa:
+ *   - err.envelope (envelope completo quando disponível)
+ *   - err.errors (array de errors do backend)
+ * - Exporta PRONTIO.api.getPrimaryError para o front decidir por code sem duplicar lógica.
  */
 
 (function (global) {
@@ -308,6 +314,15 @@
     const err = new Error(msg);
     err.code = primary.code;
     err.details = primary.details;
+
+    // ✅ PASSO 1.3: preserva envelope e errors para a UI decidir por code
+    try {
+      err.envelope = envelope || null;
+      err.errors = (envelope && Array.isArray(envelope.errors)) ? envelope.errors : [];
+      err.requestId = envelope && (envelope.requestId || (envelope.meta && envelope.meta.request_id)) ? (envelope.requestId || envelope.meta.request_id) : null;
+      err.action = envelope && envelope.meta && envelope.meta.action ? envelope.meta.action : null;
+    } catch (_) {}
+
     throw err;
   }
 
@@ -320,6 +335,7 @@
   PRONTIO.api.callApiEnvelope = callApiEnvelope;
   PRONTIO.api.callApiData = callApiData;
   PRONTIO.api.assertSuccess = assertSuccess_;
+  PRONTIO.api.getPrimaryError = getPrimaryError_;
 
   // ✅ Globals (para debug e compat)
   global.callApi = callApiEnvelope;

@@ -12,6 +12,10 @@
  * - Adiciona códigos AUTH adicionais usados no front (api.js):
  *   AUTH_EXPIRED, AUTH_TOKEN_EXPIRED, AUTH_NO_TOKEN
  * - Não altera formato do envelope.
+ *
+ * ✅ MELHORIAS (SEM QUEBRAR):
+ * - Helpers utilitários: primary(), normalizeCode(), isCode(), assert()
+ * - Ajuda a impedir variações de code e reduzir lógica duplicada nos módulos.
  */
 
 var Errors = (function () {
@@ -34,10 +38,31 @@ var Errors = (function () {
 
   function make(code, message, details) {
     return {
-      code: code || CODES.INTERNAL_ERROR,
+      code: normalizeCode(code || CODES.INTERNAL_ERROR),
       message: message || "Erro.",
       details: (details === undefined ? null : details)
     };
+  }
+
+  /**
+   * Normaliza códigos para o conjunto canônico.
+   * - Mantém compat: códigos desconhecidos permanecem (para não quebrar logs),
+   *   mas corrige alguns legados comuns.
+   */
+  function normalizeCode(code) {
+    var c = String(code || "").trim();
+    if (!c) return CODES.INTERNAL_ERROR;
+
+    // Normalizações legadas comuns
+    if (c === "AGENDA_CONFLITO_HORARIO") return CODES.CONFLICT;
+    if (c === "CONFLICT_HOUR") return CODES.CONFLICT;
+    if (c === "VALIDACAO" || c === "VALIDATION") return CODES.VALIDATION_ERROR;
+
+    // Códigos canônicos que já conhecemos
+    if (CODES[c]) return CODES[c];
+
+    // Mantém códigos custom para compat/diagnóstico
+    return c;
   }
 
   /**
@@ -100,7 +125,7 @@ var Errors = (function () {
     var details = null;
 
     if (err && typeof err === "object") {
-      if (err.code) code = String(err.code);
+      if (err.code) code = normalizeCode(String(err.code));
       if (err.message) message = String(err.message);
       if (err.details !== undefined) details = err.details;
       else if (err.stack) details = String(err.stack).slice(0, 4000);
@@ -111,12 +136,66 @@ var Errors = (function () {
     return response(ctx, code, message, details);
   }
 
+  /**
+   * Retorna o "primeiro erro" de um envelope ou lista.
+   * Útil para tomadas de decisão por code.
+   */
+  function primary(envelopeOrErrors) {
+    if (!envelopeOrErrors) return make("UNKNOWN", "Erro desconhecido.", null);
+
+    // envelope {success,data,errors}
+    if (typeof envelopeOrErrors === "object" && Array.isArray(envelopeOrErrors.errors)) {
+      var e0 = envelopeOrErrors.errors[0];
+      return e0 ? make(e0.code, e0.message, (e0.details === undefined ? null : e0.details)) : make("UNKNOWN", "Falha na operação.", null);
+    }
+
+    // array errors
+    if (Array.isArray(envelopeOrErrors)) {
+      var e1 = envelopeOrErrors[0];
+      if (!e1) return make("UNKNOWN", "Falha na operação.", null);
+      if (typeof e1 === "string") return make("UNKNOWN", e1, null);
+      return make(e1.code, e1.message || String(e1), (e1.details === undefined ? null : e1.details));
+    }
+
+    // Error
+    if (envelopeOrErrors instanceof Error) {
+      return make(envelopeOrErrors.code || "INTERNAL_ERROR", envelopeOrErrors.message, envelopeOrErrors.details);
+    }
+
+    return make("UNKNOWN", String(envelopeOrErrors), null);
+  }
+
+  /**
+   * Checa se um error/envelope tem um code específico.
+   */
+  function isCode(errOrEnvelope, code) {
+    var p = primary(errOrEnvelope);
+    return String(p.code || "").toUpperCase() === String(code || "").toUpperCase();
+  }
+
+  /**
+   * Assert helper (lança Error com code/details).
+   */
+  function assert(condition, code, message, details) {
+    if (condition) return true;
+    var e = new Error(String(message || "Erro."));
+    e.code = normalizeCode(code || CODES.VALIDATION_ERROR);
+    e.details = (details === undefined ? null : details);
+    throw e;
+  }
+
   return {
     CODES: CODES,
     make: make,
     response: response,
     ok: ok,
-    fromException: fromException
+    fromException: fromException,
+
+    // ✅ Helpers extras
+    normalizeCode: normalizeCode,
+    primary: primary,
+    isCode: isCode,
+    assert: assert
   };
 })();
 

@@ -21,7 +21,9 @@
  *
  * ✅ UPDATE (retrocompatível - AGENDA):
  * - PRONTIO_routeAction_ separa AgendaConfig_* antes de Agenda_* / Agenda.*
- * - Suporte legado direto para "Agenda_ValidarConflito" via Agenda_Action_ValidarConflito (se existir)
+ * - ✅ PASSO 1.5: "Novo é fonte da verdade"
+ *   Para Agenda_ValidarConflito: prioriza handleAgendaAction (novo).
+ *   Mantém fallback para Agenda_Action_ValidarConflito apenas se o novo não estiver disponível.
  *
  * ✅ FIX (SEM QUEBRAR):
  * - Auditoria best-effort com Audit_log_ / Audit_securityEvent_ quando disponíveis
@@ -339,7 +341,10 @@ function _tryLegacyRoute_(action, payload, ctx) {
  * - AgendaConfig_* via handleAgendaConfigAction
  * - Agenda_* / Agenda.* via handleAgendaAction
  * - Prontuario.* via handleProntuarioAction
- * - Agenda_ValidarConflito via Agenda_Action_ValidarConflito (se existir)
+ *
+ * ✅ PASSO 1.5 (Agenda): "Novo é fonte da verdade"
+ * - Agenda_ValidarConflito deve preferir handleAgendaAction, quando disponível.
+ * - Mantém fallback para Agenda_Action_ValidarConflito SOMENTE se o novo não estiver carregado.
  */
 function PRONTIO_routeAction_(action, payload, ctx) {
   var a = String(action || "");
@@ -368,17 +373,19 @@ function PRONTIO_routeAction_(action, payload, ctx) {
     return handlePacientesAction(action, payload);
   }
 
-  // Validação de conflito (helper) — mantém compat sem obrigar Agenda.gs
-  if (a === "Agenda_ValidarConflito" && typeof Agenda_Action_ValidarConflito === "function") {
-    return Agenda_Action_ValidarConflito(payload || {});
-  }
-
-  // Agenda (novo/antigo) — restringe para não capturar AgendaConfig_*
+  // ✅ Agenda (inclui Agenda_ValidarConflito) — restringe para não capturar AgendaConfig_*
   if (a.indexOf("Agenda_") === 0 || a.indexOf("Agenda.") === 0) {
-    if (typeof handleAgendaAction !== "function") {
-      _apiThrow_("INTERNAL_ERROR", "handleAgendaAction não está disponível (Agenda.gs não carregado?).", { action: action });
+    // Prioridade: novo módulo Agenda.gs
+    if (typeof handleAgendaAction === "function") {
+      return handleAgendaAction(action, payload);
     }
-    return handleAgendaAction(action, payload);
+
+    // Fallback explícito (só se o novo não estiver carregado)
+    if (a === "Agenda_ValidarConflito" && typeof Agenda_Action_ValidarConflito === "function") {
+      return Agenda_Action_ValidarConflito(payload || {});
+    }
+
+    _apiThrow_("INTERNAL_ERROR", "handleAgendaAction não está disponível (Agenda.gs não carregado?).", { action: action });
   }
 
   _apiThrow_("NOT_FOUND", "Action não registrada (Registry) e não suportada no legado.", { action: action });

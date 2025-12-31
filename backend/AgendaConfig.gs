@@ -24,6 +24,11 @@
  *  - DURACAO_GRADE_MINUTOS   (ex.: "15")
  *  - DIAS_ATIVOS             (ex.: "SEG,TER,QUA,QUI,SEX")
  *
+ * ✅ (NOVO - BACKEND PARAMS, sem quebrar contrato do front)
+ *  - AGENDA_DURACAO_PADRAO_MIN     (ex.: "30")   -> usado no Agenda.gs
+ *  - AGENDA_SLOT_MIN              (ex.: "10")   -> usado no Agenda.gs
+ *  - AGENDA_PERMITE_SOBREPOSICAO  (ex.: "false" ou "true") -> usado no Agenda.gs
+ *
  * IMPORTANTE (contrato com o FRONT):
  *
  *  AgendaConfig_Obter → retorna:
@@ -67,6 +72,9 @@
  * - Aceita aliases de action: AgendaConfig.Obter / AgendaConfig.Salvar (além de AgendaConfig_*)
  * - Valida e normaliza HH:MM, duração e dias_ativos
  * - Normaliza dias_ativos para UPPER e apenas valores permitidos (SEG..DOM)
+ *
+ * ✅ PASSO 1 (Agenda):
+ * - Exporta AgendaConfig_getAgendaParams_() para o backend consumir parâmetros reais (slotMin, duracaoPadraoMin, permiteSobreposicao)
  */
 
 var AGENDA_CONFIG_SHEET_NAME = "AgendaConfig";
@@ -75,6 +83,7 @@ var AGENDA_CONFIG_HEADER = ["Chave", "Valor"];
 // cache keys (script cache)
 var _AGENDA_CFG_CACHE_KEY_MAP_ = "agendaConfig:map:v1";
 var _AGENDA_CFG_CACHE_KEY_CFG_ = "agendaConfig:cfg:v1";
+var _AGENDA_CFG_CACHE_KEY_PARAMS_ = "agendaConfig:params:v1";
 var _AGENDA_CFG_CACHE_TTL_SEC_ = 60 * 10; // 10 min (seguro)
 
 // ============================================================
@@ -171,6 +180,7 @@ function _agendaCfgCacheRemove_(key) {
 function _agendaCfgCacheInvalidateAll_() {
   _agendaCfgCacheRemove_(_AGENDA_CFG_CACHE_KEY_MAP_);
   _agendaCfgCacheRemove_(_AGENDA_CFG_CACHE_KEY_CFG_);
+  _agendaCfgCacheRemove_(_AGENDA_CFG_CACHE_KEY_PARAMS_);
 }
 
 // ============================================================
@@ -201,6 +211,15 @@ function _agendaCfgNormalizeDuracao_(v, fallback) {
   return n;
 }
 
+function _agendaCfgNormalizeBool_(v, fallback) {
+  if (typeof v === "boolean") return v;
+  var s = String(v || "").trim().toLowerCase();
+  if (!s) return fallback;
+  if (s === "true" || s === "1" || s === "sim" || s === "yes") return true;
+  if (s === "false" || s === "0" || s === "nao" || s === "não" || s === "no") return false;
+  return fallback;
+}
+
 function _agendaCfgNormalizeDiasAtivos_(raw, fallbackArr) {
   var allowed = { SEG: true, TER: true, QUA: true, QUI: true, SEX: true, SAB: true, DOM: true };
 
@@ -226,6 +245,16 @@ function _agendaCfgNormalizeDiasAtivos_(raw, fallbackArr) {
 
   if (!uniq.length) return (fallbackArr || []).slice();
   return uniq;
+}
+
+function _agendaCfgMinutesFromHHMM_(hhmm) {
+  var s = String(hhmm || "").trim();
+  var m = s.match(/^(\d{2}):(\d{2})$/);
+  if (!m) return null;
+  var hh = parseInt(m[1], 10);
+  var mm = parseInt(m[2], 10);
+  if (!isFinite(hh) || !isFinite(mm)) return null;
+  return hh * 60 + mm;
 }
 
 // ============================================================
@@ -276,7 +305,7 @@ function _agendaConfigUpsert_(sheet, rowByKey, key, value) {
 }
 
 // ============================================================
-// Public API
+// Public API (FRONT CONTRACT)
 // ============================================================
 
 function agendaConfigObter_() {
@@ -308,8 +337,18 @@ function agendaConfigObter_() {
   }
 
   var diasAtivosArr = _agendaCfgNormalizeDiasAtivos_(map.DIAS_ATIVOS, defaults.dias_ativos);
-
   var duracao = _agendaCfgNormalizeDuracao_(map.DURACAO_GRADE_MINUTOS, defaults.duracao_grade_minutos);
+
+  var hi = _agendaCfgNormalizeHHMM_(map.HORA_INICIO_PADRAO, defaults.hora_inicio_padrao);
+  var hf = _agendaCfgNormalizeHHMM_(map.HORA_FIM_PADRAO, defaults.hora_fim_padrao);
+
+  // ✅ Consistência básica: se fim <= inicio, mantém fallback seguro
+  var mi = _agendaCfgMinutesFromHHMM_(hi);
+  var mf = _agendaCfgMinutesFromHHMM_(hf);
+  if (mi !== null && mf !== null && mf <= mi) {
+    hi = defaults.hora_inicio_padrao;
+    hf = defaults.hora_fim_padrao;
+  }
 
   var cfg = {
     medicoNomeCompleto: String(map.MEDICO_NOME_COMPLETO || defaults.medicoNomeCompleto || "").trim(),
@@ -323,8 +362,8 @@ function agendaConfigObter_() {
 
     logoUrl: String(map.LOGO_URL || defaults.logoUrl || "").trim(),
 
-    hora_inicio_padrao: _agendaCfgNormalizeHHMM_(map.HORA_INICIO_PADRAO, defaults.hora_inicio_padrao),
-    hora_fim_padrao: _agendaCfgNormalizeHHMM_(map.HORA_FIM_PADRAO, defaults.hora_fim_padrao),
+    hora_inicio_padrao: hi,
+    hora_fim_padrao: hf,
     duracao_grade_minutos: duracao,
     dias_ativos: diasAtivosArr
   };
@@ -375,6 +414,14 @@ function agendaConfigSalvar_(payload) {
   var hf = _agendaCfgNormalizeHHMM_(payload.hora_fim_padrao, current.hora_fim_padrao);
   var dur = _agendaCfgNormalizeDuracao_(payload.duracao_grade_minutos, current.duracao_grade_minutos);
 
+  // consistência fim > inicio (fallback seguro)
+  var mi = _agendaCfgMinutesFromHHMM_(hi);
+  var mf = _agendaCfgMinutesFromHHMM_(hf);
+  if (mi !== null && mf !== null && mf <= mi) {
+    hi = current.hora_inicio_padrao;
+    hf = current.hora_fim_padrao;
+  }
+
   _agendaConfigUpsert_(sheet, rowByKey, "HORA_INICIO_PADRAO", hi);
   _agendaConfigUpsert_(sheet, rowByKey, "HORA_FIM_PADRAO", hf);
   _agendaConfigUpsert_(sheet, rowByKey, "DURACAO_GRADE_MINUTOS", dur);
@@ -385,8 +432,77 @@ function agendaConfigSalvar_(payload) {
     _agendaConfigUpsert_(sheet, rowByKey, "DIAS_ATIVOS", diasAtivosValue);
   }
 
-  // ✅ invalida cache para refletir imediatamente no cabeçalho/documentos
+  // ✅ (NOVO - opcional): permite salvar parâmetros do backend se vierem no payload (não quebra front)
+  if (typeof payload.agendaDuracaoPadraoMin !== "undefined") {
+    var dpm = _agendaCfgNormalizeDuracao_(payload.agendaDuracaoPadraoMin, null);
+    if (dpm !== null) _agendaConfigUpsert_(sheet, rowByKey, "AGENDA_DURACAO_PADRAO_MIN", dpm);
+  }
+  if (typeof payload.agendaSlotMin !== "undefined") {
+    var sm = _agendaCfgNormalizeDuracao_(payload.agendaSlotMin, null);
+    if (sm !== null) _agendaConfigUpsert_(sheet, rowByKey, "AGENDA_SLOT_MIN", sm);
+  }
+  if (typeof payload.agendaPermiteSobreposicao !== "undefined") {
+    var ps = _agendaCfgNormalizeBool_(payload.agendaPermiteSobreposicao, null);
+    if (ps !== null) _agendaConfigUpsert_(sheet, rowByKey, "AGENDA_PERMITE_SOBREPOSICAO", ps ? "true" : "false");
+  }
+
+  // ✅ invalida cache
   _agendaCfgCacheInvalidateAll_();
 
   return agendaConfigObter_();
+}
+
+// ============================================================
+// Public API (BACKEND PARAMS - PASSO 1)
+// ============================================================
+
+/**
+ * Retorna parâmetros usados pelo Agenda.gs, sem afetar contrato do front.
+ * Pode ser consumido pelo Config_getAgendaParams_() ou direto no Agenda.gs.
+ *
+ * Shape:
+ * {
+ *   duracaoPadraoMin: number,
+ *   slotMin: number,
+ *   permiteSobreposicao: boolean
+ * }
+ */
+function AgendaConfig_getAgendaParams_() {
+  var cached = _agendaCfgCacheGet_(_AGENDA_CFG_CACHE_KEY_PARAMS_);
+  if (cached && typeof cached === "object") return cached;
+
+  var defaults = {
+    duracaoPadraoMin: 30,
+    slotMin: 10,
+    permiteSobreposicao: false
+  };
+
+  var map = {};
+  try {
+    map = _agendaConfigReadMap_();
+  } catch (_) {
+    _agendaCfgCacheSet_(_AGENDA_CFG_CACHE_KEY_PARAMS_, defaults, _AGENDA_CFG_CACHE_TTL_SEC_);
+    return defaults;
+  }
+
+  // limites seguros para parâmetros do backend (slotMin e duracaoPadraoMin podem ser menores que 15)
+  function normMin_(v, fallback, max) {
+    var n = parseInt(String(v || "").trim(), 10);
+    if (!isFinite(n) || n <= 0) return fallback;
+    if (typeof max === "number" && isFinite(max) && n > max) return fallback;
+    return n;
+  }
+
+  var duracaoPadraoMin = normMin_(map.AGENDA_DURACAO_PADRAO_MIN, defaults.duracaoPadraoMin, 240);
+  var slotMin = normMin_(map.AGENDA_SLOT_MIN, defaults.slotMin, 120);
+  var permiteSobreposicao = _agendaCfgNormalizeBool_(map.AGENDA_PERMITE_SOBREPOSICAO, defaults.permiteSobreposicao);
+
+  var out = {
+    duracaoPadraoMin: duracaoPadraoMin,
+    slotMin: slotMin,
+    permiteSobreposicao: permiteSobreposicao
+  };
+
+  _agendaCfgCacheSet_(_AGENDA_CFG_CACHE_KEY_PARAMS_, out, _AGENDA_CFG_CACHE_TTL_SEC_);
+  return out;
 }

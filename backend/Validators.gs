@@ -21,6 +21,10 @@
  * - Não assume que Errors existe dentro das regras (evita ReferenceError).
  * - _vRegex_ protege RegExp inválido (não derruba request).
  * - Runner usa Errors.response/Errors.ok quando disponível.
+ *
+ * ✅ PASSO 2 (padronização global):
+ * - Todos os erros de validação usam code: VALIDATION_ERROR (canônico)
+ * - details padronizado inclui { field, rule, ... }
  */
 
 function Validators_run_(ctx, validations, payload) {
@@ -35,33 +39,24 @@ function Validators_run_(ctx, validations, payload) {
   }
 
   if (errors.length) {
-    // Preferência: Errors.response (padroniza envelope/meta)
-    if (typeof Errors !== "undefined" && Errors && typeof Errors.response === "function") {
-      // Mantém múltiplos erros: devolve o primeiro como "message" do response,
-      // mas preserva a lista completa em errors (envelope PRONTIO).
-      // Como Errors.response só cria errors[0], faremos envelope manual quando há muitos.
-      // (Sem quebrar: mantém compat com Api.gs e com o front.)
-      return {
-        success: false,
-        data: null,
-        errors: errors,
-        requestId: (ctx && ctx.requestId) ? ctx.requestId : null,
-        meta: (typeof PRONTIO_API_VERSION !== "undefined" || typeof PRONTIO_ENV !== "undefined") ? {
-          request_id: (ctx && ctx.requestId) ? ctx.requestId : null,
-          action: (ctx && ctx.action) ? ctx.action : null,
-          api_version: (typeof PRONTIO_API_VERSION !== "undefined") ? PRONTIO_API_VERSION : null,
-          env: (typeof PRONTIO_ENV !== "undefined") ? PRONTIO_ENV : null
-        } : undefined
-      };
-    }
-
-    // Fallback seguro (caso Errors.gs não esteja carregado)
-    return {
+    var out = {
       success: false,
       data: null,
       errors: errors,
       requestId: (ctx && ctx.requestId) ? ctx.requestId : null
     };
+
+    // meta compat (alinhado com Api.gs/Errors.gs)
+    if (typeof PRONTIO_API_VERSION !== "undefined" || typeof PRONTIO_ENV !== "undefined") {
+      out.meta = {
+        request_id: (ctx && ctx.requestId) ? ctx.requestId : null,
+        action: (ctx && ctx.action) ? ctx.action : null,
+        api_version: (typeof PRONTIO_API_VERSION !== "undefined") ? PRONTIO_API_VERSION : null,
+        env: (typeof PRONTIO_ENV !== "undefined") ? PRONTIO_ENV : null
+      };
+    }
+
+    return out;
   }
 
   // Sucesso padronizado
@@ -79,7 +74,7 @@ function Validators_validateOne_(spec, payload) {
   var rule = spec.rule;
 
   if (!field || !rule) {
-    return [_vMakeError_("VALIDATION_ERROR", "Spec de validação inválida.", { spec: spec })];
+    return [_vMakeError_("VALIDATION_ERROR", "Spec de validação inválida.", { spec: spec, rule: rule, field: field })];
   }
 
   var value = _getValueByPath_(payload, field);
@@ -129,16 +124,18 @@ function Validators_validateOne_(spec, payload) {
 // ======================
 
 function _vMakeError_(code, message, details) {
+  // Sempre canônico em validações
+  var finalCode = "VALIDATION_ERROR";
+
   // Usa Errors.make se existir; senão cria objeto compatível
   try {
-    if (typeof Errors !== "undefined" && Errors && typeof Errors.make === "function" && Errors.CODES) {
-      var c = Errors.CODES[code] || Errors.CODES.VALIDATION_ERROR || "VALIDATION_ERROR";
-      return Errors.make(c, message, details);
+    if (typeof Errors !== "undefined" && Errors && typeof Errors.make === "function") {
+      return Errors.make(finalCode, message, (details === undefined ? null : details));
     }
   } catch (_) {}
 
   return {
-    code: String(code || "VALIDATION_ERROR"),
+    code: finalCode,
     message: String(message || "Erro de validação."),
     details: (details === undefined ? null : details)
   };
@@ -150,7 +147,7 @@ function _vMakeError_(code, message, details) {
 
 function _vRequired_(field, value, msg) {
   var ok = !(value === null || value === undefined || (typeof value === "string" && value.trim() === ""));
-  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Campo obrigatório: " + field), { field: field })];
+  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Campo obrigatório: " + field), { field: field, rule: "required" })];
 }
 
 function _vType_(field, value, expected, msg) {
@@ -165,74 +162,84 @@ function _vType_(field, value, expected, msg) {
   return ok ? [] : [_vMakeError_(
     "VALIDATION_ERROR",
     msg || ("Tipo inválido em " + field),
-    { field: field, expected: expected, got: (Array.isArray(value) ? "array" : typeof value) }
+    { field: field, rule: "type", expected: expected, got: (Array.isArray(value) ? "array" : typeof value) }
   )];
 }
 
 function _vMaxLength_(field, value, max, msg) {
   if (value === null || value === undefined) return [];
+  var m = parseInt(String(max), 10);
+  if (!isFinite(m) || m <= 0) {
+    return [_vMakeError_("VALIDATION_ERROR", "Spec inválida (maxLength).", { field: field, rule: "maxLength", max: max })];
+  }
   var s = String(value);
-  return (s.length <= max) ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Tamanho máximo excedido: " + field), { field: field, max: max, length: s.length })];
+  return (s.length <= m) ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Tamanho máximo excedido: " + field), { field: field, rule: "maxLength", max: m, length: s.length })];
 }
 
 function _vMinLength_(field, value, min, msg) {
   if (value === null || value === undefined) return [];
+  var m = parseInt(String(min), 10);
+  if (!isFinite(m) || m < 0) {
+    return [_vMakeError_("VALIDATION_ERROR", "Spec inválida (minLength).", { field: field, rule: "minLength", min: min })];
+  }
   var s = String(value);
-  return (s.length >= min) ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Tamanho mínimo não atingido: " + field), { field: field, min: min, length: s.length })];
+  return (s.length >= m) ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Tamanho mínimo não atingido: " + field), { field: field, rule: "minLength", min: m, length: s.length })];
 }
 
 function _vMin_(field, value, min, msg) {
   if (value === null || value === undefined) return [];
   var n = Number(value);
-  if (isNaN(n)) return [_vMakeError_("VALIDATION_ERROR", msg || ("Número inválido: " + field), { field: field })];
-  return (n >= min) ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Valor mínimo não atingido: " + field), { field: field, min: min, got: n })];
+  if (isNaN(n)) return [_vMakeError_("VALIDATION_ERROR", msg || ("Número inválido: " + field), { field: field, rule: "min" })];
+  return (n >= min) ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Valor mínimo não atingido: " + field), { field: field, rule: "min", min: min, got: n })];
 }
 
 function _vMax_(field, value, max, msg) {
   if (value === null || value === undefined) return [];
   var n = Number(value);
-  if (isNaN(n)) return [_vMakeError_("VALIDATION_ERROR", msg || ("Número inválido: " + field), { field: field })];
-  return (n <= max) ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Valor máximo excedido: " + field), { field: field, max: max, got: n })];
+  if (isNaN(n)) return [_vMakeError_("VALIDATION_ERROR", msg || ("Número inválido: " + field), { field: field, rule: "max" })];
+  return (n <= max) ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Valor máximo excedido: " + field), { field: field, rule: "max", max: max, got: n })];
 }
 
 function _vDate_(field, value, msg) {
   if (value === null || value === undefined) return [];
   var d = _parseDate_(value);
-  return d ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Data inválida: " + field), { field: field, value: value })];
+  return d ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Data inválida: " + field), { field: field, rule: "date", value: value })];
 }
 
 function _vEnum_(field, value, values, msg) {
   if (value === null || value === undefined) return [];
-  var ok = values.indexOf(value) >= 0;
-  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Valor inválido: " + field), { field: field, allowed: values, got: value })];
+  // compara por string para reduzir inconsistências entre number/string
+  var got = String(value);
+  var allowed = (values || []).map(function (x) { return String(x); });
+  var ok = allowed.indexOf(got) >= 0;
+  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Valor inválido: " + field), { field: field, rule: "enum", allowed: values, got: value })];
 }
 
 function _vObject_(field, value, msg) {
   if (value === null || value === undefined) return [];
   var ok = (typeof value === "object" && value !== null && !Array.isArray(value));
-  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Objeto inválido: " + field), { field: field })];
+  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Objeto inválido: " + field), { field: field, rule: "object" })];
 }
 
 function _vArray_(field, value, msg) {
   if (value === null || value === undefined) return [];
   var ok = Array.isArray(value);
-  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Array inválido: " + field), { field: field })];
+  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Array inválido: " + field), { field: field, rule: "array" })];
 }
 
 function _vRegex_(field, value, pattern, msg) {
   if (value === null || value === undefined) return [];
-  if (!pattern) return [_vMakeError_("VALIDATION_ERROR", "Regex pattern ausente em validação.", { field: field })];
+  if (!pattern) return [_vMakeError_("VALIDATION_ERROR", "Regex pattern ausente em validação.", { field: field, rule: "match" })];
 
   var re;
   try {
     re = new RegExp(pattern);
   } catch (e) {
-    // ✅ não derruba request por regex inválido; trata como erro de validação do spec
-    return [_vMakeError_("VALIDATION_ERROR", "Regex inválido na validação.", { field: field, pattern: pattern, error: String(e) })];
+    return [_vMakeError_("VALIDATION_ERROR", "Regex inválido na validação.", { field: field, rule: "match", pattern: pattern, error: String(e) })];
   }
 
   var ok = re.test(String(value));
-  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Formato inválido: " + field), { field: field, pattern: pattern })];
+  return ok ? [] : [_vMakeError_("VALIDATION_ERROR", msg || ("Formato inválido: " + field), { field: field, rule: "match", pattern: pattern })];
 }
 
 // ======================
@@ -259,7 +266,6 @@ function _parseDate_(v) {
     return isNaN(dNum.getTime()) ? null : dNum;
   }
   if (typeof v === "string") {
-    // ISO / yyyy-mm-dd / etc.
     var dStr = new Date(v);
     return isNaN(dStr.getTime()) ? null : dStr;
   }

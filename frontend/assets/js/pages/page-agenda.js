@@ -8,6 +8,12 @@
  *   mantendo compat com rótulos antigos ("Agendado"/"Concluído"/etc.).
  * - Resumo do dia: contabiliza ATENDIDO além de CONCLUIDO.
  * - Mensagens de erro mais consistentes e seguras.
+ *
+ * ✅ PASSO 1 (Agenda - contrato local):
+ * - Consultas de DIA/SEMANA não usam mais inicio/fim em ISO/UTC.
+ * - Dia usa Agenda_ListarDia (payload: {data:"YYYY-MM-DD"}).
+ * - Semana usa Agenda_ListarSemana (payload: {data_referencia:"YYYY-MM-DD"}).
+ * - Pré-validação envia permitirEncaixe (VALIDAR == SALVAR).
  */
 
 (function (global, document) {
@@ -330,6 +336,7 @@
       return dias[dt.getDay()];
     }
 
+    // ⚠️ Helpers ISO permanecem por compatibilidade (não usados mais para consulta diária/semanal)
     function startOfDayIso_(dataStr) {
       const d = parseInputDate(dataStr);
       d.setHours(0, 0, 0, 0);
@@ -377,6 +384,39 @@
       } catch (_) {
         return 0;
       }
+    }
+
+    // ✅ Normaliza qualquer “agendamento” para o shape UI usado na página
+    function normalizeUiAg_(ag) {
+      if (!ag || typeof ag !== "object") return null;
+
+      // Se já veio no formato legado/UI, preserva
+      if (ag.ID_Agenda || ag.data || ag.hora_inicio) {
+        const tipo = String(ag.tipo || "");
+        const isBloqueio = (ag.bloqueio === true) || tipo.toUpperCase() === "BLOQUEIO";
+
+        return {
+          ID_Agenda: ag.ID_Agenda ? String(ag.ID_Agenda) : "",
+          ID_Paciente: ag.ID_Paciente ? String(ag.ID_Paciente) : "",
+          data: ag.data ? String(ag.data) : "",
+          hora_inicio: ag.hora_inicio ? String(ag.hora_inicio) : "",
+          hora_fim: ag.hora_fim ? String(ag.hora_fim) : "",
+          duracao_minutos: ag.duracao_minutos ? Number(ag.duracao_minutos) : 0,
+          nome_paciente: ag.nome_paciente ? String(ag.nome_paciente) : (isBloqueio ? "Bloqueio" : ""),
+          telefone_paciente: ag.telefone_paciente ? String(ag.telefone_paciente) : "",
+          documento_paciente: ag.documento_paciente ? String(ag.documento_paciente) : "",
+          motivo: ag.motivo ? String(ag.motivo) : "",
+          canal: ag.canal ? String(ag.canal) : "",
+          origem: ag.origem ? String(ag.origem) : "",
+          status: ag.status ? String(ag.status) : "",
+          tipo: tipo,
+          bloqueio: isBloqueio,
+          permite_encaixe: ag.permite_encaixe === true
+        };
+      }
+
+      // Caso tenha vindo no DTO novo (inicio/fim ISO), converte
+      return dtoToUiAg_(ag);
     }
 
     function dtoToUiAg_(dto) {
@@ -505,7 +545,11 @@
         data: params.data,
         hora_inicio: params.hora_inicio,
         duracao_minutos: params.duracao_minutos,
-        ignoreIdAgenda: params.ignoreIdAgenda || ""
+        ignoreIdAgenda: params.ignoreIdAgenda || "",
+
+        // ✅ PASSO 1.2: validar usa a MESMA regra e respeita permitirEncaixe
+        permite_encaixe: params.permite_encaixe === true,
+        permitirEncaixe: params.permite_encaixe === true
       };
 
       try {
@@ -516,7 +560,8 @@
             ok: false,
             erro: (r && r.erro) ? String(r.erro) : "Conflito de horário.",
             conflitos: (r && r.conflitos) ? r.conflitos : [],
-            intervalo: (r && r.intervalo) ? r.intervalo : null
+            intervalo: (r && r.intervalo) ? r.intervalo : null,
+            code: (r && r.code) ? String(r.code) : ""
           };
         }
 
@@ -861,6 +906,7 @@
       return true;
     }
 
+    // ✅ PASSO 1.1: consulta diária agora usa action local (sem ISO/UTC)
     async function carregarAgendaDia() {
       const dataStr = inputData.value;
       if (!dataStr) return;
@@ -874,18 +920,25 @@
 
       try {
         const data = await callApiData({
-          action: "Agenda.ListarPorPeriodo",
-          payload: { inicio: startOfDayIso_(dataStr), fim: endOfDayIso_(dataStr), incluirCancelados: true }
+          action: "Agenda_ListarDia",
+          payload: { data: dataStr }
         });
 
-        // se outra requisição mais nova já rodou, não atualiza UI com resposta antiga
         if (mySeq !== reqSeqDia) return;
 
-        const items = (data && data.items) ? data.items : [];
-        const agsUi = items.map(dtoToUiAg_).filter((ag) => ag && ag.data === dataStr);
+        // data = {resumo, horarios:[{hora, agendamentos:[...]}]}
+        const horarios = (data && data.horarios) ? data.horarios : [];
+        const flat = [];
+        horarios.forEach((h) => {
+          const arr = (h && h.agendamentos) ? h.agendamentos : [];
+          arr.forEach((ag) => {
+            const ui = normalizeUiAg_(ag);
+            if (ui) flat.push(ui);
+          });
+        });
 
-        agendamentosOriginaisDia = agsUi;
-        atualizarResumoDia(computeResumoDia_(agsUi));
+        agendamentosOriginaisDia = flat.filter((ag) => ag && ag.data === dataStr);
+        atualizarResumoDia(computeResumoDia_(agendamentosOriginaisDia));
         aplicarFiltrosDia();
       } catch (error) {
         if (mySeq !== reqSeqDia) return;
@@ -1024,15 +1077,6 @@
     // ===========================
     // Semana (grade completa)
     // ===========================
-    function getStartOfWeekMonday_(d) {
-      const x = new Date(d);
-      x.setHours(0, 0, 0, 0);
-      const day = x.getDay();
-      const diff = (day + 6) % 7;
-      x.setDate(x.getDate() - diff);
-      return x;
-    }
-
     async function carregarAgendaSemana() {
       const dataStr = inputData.value;
       if (!dataStr) return;
@@ -1044,41 +1088,54 @@
       try {
         await carregarAgendaConfigSeNecessario();
 
-        const ref = parseInputDate(dataStr);
-        const ini = getStartOfWeekMonday_(ref);
-        const fim = new Date(ini.getTime() + 6 * 24 * 60 * 60 * 1000);
-        fim.setHours(23, 59, 59, 999);
-
+        // ✅ PASSO 1.1: consulta semanal agora usa action local (sem ISO/UTC)
         const data = await callApiData({
-          action: "Agenda.ListarPorPeriodo",
-          payload: { inicio: ini.toISOString(), fim: fim.toISOString(), incluirCancelados: true }
+          action: "Agenda_ListarSemana",
+          payload: { data_referencia: dataStr }
         });
 
         if (mySeq !== reqSeqSemana) return;
 
-        const items = (data && data.items) ? data.items : [];
-        const agsUi = items.map(dtoToUiAg_);
+        // data = {dias:[{data:"YYYY-MM-DD", horarios:[{hora, agendamentos:[...]}]}]}
+        const diasResp = (data && data.dias) ? data.dias : [];
+
+        const agsUi = [];
+        const byDayHour = {};
+
+        diasResp.forEach((dia) => {
+          const ds = dia && dia.data ? String(dia.data) : "";
+          const horarios = dia && dia.horarios ? dia.horarios : [];
+
+          if (!ds) return;
+
+          horarios.forEach((h) => {
+            const hh = h && h.hora ? String(h.hora) : "";
+            const arr = h && h.agendamentos ? h.agendamentos : [];
+
+            arr.forEach((ag) => {
+              const ui = normalizeUiAg_(ag);
+              if (!ui) return;
+
+              // garante data/hora (alguns legados podem vir vazios)
+              if (!ui.data) ui.data = ds;
+              if (!ui.hora_inicio && hh) ui.hora_inicio = hh;
+
+              agsUi.push(ui);
+
+              const horaNorm = normalizeHora(ui.hora_inicio);
+              if (!horaNorm) return;
+              if (!byDayHour[ui.data]) byDayHour[ui.data] = {};
+              if (!byDayHour[ui.data][horaNorm]) byDayHour[ui.data][horaNorm] = [];
+              byDayHour[ui.data][horaNorm].push({ ...ui, __hora_norm: horaNorm });
+            });
+          });
+        });
 
         agendamentosOriginaisSemana = agsUi;
 
-        const dias = [];
-        for (let i = 0; i < 7; i++) {
-          const d = new Date(ini.getTime() + i * 24 * 60 * 60 * 1000);
-          dias.push(formatDateToInput(d));
-        }
+        const dias = diasResp.map((d) => String(d.data || "")).filter(Boolean);
 
         const { slots } = getSlotsByConfig_();
-
-        const byDayHour = {};
-        agsUi.forEach((ag) => {
-          const ds = ag.data;
-          const hh = normalizeHora(ag.hora_inicio);
-          if (!ds || !hh) return;
-          if (!byDayHour[ds]) byDayHour[ds] = {};
-          if (!byDayHour[ds][hh]) byDayHour[ds][hh] = [];
-          byDayHour[ds][hh].push({ ...ag, __hora_norm: hh });
-        });
-
         desenharSemanaGrid({ dias, slots, byDayHour });
       } catch (error) {
         if (mySeq !== reqSeqSemana) return;
@@ -1670,7 +1727,8 @@
         data: dataStr,
         hora_inicio: horaStr,
         duracao_minutos: duracao,
-        ignoreIdAgenda: ""
+        ignoreIdAgenda: "",
+        permite_encaixe: permiteEncaixeUI
       });
 
       if (!v.ok) {
@@ -1810,7 +1868,8 @@
         data: dataStr,
         hora_inicio: horaStr,
         duracao_minutos: duracao,
-        ignoreIdAgenda: idAgenda
+        ignoreIdAgenda: idAgenda,
+        permite_encaixe: permiteEncaixeUI
       });
 
       if (!v.ok) {
@@ -1912,7 +1971,8 @@
         data: dataStr,
         hora_inicio: horaStr,
         duracao_minutos: duracao,
-        ignoreIdAgenda: ""
+        ignoreIdAgenda: "",
+        permite_encaixe: false
       });
 
       if (!v.ok) {

@@ -34,6 +34,13 @@
  * - Passa ctx também para as ações administrativas de usuários (Listar/Criar/Atualizar/AlterarSenha),
  *   mantendo compat e habilitando auditoria/permissões consistentes no Usuarios.gs.
  * - Registra Usuarios_EnsureSchema (admin) para utilitário de manutenção (não afeta outros módulos).
+ *
+ * ✅ PASSO 1 (AGENDA) - FECHAMENTO DE CONTRATO:
+ * - "Agenda_ValidarConflito" deve usar a MESMA regra do novo módulo Agenda.gs
+ *   (VALIDAR == SALVAR), evitando caminhos paralelos.
+ *
+ * ✅ UPDATE (sem quebrar):
+ * - Alias: "Agenda.ValidarConflito" -> mesmo handler canônico
  */
 
 var REGISTRY_ACTIONS = null;
@@ -94,6 +101,36 @@ function _Registry_tryModernElseLegacy_(modernFnName, legacyActionName) {
 
     // fallback
     return _Registry_legacyHandler_(legacy)(ctx, payload || {});
+  };
+}
+
+/**
+ * ✅ PASSO 1 (Agenda) - handler canônico para validação de conflito
+ * Prioridade:
+ * 1) handleAgendaAction("Agenda_ValidarConflito", payload)  -> fonte da verdade (novo)
+ * 2) Agenda_Legacy_ValidarConflito_(ctx,payload)            -> legado adaptado (novo módulo, compat)
+ * 3) Agenda_Action_ValidarConflito(payload)                -> legado antigo (instalações antigas)
+ */
+function _Registry_agendaValidarConflitoHandler_() {
+  return function (ctx, payload) {
+    payload = payload || {};
+
+    // 1) Fonte da verdade: Agenda.gs via handleAgendaAction
+    if (typeof handleAgendaAction === "function") {
+      return handleAgendaAction("Agenda_ValidarConflito", payload);
+    }
+
+    // 2) Se existir adaptador legado do novo módulo
+    if (typeof Agenda_Legacy_ValidarConflito_ === "function") {
+      return Agenda_Legacy_ValidarConflito_(ctx, payload);
+    }
+
+    // 3) Instalações antigas (helper solto)
+    if (typeof Agenda_Action_ValidarConflito === "function") {
+      return Agenda_Action_ValidarConflito(payload);
+    }
+
+    return _Registry_missingHandler_("handleAgendaAction / Agenda_Legacy_ValidarConflito_ / Agenda_Action_ValidarConflito")(ctx, payload);
   };
 }
 
@@ -257,7 +294,6 @@ function _Registry_build_() {
     lockKey: "Usuarios_AlterarMinhaSenha"
   };
 
-  // ✅ utilitário (admin): garantir schema da aba Usuarios (não afeta outros módulos)
   map["Usuarios_EnsureSchema"] = {
     action: "Usuarios_EnsureSchema",
     handler: function (ctx, payload) { return handleUsuariosAction("Usuarios_EnsureSchema", payload, ctx); },
@@ -517,7 +553,6 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // ✅ FIX: call-time handler (não congela no build)
   map["AgendaConfig_Obter"] = {
     action: "AgendaConfig_Obter",
     handler: function (ctx, payload) {
@@ -533,7 +568,6 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // ✅ FIX: call-time handler (não congela no build)
   map["AgendaConfig_Salvar"] = {
     action: "AgendaConfig_Salvar",
     handler: function (ctx, payload) {
@@ -549,15 +583,21 @@ function _Registry_build_() {
     lockKey: "AGENDA_CONFIG"
   };
 
-  // ✅ FIX: call-time handler (não congela no build)
+  // ✅ PASSO 1: validação de conflito (fonte da verdade no novo Agenda.gs)
   map["Agenda_ValidarConflito"] = {
     action: "Agenda_ValidarConflito",
-    handler: function (ctx, payload) {
-      if (typeof Agenda_Action_ValidarConflito !== "function") {
-        return _Registry_missingHandler_("Agenda_Action_ValidarConflito")(ctx, payload);
-      }
-      return Agenda_Action_ValidarConflito(payload || {});
-    },
+    handler: _Registry_agendaValidarConflitoHandler_(), // call-time
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  // ✅ Alias sem quebrar (caso alguém chame no formato dotted)
+  map["Agenda.ValidarConflito"] = {
+    action: "Agenda.ValidarConflito",
+    handler: map["Agenda_ValidarConflito"].handler,
     requiresAuth: true,
     roles: [],
     validations: [],
@@ -630,7 +670,6 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // ✅ Nota: ListarPorPacientePaged é chamado pelo front do prontuário
   map["Prontuario.Receita.ListarPorPacientePaged"] = {
     action: "Prontuario.Receita.ListarPorPacientePaged",
     handler: _prontuarioHandler_("Prontuario.Receita.ListarPorPacientePaged"),
@@ -783,18 +822,6 @@ function _Registry_build_() {
     requiresAuth: true,
     roles: [],
     validations: [],
-    requiresLock: false,
-    lockKey: null
-  };
-
-  map["agenda.nextPatient"] = {
-    action: "agenda.nextPatient",
-    handler: (typeof ChatCompat_Agenda_NextPatient_ === "function")
-      ? ChatCompat_Agenda_NextPatient_
-      : _Registry_missingHandler_("ChatCompat_Agenda_NextPatient_"),
-    requiresAuth: true,
-    roles: [],
-    validations: [],
     requiresLock: true,
     lockKey: "ATENDIMENTO"
   };
@@ -810,7 +837,6 @@ function _Registry_build_() {
         e.details = { action: actionName };
         throw e;
       }
-      // ✅ AUDITORIA: repassa ctx
       return handlePacientesAction(actionName, payload || {}, ctx);
     };
   }

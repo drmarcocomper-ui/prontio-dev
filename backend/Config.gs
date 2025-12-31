@@ -14,6 +14,10 @@
  * Ajustes mínimos aplicados (fase 4 módulos):
  * - Suporte a "single clinic mode" com idClinica_default estável.
  * - Helpers para obter/garantir esse idClinica sem front conhecer nada.
+ *
+ * ✅ PASSO 1 (Agenda):
+ * - Config_getAgendaParams_ agora delega para AgendaConfig_getAgendaParams_ quando disponível
+ *   (fonte da verdade), mantendo fallback retrocompatível via PropertiesService.
  */
 
 var CONFIG_PREFIX = "PRONTIO_CFG_";
@@ -39,7 +43,7 @@ function Config_defaults_() {
      */
     idClinica_default: "",
 
-    // Agenda (parâmetros de negócio)
+    // Agenda (parâmetros de negócio) - fallback/compat
     agenda_duracao_padrao_min: 30,
     agenda_inicio_dia_hhmm: "08:00",
     agenda_fim_dia_hhmm: "18:00",
@@ -136,10 +140,41 @@ function Config_getDoctorProfile_() {
 
 /**
  * Helper: retorna parâmetros da Agenda
+ *
+ * ✅ PASSO 1:
+ * - Fonte da verdade: AgendaConfig_getAgendaParams_() (planilha AgendaConfig).
+ * - Fallback: PropertiesService/Defaults (retrocompat).
+ *
+ * Shape retornado (compat com Agenda.gs):
+ * {
+ *   duracaoPadraoMin: number,
+ *   slotMin: number,
+ *   permiteSobreposicao: boolean
+ * }
+ *
+ * Observação:
+ * - inicioDiaHHMM/fimDiaHHMM continuam disponíveis via AgendaConfig_Obter (front) e/or Config_get_ legacy.
+ * - Para regras de conflito e criação, Agenda.gs usa duracaoPadraoMin/slotMin/permiteSobreposicao.
  */
 function Config_getAgendaParams_() {
+  // 1) Fonte da verdade (novo)
+  try {
+    if (typeof AgendaConfig_getAgendaParams_ === "function") {
+      var p = AgendaConfig_getAgendaParams_();
+      if (p && typeof p === "object") {
+        return {
+          duracaoPadraoMin: (typeof p.duracaoPadraoMin === "number" && isFinite(p.duracaoPadraoMin) && p.duracaoPadraoMin > 0) ? p.duracaoPadraoMin : 30,
+          slotMin: (typeof p.slotMin === "number" && isFinite(p.slotMin) && p.slotMin > 0) ? p.slotMin : 10,
+          permiteSobreposicao: p.permiteSobreposicao === true
+        };
+      }
+    }
+  } catch (_) {}
+
+  // 2) Fallback retrocompat (Properties/Defaults)
   return {
     duracaoPadraoMin: Number(Config_get_("agenda_duracao_padrao_min")),
+    // Mantemos as chaves abaixo para compat (caso algum módulo antigo use)
     inicioDiaHHMM: String(Config_get_("agenda_inicio_dia_hhmm")),
     fimDiaHHMM: String(Config_get_("agenda_fim_dia_hhmm")),
     slotMin: Number(Config_get_("agenda_slot_min")),

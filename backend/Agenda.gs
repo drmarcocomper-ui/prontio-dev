@@ -5,7 +5,7 @@
  * IMPORTANTE:
  * - NÃO usa SpreadsheetApp diretamente (Sheets só via Repository).
  * - NÃO usa colunas/abas no front.
- * - NÃO lança "throw { }".
+ * - NÃO lança "throw { }". (ok)
  * - IDs são gerados no backend via Ids.gs
  * - Locks: aplicados no Api.gs via Registry.requiresLock
  *
@@ -24,6 +24,24 @@
  * - Agenda_MudarStatus
  * - Agenda_RemoverBloqueio
  * - Agenda_ValidarConflito
+ *
+ * ============================================================
+ * PASSO 1 - Contrato Oficial da Agenda (LOCAL TIME)
+ * ============================================================
+ * 🔒 Regra oficial:
+ * - Front envia { data:"YYYY-MM-DD", hora_inicio:"HH:MM", duracao_minutos:N, permitirEncaixe:boolean }
+ * - Backend constrói Date LOCAL e decide inicio/fim
+ * - Persistência pode ser ISO, mas o backend deve sempre:
+ *   - construir datas locais via new Date(y,m,d,H,M)
+ *   - e para ler, converter ISO -> Date e operar sempre como local
+ *
+ * ✅ VALIDAR == SALVAR:
+ * - _agendaAssertSemConflitos_ é a única fonte da verdade
+ * - Pré-validação chama a MESMA função, com MESMOS args (inclui permitirEncaixe)
+ *
+ * ✅ Erros:
+ * - code: CONFLICT | VALIDATION_ERROR | NOT_FOUND
+ * - Front decide por code, não por texto
  */
 
 function handleAgendaAction(action, payload) {
@@ -44,6 +62,9 @@ function handleAgendaAction(action, payload) {
   if (a === "Agenda.Atualizar") return Agenda_Action_Atualizar_(ctx, payload);
   if (a === "Agenda.Cancelar") return Agenda_Action_Cancelar_(ctx, payload);
 
+  // ✅ PASSO 1: validar conflito oficial (fonte da verdade no novo módulo)
+  if (a === "Agenda_ValidarConflito") return Agenda_Action_ValidarConflito_(ctx, payload);
+
   // Actions LEGACY
   if (a === "Agenda_ListarDia") return Agenda_Legacy_ListarDia_(ctx, payload);
   if (a === "Agenda_ListarSemana") return Agenda_Legacy_ListarSemana_(ctx, payload);
@@ -52,8 +73,8 @@ function handleAgendaAction(action, payload) {
   if (a === "Agenda_BloquearHorario") return Agenda_Legacy_BloquearHorario_(ctx, payload);
   if (a === "Agenda_MudarStatus") return Agenda_Legacy_MudarStatus_(ctx, payload);
   if (a === "Agenda_RemoverBloqueio") return Agenda_Legacy_RemoverBloqueio_(ctx, payload);
-  if (a === "Agenda_ValidarConflito") return Agenda_Legacy_ValidarConflito_(ctx, payload);
 
+  // Adapter antigo
   if (a === "Agenda_ListarEventosDiaParaValidacao") {
     var ds = payload && payload.data ? String(payload.data) : "";
     return { items: Agenda_ListarEventosDiaParaValidacao_(ds) };
@@ -66,14 +87,7 @@ var AGENDA_ENTITY = "Agenda";
 var AGENDA_ID_FIELD = "idAgenda";
 
 /**
- * ✅ STATUS CANÔNICO (alinhado com Atendimento/SchemaAtendimento)
- * Estados finais:
- * MARCADO, CONFIRMADO, AGUARDANDO, EM_ATENDIMENTO, ATENDIDO, FALTOU, CANCELADO, REMARCADO
- *
- * Compatibilidade:
- * - "AGENDADO" => MARCADO
- * - "CHEGOU"/"CHAMADO" => AGUARDANDO
- * - "CONCLUIDO" => ATENDIDO
+ * ✅ STATUS CANÔNICO
  */
 var AGENDA_STATUS = {
   MARCADO: "MARCADO",
@@ -107,11 +121,16 @@ var AGENDA_ORIGEM = {
 function Agenda_Action_ListarPorPeriodo_(ctx, payload) {
   payload = payload || {};
 
+  // ⚠️ Aceita Date/ISO por retrocompatibilidade interna, mas o contrato oficial do front
+  // para consultas diárias/semanas é {data, hora_inicio, duracao...}. Aqui é período genérico.
   var ini = _agendaParseDateRequired_(payload.inicio, "inicio");
   var fim = _agendaParseDateRequired_(payload.fim, "fim");
 
   if (fim.getTime() < ini.getTime()) {
-    _agendaThrow_("VALIDATION_ERROR", '"fim" não pode ser menor que "inicio".', { inicio: ini, fim: fim });
+    _agendaThrow_("VALIDATION_ERROR", '"fim" não pode ser menor que "inicio".', {
+      inicio: ini.toISOString(),
+      fim: fim.toISOString()
+    });
   }
 
   var incluirCancelados = payload.incluirCancelados === true;
@@ -177,6 +196,7 @@ function Agenda_Action_Criar_(ctx, payload) {
   var idAgenda = Ids_nextId_("AGENDA");
   var now = new Date();
 
+  // ✅ Persistência: mantemos ISO (estável para storage), mas SEM usar ISO no contrato do front.
   var dto = {
     idAgenda: idAgenda,
     idPaciente: norm.idPaciente || "",
@@ -185,10 +205,7 @@ function Agenda_Action_Criar_(ctx, payload) {
     titulo: norm.titulo || "",
     notas: norm.notas || "",
     tipo: norm.tipo || AGENDA_TIPO.CONSULTA,
-
-    // ✅ Default sempre MARCADO
     status: norm.status || AGENDA_STATUS.MARCADO,
-
     origem: norm.origem || AGENDA_ORIGEM.RECEPCAO,
     criadoEm: now.toISOString(),
     atualizadoEm: now.toISOString(),
@@ -225,11 +242,9 @@ function Agenda_Action_Atualizar_(ctx, payload) {
 
   if (mergedPatch.status !== undefined) {
     var s = _agendaNormalizeStatus_(mergedPatch.status);
-
     if (s === AGENDA_STATUS.CANCELADO) {
       _agendaThrow_("VALIDATION_ERROR", 'Use "Agenda.Cancelar" para cancelar um agendamento.', { idAgenda: idAgenda });
     }
-
     mergedPatch.status = s;
   }
 
@@ -246,13 +261,17 @@ function Agenda_Action_Atualizar_(ctx, payload) {
     }
   }
 
-  var newInicio = mergedPatch.inicio ? _agendaParseDate_(mergedPatch.inicio) : _agendaParseDate_(existing.inicio);
-  var newFim = mergedPatch.fim ? _agendaParseDate_(mergedPatch.fim) : _agendaParseDate_(existing.fim);
+  // mergedPatch.inicio/fim já estão em ISO (strings) quando vêm de patch date
+  var newInicio = (mergedPatch.inicio !== undefined) ? _agendaParseDate_(mergedPatch.inicio) : _agendaParseDate_(existing.inicio);
+  var newFim = (mergedPatch.fim !== undefined) ? _agendaParseDate_(mergedPatch.fim) : _agendaParseDate_(existing.fim);
 
   if (!newInicio || !newFim) _agendaThrow_("VALIDATION_ERROR", "Datas inválidas em atualização.", { idAgenda: idAgenda });
   if (newFim.getTime() < newInicio.getTime()) _agendaThrow_("VALIDATION_ERROR", '"fim" não pode ser menor que "inicio".', {});
 
-  var tipoFinal = mergedPatch.tipo ? String(_agendaNormalizeTipo_(mergedPatch.tipo)) : String(existing.tipo || AGENDA_TIPO.CONSULTA);
+  var tipoFinal = (mergedPatch.tipo !== undefined)
+    ? String(_agendaNormalizeTipo_(mergedPatch.tipo))
+    : String(existing.tipo || AGENDA_TIPO.CONSULTA);
+
   mergedPatch.tipo = (mergedPatch.tipo !== undefined) ? _agendaNormalizeTipo_(mergedPatch.tipo) : undefined;
 
   if (tipoFinal === AGENDA_TIPO.BLOQUEIO) mergedPatch.idPaciente = "";
@@ -303,6 +322,91 @@ function Agenda_Action_Cancelar_(ctx, payload) {
   return { item: _agendaNormalizeRowToDto_(after) };
 }
 
+/**
+ * ============================================================
+ * ✅ PASSO 1.2 / 1.3 - Validação oficial (VALIDAR == SALVAR)
+ * ============================================================
+ * Entrada (contrato local):
+ * {
+ *   data:"YYYY-MM-DD",
+ *   hora_inicio:"HH:MM",
+ *   duracao_minutos:N,
+ *   ignoreIdAgenda?:string,
+ *   permitirEncaixe?:boolean,
+ *   permite_encaixe?:boolean
+ * }
+ *
+ * Saída (compat):
+ * { ok:true, conflitos:[], intervalo:{...} }
+ * { ok:false, erro:"...", conflitos:[...], intervalo:{...}, code:"CONFLICT|VALIDATION_ERROR" }
+ */
+function Agenda_Action_ValidarConflito_(ctx, payload) {
+  payload = payload || {};
+
+  var dataStr = String(payload.data || "").trim();
+  var horaStr = String(payload.hora_inicio || "").trim();
+  var dur = Number(payload.duracao_minutos || 0);
+  var ignoreId = String(payload.ignoreIdAgenda || "").trim();
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida.', { field: "data" });
+  if (!/^\d{2}:\d{2}$/.test(horaStr)) _agendaThrow_("VALIDATION_ERROR", '"hora_inicio" inválida.', { field: "hora_inicio" });
+  if (!dur || isNaN(dur) || dur <= 0) _agendaThrow_("VALIDATION_ERROR", '"duracao_minutos" inválida.', { field: "duracao_minutos" });
+
+  var params = (typeof Config_getAgendaParams_ === "function") ? Config_getAgendaParams_() : {
+    duracaoPadraoMin: 30,
+    slotMin: 10,
+    permiteSobreposicao: false
+  };
+
+  // ✅ Construção LOCAL (contrato oficial)
+  var ini = _agendaBuildDateTime_(dataStr, horaStr);
+  var fim = new Date(ini.getTime() + dur * 60000);
+
+  // ✅ PASSO 1.2: respeita encaixe (VALIDAR == SALVAR)
+  var permitirEncaixe = (payload.permite_encaixe === true) || (payload.permitirEncaixe === true);
+
+  try {
+    _agendaAssertSemConflitos_(ctx, {
+      inicio: ini,
+      fim: fim,
+      permitirEncaixe: permitirEncaixe,
+      modoBloqueio: false,
+      ignoreIdAgenda: ignoreId || null
+    }, params);
+
+    return { ok: true, conflitos: [], intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur } };
+  } catch (err) {
+    // Converte detalhes do novo padrão para o formato esperado no front legado
+    var conflitos = [];
+    try {
+      var det = err && err.details ? err.details : null;
+      var arr = det && det.conflitos ? det.conflitos : null;
+
+      if (arr && arr.length) {
+        for (var i = 0; i < arr.length; i++) {
+          var c = arr[i];
+          var ci = _agendaParseDate_(c.inicio);
+          var cf = _agendaParseDate_(c.fim);
+          conflitos.push({
+            ID_Agenda: c.idAgenda || "",
+            bloqueio: String(c.tipo || "").toUpperCase().indexOf("BLOQ") >= 0,
+            hora_inicio: ci ? _agendaFormatHHMM_(ci) : "",
+            hora_fim: cf ? _agendaFormatHHMM_(cf) : ""
+          });
+        }
+      }
+    } catch (_) {}
+
+    return {
+      ok: false,
+      erro: (err && err.message) ? String(err.message) : "Conflito de horário.",
+      conflitos: conflitos,
+      intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur },
+      code: (err && err.code) ? String(err.code) : "CONFLICT"
+    };
+  }
+}
+
 // ============================================================
 // Regras de conflito / normalização
 // ============================================================
@@ -343,23 +447,49 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
 
     var evIsBloqueio = (evTipo === AGENDA_TIPO.BLOQUEIO);
 
+    // 🔒 Bloqueio SEMPRE vence (independente de encaixe / sobreposição)
     if (evIsBloqueio) {
       _agendaThrow_("CONFLICT", "Horário bloqueado no intervalo.", {
-        conflito: { idAgenda: e.idAgenda, inicio: e.inicio, fim: e.fim, tipo: e.tipo, status: e.status }
+        conflitos: [{
+          idAgenda: e.idAgenda,
+          inicio: e.inicio,
+          fim: e.fim,
+          tipo: e.tipo,
+          status: e.status
+        }],
+        intervalo: { inicio: inicio.toISOString(), fim: fim.toISOString() }
       });
     }
 
+    // 🔒 Se estamos criando/atualizando um BLOQUEIO, qualquer evento conflita
     if (isBloqueioNovo) {
       _agendaThrow_("CONFLICT", "Não é possível bloquear: existe agendamento no intervalo.", {
-        conflito: { idAgenda: e.idAgenda, inicio: e.inicio, fim: e.fim, tipo: e.tipo, status: e.status }
+        conflitos: [{
+          idAgenda: e.idAgenda,
+          inicio: e.inicio,
+          fim: e.fim,
+          tipo: e.tipo,
+          status: e.status
+        }],
+        intervalo: { inicio: inicio.toISOString(), fim: fim.toISOString() }
       });
     }
 
+    // Se o sistema estiver configurado para permitir sobreposição geral
     if (cfgPermiteSobreposicao) continue;
+
+    // Encaixe ignora conflitos APENAS de consultas (nunca bloqueio — já tratado acima)
     if (permitirEncaixe) continue;
 
     _agendaThrow_("CONFLICT", "Já existe agendamento no intervalo.", {
-      conflito: { idAgenda: e.idAgenda, inicio: e.inicio, fim: e.fim, tipo: e.tipo, status: e.status }
+      conflitos: [{
+        idAgenda: e.idAgenda,
+        inicio: e.inicio,
+        fim: e.fim,
+        tipo: e.tipo,
+        status: e.status
+      }],
+      intervalo: { inicio: inicio.toISOString(), fim: fim.toISOString() }
     });
   }
 
@@ -384,6 +514,8 @@ function _agendaNormalizeCreateInput_(payload, params) {
 
   var permitirEncaixe = payload.permitirEncaixe === true || payload.permite_encaixe === true;
 
+  // ✅ Compat interna (se alguém mandar inicio/fim):
+  // Mantemos aceitação, mas a regra oficial do PRONTIO Agenda é LOCAL {data,hora_inicio,duracao}.
   if (payload.inicio && payload.fim) {
     var ini = _agendaParseDateRequired_(payload.inicio, "inicio");
     var fim = _agendaParseDateRequired_(payload.fim, "fim");
@@ -402,12 +534,13 @@ function _agendaNormalizeCreateInput_(payload, params) {
 
   var dataStr = payload.data ? String(payload.data) : null;
   var horaInicio = payload.hora_inicio ? String(payload.hora_inicio) : null;
-  if (!dataStr) _agendaThrow_("VALIDATION_ERROR", 'Campo "data" é obrigatório (legado).', { field: "data" });
-  if (!horaInicio) _agendaThrow_("VALIDATION_ERROR", 'Campo "hora_inicio" é obrigatório (legado).', { field: "hora_inicio" });
+  if (!dataStr) _agendaThrow_("VALIDATION_ERROR", 'Campo "data" é obrigatório.', { field: "data" });
+  if (!horaInicio) _agendaThrow_("VALIDATION_ERROR", 'Campo "hora_inicio" é obrigatório.', { field: "hora_inicio" });
 
-  var duracao = payload.duracao_minutos ? Number(payload.duracao_minutos) : Number(params.duracaoPadraoMin || 30);
+  var duracao = (payload.duracao_minutos !== undefined) ? Number(payload.duracao_minutos) : Number(params.duracaoPadraoMin || 30);
   if (isNaN(duracao) || duracao <= 0) duracao = Number(params.duracaoPadraoMin || 30);
 
+  // ✅ Construção LOCAL (contrato oficial)
   var ini2 = _agendaBuildDateTime_(dataStr, horaInicio);
   var fim2 = new Date(ini2.getTime() + duracao * 60000);
 
@@ -427,6 +560,7 @@ function _agendaNormalizeCreateInput_(payload, params) {
 function _agendaBuildUpdatePatch_(existing, patch, topCompat, params) {
   patch = patch || {};
   topCompat = topCompat || {};
+  params = params || {};
 
   var out = {};
 
@@ -442,14 +576,16 @@ function _agendaBuildUpdatePatch_(existing, patch, topCompat, params) {
   if (out.status !== undefined) out.status = _agendaNormalizeStatus_(out.status);
   if (out.origem !== undefined) out.origem = _agendaNormalizeOrigem_(out.origem);
 
+  // Se patch inclui inicio/fim, assumimos ISO/Date (retrocompat interna)
   var hasNewDates = (patch.inicio !== undefined) || (patch.fim !== undefined);
   if (hasNewDates) {
     if (patch.inicio !== undefined) out.inicio = _agendaParseDateRequired_(patch.inicio, "inicio").toISOString();
     if (patch.fim !== undefined) out.fim = _agendaParseDateRequired_(patch.fim, "fim").toISOString();
   } else {
-    var dataStr = topCompat.data !== undefined ? String(topCompat.data) : null;
-    var horaInicio = topCompat.hora_inicio !== undefined ? String(topCompat.hora_inicio) : null;
-    var duracao = topCompat.duracao_minutos !== undefined ? Number(topCompat.duracao_minutos) : null;
+    // ✅ Legado atualiza via data/hora/duração (contrato local)
+    var dataStr = (topCompat.data !== undefined) ? String(topCompat.data) : null;
+    var horaInicio = (topCompat.hora_inicio !== undefined) ? String(topCompat.hora_inicio) : null;
+    var duracao = (topCompat.duracao_minutos !== undefined) ? Number(topCompat.duracao_minutos) : null;
 
     if (dataStr || horaInicio || duracao !== null) {
       var exIni = _agendaParseDate_(existing.inicio);
@@ -505,8 +641,9 @@ function Agenda_ListarEventosDiaParaValidacao_(dataStr) {
   dataStr = String(dataStr || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return [];
 
+  // ✅ Dia LOCAL (00:00 -> 23:59:59.999)
   var ini = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 0, 0, 0, 0);
-  var fim = new Date(ini.getTime() + 24 * 60 * 60 * 1000 - 1);
+  var fim = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 23, 59, 59, 999);
 
   var res = Agenda_Action_ListarPorPeriodo_(
     { action: "Agenda_ListarEventosDiaParaValidacao_", user: null, env: (typeof PRONTIO_ENV !== "undefined" ? PRONTIO_ENV : "DEV"), apiVersion: (typeof PRONTIO_API_VERSION !== "undefined" ? PRONTIO_API_VERSION : "1.0.0-DEV") },
@@ -525,6 +662,7 @@ function Agenda_ListarEventosDiaParaValidacao_(dataStr) {
     var dtFim = _agendaParseDate_(dto.fim);
     if (!dtIni || !dtFim) continue;
 
+    // ✅ Comparação por data local (sem depender de ISO/UTC)
     if (_agendaFormatDate_(dtIni) !== dataStr) continue;
 
     var dur = Math.max(1, Math.round((dtFim.getTime() - dtIni.getTime()) / 60000));
@@ -553,7 +691,7 @@ function Agenda_Legacy_ListarDia_(ctx, payload) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida (YYYY-MM-DD).', { field: "data" });
 
   var ini = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 0, 0, 0, 0);
-  var fim = new Date(ini.getTime() + 24 * 60 * 60 * 1000 - 1);
+  var fim = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 23, 59, 59, 999);
 
   var res = Agenda_Action_ListarPorPeriodo_(ctx, { inicio: ini, fim: fim, incluirCancelados: false });
   var items = (res && res.items) ? res.items : [];
@@ -586,7 +724,7 @@ function Agenda_Legacy_ListarSemana_(ctx, payload) {
   var dias = [];
   for (var d = 0; d < 7; d++) {
     var cur = new Date(mon.getFullYear(), mon.getMonth(), mon.getDate() + d, 0, 0, 0, 0);
-    var curEnd = new Date(cur.getTime() + 24 * 60 * 60 * 1000 - 1);
+    var curEnd = new Date(cur.getFullYear(), cur.getMonth(), cur.getDate(), 23, 59, 59, 999);
 
     var r = Agenda_Action_ListarPorPeriodo_(ctx, { inicio: cur, fim: curEnd, incluirCancelados: false });
     var items = (r && r.items) ? r.items : [];
@@ -739,11 +877,14 @@ function Agenda_Legacy_ValidarConflito_(ctx, payload) {
   var ini = _agendaBuildDateTime_(dataStr, horaStr);
   var fim = new Date(ini.getTime() + dur * 60000);
 
+  // ✅ PASSO 1.2: validar chama a MESMA regra e respeita permitirEncaixe do payload legado
+  var permitirEncaixe = payload.permite_encaixe === true || payload.permitirEncaixe === true;
+
   try {
     _agendaAssertSemConflitos_(ctx, {
       inicio: ini,
       fim: fim,
-      permitirEncaixe: false,
+      permitirEncaixe: permitirEncaixe,
       modoBloqueio: false,
       ignoreIdAgenda: ignoreId || null
     }, params);
@@ -751,19 +892,24 @@ function Agenda_Legacy_ValidarConflito_(ctx, payload) {
     return { ok: true, conflitos: [], intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur } };
 
   } catch (err) {
+    // Legado mantém shape antigo, mas agora os detalhes vêm do novo padrão
     var conflitos = [];
     try {
       var det = err && err.details ? err.details : null;
-      var c = det && det.conflito ? det.conflito : null;
-      if (c) {
-        var ci = _agendaParseDate_(c.inicio);
-        var cf = _agendaParseDate_(c.fim);
-        conflitos.push({
-          ID_Agenda: c.idAgenda || "",
-          bloqueio: String(c.tipo || "").toUpperCase().indexOf("BLOQ") >= 0,
-          hora_inicio: ci ? _agendaFormatHHMM_(ci) : "",
-          hora_fim: cf ? _agendaFormatHHMM_(cf) : ""
-        });
+      var arr = det && det.conflitos ? det.conflitos : null;
+
+      if (arr && arr.length) {
+        for (var i = 0; i < arr.length; i++) {
+          var c = arr[i];
+          var ci = _agendaParseDate_(c.inicio);
+          var cf = _agendaParseDate_(c.fim);
+          conflitos.push({
+            ID_Agenda: c.idAgenda || "",
+            bloqueio: String(c.tipo || "").toUpperCase().indexOf("BLOQ") >= 0,
+            hora_inicio: ci ? _agendaFormatHHMM_(ci) : "",
+            hora_fim: cf ? _agendaFormatHHMM_(cf) : ""
+          });
+        }
       }
     } catch (_) {}
 
@@ -771,7 +917,8 @@ function Agenda_Legacy_ValidarConflito_(ctx, payload) {
       ok: false,
       erro: (err && err.message) ? String(err.message) : "Conflito de horário.",
       conflitos: conflitos,
-      intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur }
+      intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur },
+      code: (err && err.code) ? String(err.code) : "CONFLICT" // ✅ ajuda debug sem quebrar front
     };
   }
 }
@@ -911,21 +1058,27 @@ function _agendaParseDateRequired_(v, fieldName) {
 
 function _agendaParseDate_(v) {
   if (v instanceof Date) return isNaN(v.getTime()) ? null : v;
+
   if (typeof v === "number") {
     var dNum = new Date(v);
     return isNaN(dNum.getTime()) ? null : dNum;
   }
+
   if (typeof v === "string") {
+    // ✅ Importante:
+    // ISO sempre vira Date válido, mas Date(ISO) representa um instante UTC.
+    // Isso é OK para armazenamento, desde que TODAS as operações de "dia" sejam feitas via build local (BuildDateTime).
     var dStr = new Date(v);
     if (!isNaN(dStr.getTime())) return dStr;
 
     if (/^\d{4}-\d{2}-\d{2}$/.test(v)) {
       var parts = v.split("-");
-      var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 0, 0, 0);
+      var d = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]), 0, 0, 0, 0);
       return isNaN(d.getTime()) ? null : d;
     }
     return null;
   }
+
   return null;
 }
 
@@ -970,3 +1123,12 @@ function _agendaThrow_(code, message, details) {
   err.details = (details === undefined ? null : details);
   throw err;
 }
+
+/**
+ * ============================================================
+ * OBS: Funções não fornecidas no seu snippet original:
+ * - _agendaLegacyDtoToFront_
+ * - _agendaLegacyBuildResumo_
+ * Essas permanecem como estavam no seu projeto.
+ * ============================================================
+ */
