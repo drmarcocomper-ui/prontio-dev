@@ -6,17 +6,20 @@
 // - Apenas utilidades de interface, formatação e manipulação de formulários.
 // - Tudo fica no namespace PRONTIO.core.helpers.
 //
-// Exemplos de uso:
-//   const h = PRONTIO.core.helpers;
-//   h.formatDateISOToBR("2025-01-31"); // "31/01/2025"
-//   const dados = h.serializeForm(document.querySelector("form"));
-//   h.fillForm(document.querySelector("form"), pacienteObj);
+// ✅ PASSO 3 (Consolidação de estado):
+// - Helpers de contexto delegam para PRONTIO.core.state (quando existir),
+//   evitando uso de localStorage solto por módulos.
+// - Helpers de data/hora local (YYYY-MM-DD / HH:MM) para alinhar com contrato da Agenda.
 
 (function (global) {
   "use strict";
 
   const PRONTIO = global.PRONTIO = global.PRONTIO || {};
   PRONTIO.core = PRONTIO.core || {};
+
+  function getState_() {
+    return PRONTIO.core && PRONTIO.core.state ? PRONTIO.core.state : null;
+  }
 
   const Helpers = {
     /**
@@ -61,8 +64,22 @@
     },
 
     // ==========================
-    // DATAS
+    // DATAS (LOCAL - contrato Agenda)
     // ==========================
+
+    /**
+     * Valida "YYYY-MM-DD" (sem regra de calendário).
+     */
+    isYmd(dateStr) {
+      return /^\d{4}-\d{2}-\d{2}$/.test(String(dateStr || "").trim());
+    },
+
+    /**
+     * Valida "HH:MM".
+     */
+    isHHMM(hhmm) {
+      return /^\d{2}:\d{2}$/.test(String(hhmm || "").trim());
+    },
 
     /**
      * Converte data ISO (YYYY-MM-DD) para BR (DD/MM/AAAA).
@@ -117,12 +134,6 @@
     // FORMATAÇÃO DE CAMPOS (UI)
     // ==========================
 
-    /**
-     * Formata CPF com máscara simples: 000.000.000-00
-     * (não valida se o CPF é verdadeiro).
-     * @param {string} value
-     * @returns {string}
-     */
     formatCPF(value) {
       if (!value) return "";
       const digits = String(value).replace(/\D/g, "").slice(0, 11);
@@ -136,12 +147,6 @@
       return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9, 11)}`;
     },
 
-    /**
-     * Formata telefone (BR) de forma simples.
-     * Exemplos: "11987654321" -> "(11) 98765-4321"
-     * @param {string} value
-     * @returns {string}
-     */
     formatPhoneBR(value) {
       if (!value) return "";
       const digits = String(value).replace(/\D/g, "").slice(0, 11);
@@ -153,35 +158,60 @@
         return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
       }
       if (digits.length === 10) {
-        // fixo: (11) 1234-5678
         return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
       }
-      // celular com 9 dígitos: (11) 91234-5678
       return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
     },
 
-    /**
-     * Remove qualquer formatação de CPF/telefone/etc, mantendo apenas números.
-     * @param {string} value
-     * @returns {string}
-     */
     onlyDigits(value) {
       if (!value) return "";
       return String(value).replace(/\D/g, "");
     },
 
     // ==========================
+    // CONTEXTO (PASSO 3) - delega para PRONTIO.core.state
+    // ==========================
+
+    getPacienteAtual() {
+      const s = getState_();
+      if (s && typeof s.getPacienteAtual === "function") return s.getPacienteAtual();
+      return null;
+    },
+
+    setPacienteAtual(paciente) {
+      const s = getState_();
+      if (s && typeof s.setPacienteAtual === "function") return s.setPacienteAtual(paciente);
+      return null;
+    },
+
+    clearPacienteAtual() {
+      const s = getState_();
+      if (s && typeof s.clearPacienteAtual === "function") return s.clearPacienteAtual();
+      return null;
+    },
+
+    getAgendaAtualId() {
+      const s = getState_();
+      if (s && typeof s.getAgendaAtual === "function") return s.getAgendaAtual();
+      return null;
+    },
+
+    setAgendaAtualId(idAgenda) {
+      const s = getState_();
+      if (s && typeof s.setAgendaAtual === "function") return s.setAgendaAtual(idAgenda);
+      return null;
+    },
+
+    clearAgendaAtualId() {
+      const s = getState_();
+      if (s && typeof s.clearAgendaAtual === "function") return s.clearAgendaAtual();
+      return null;
+    },
+
+    // ==========================
     // FORMULÁRIOS
     // ==========================
 
-    /**
-     * Serializa um formulário HTML em objeto JS.
-     * Funciona com inputs, selects, textareas.
-     * Suporta campos com "[]" para arrays (ex.: interesses[]).
-     *
-     * @param {HTMLFormElement} formEl
-     * @returns {Object}
-     */
     serializeForm(formEl) {
       if (!formEl) {
         console.warn("[Helpers] serializeForm recebeu formEl nulo");
@@ -191,12 +221,10 @@
       const obj = {};
 
       formData.forEach((value, key) => {
-        // remove espaços desnecessários em strings
         if (typeof value === "string") {
           value = value.trim();
         }
 
-        // campos com [] viram arrays
         if (key.endsWith("[]")) {
           const realKey = key.slice(0, -2);
           if (!Array.isArray(obj[realKey])) {
@@ -206,7 +234,6 @@
           return;
         }
 
-        // se a mesma chave aparecer mais de uma vez, vira array
         if (Object.prototype.hasOwnProperty.call(obj, key)) {
           if (!Array.isArray(obj[key])) {
             obj[key] = [obj[key]];
@@ -220,13 +247,6 @@
       return obj;
     },
 
-    /**
-     * Preenche um formulário com base em um objeto.
-     * Atenção: o nome dos campos deve bater com as chaves do objeto.
-     *
-     * @param {HTMLFormElement} formEl
-     * @param {Object} data
-     */
     fillForm(formEl, data) {
       if (!formEl || !data) return;
 
@@ -238,7 +258,6 @@
 
         let value;
 
-        // trata campos que usam []
         if (name.endsWith("[]")) {
           const base = name.slice(0, -2);
           value = data[base];
@@ -266,10 +285,6 @@
       }
     },
 
-    /**
-     * Reseta campos de um formulário para seus valores padrão.
-     * @param {HTMLFormElement} formEl
-     */
     resetForm(formEl) {
       if (!formEl) return;
       formEl.reset();
@@ -279,12 +294,6 @@
     // DOM / CSS SIMPLES
     // ==========================
 
-    /**
-     * Ativa/desativa uma classe CSS em um elemento (ou lista de elementos).
-     * @param {Element|Element[]} elOrList
-     * @param {string} className
-     * @param {boolean} enabled
-     */
     toggleClass(elOrList, className, enabled) {
       if (!elOrList) return;
 
@@ -302,13 +311,6 @@
       });
     },
 
-    /**
-     * Marca/desmarca visualmente um botão de "carregando".
-     * Não faz chamada de API, apenas estilo (ex.: desabilita e mostra spinner).
-     *
-     * @param {HTMLButtonElement} buttonEl
-     * @param {boolean} isLoading
-     */
     setButtonLoading(buttonEl, isLoading) {
       if (!buttonEl) return;
 
