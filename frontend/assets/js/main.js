@@ -1,4 +1,3 @@
-// frontend/assets/js/main.js
 (function (global, document) {
   "use strict";
 
@@ -15,7 +14,8 @@
   PRONTIO._mainBootstrapRan = true;
 
   // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
-  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.8.0";
+  // (bump recomendado por causa da modularização da Agenda)
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.0";
   PRONTIO.APP_VERSION = APP_VERSION;
 
   // ============================================================
@@ -28,7 +28,22 @@
     },
 
     atendimento: { js: ["assets/js/pages/page-atendimento.js"], css: ["assets/css/pages/page-atendimento.css"] },
-    agenda: { js: ["assets/js/pages/page-agenda.js"], css: ["assets/css/pages/page-agenda.css"] },
+
+    // ✅ Agenda (Etapa 2A - modular)
+    // Ordem importa: state -> prefs -> typeahead -> day -> modal -> index -> page bootstrap
+    agenda: {
+      js: [
+        "assets/js/agenda/state.js",
+        "assets/js/agenda/prefs.js",
+        "assets/js/agenda/patients-typeahead.js",
+        "assets/js/agenda/day.js",
+        "assets/js/agenda/modals-new.js",
+        "assets/js/agenda/index.js",
+        "assets/js/pages/page-agenda.js"
+      ],
+      css: ["assets/css/pages/page-agenda.css"]
+    },
+
     chat: { js: ["assets/js/pages/page-chat.js"], css: ["assets/css/pages/page-chat.css"] },
     configuracoes: { js: ["assets/js/pages/page-configuracoes.js"], css: ["assets/css/pages/page-configuracoes.css"] },
     exames: { js: ["assets/js/pages/page-exames.js"], css: ["assets/css/pages/page-exames.css"] },
@@ -152,6 +167,7 @@
   // ============================================================
   function withVersion_(src) {
     if (!src || src.includes("?")) return src;
+    // aplica versionamento para qualquer JS dentro de assets/js (inclui assets/js/agenda/*)
     if (!src.startsWith("assets/js/")) return src;
     return src + "?v=" + encodeURIComponent(APP_VERSION);
   }
@@ -270,14 +286,13 @@
     await loadOnce_("assets/js/core/auth.js");
     await loadOnce_("assets/js/core/app.js");
 
-    // ✅ Se existir PRONTIO.app.init, chama (best-effort)
     try {
       if (PRONTIO.app && typeof PRONTIO.app.init === "function") {
         await PRONTIO.app.init();
       }
     } catch (_) {}
 
-    // ✅ Shell responsivo: JS global (toggle sidebar + overlay + ESC)
+    // ✅ Shell responsivo: JS global
     try {
       await loadOnce_(RESPONSIVE_SHELL.js);
       if (PRONTIO.ui && PRONTIO.ui.responsiveShell && typeof PRONTIO.ui.responsiveShell.init === "function") {
@@ -304,9 +319,6 @@
   function _openModal_(modal) {
     if (!modal) return;
 
-    // Suporta 2 padrões (sem quebrar):
-    // 1) .modal-overlay.hidden/.visible + aria-hidden (Agenda)
-    // 2) .modal.is-open + modal.hidden (Usuários antigo)
     const hasHiddenClass = modal.classList.contains("hidden");
     const hasOverlay = modal.classList.contains("modal-overlay") || modal.classList.contains("modal-backdrop");
 
@@ -325,7 +337,6 @@
   function _closeModal_(modal) {
     if (!modal) return;
 
-    // padrão 1
     if (modal.classList.contains("visible") || modal.classList.contains("modal-overlay") || modal.classList.contains("hidden")) {
       modal.classList.remove("visible");
       modal.classList.add("hidden");
@@ -333,7 +344,6 @@
       return;
     }
 
-    // padrão 2
     modal.classList.remove("is-open");
     modal.hidden = true;
     modal.setAttribute("aria-hidden", "true");
@@ -342,7 +352,6 @@
   function bindModalTriggers_(doc) {
     const root = doc || document;
 
-    // OPEN
     root.querySelectorAll("[data-modal-open]").forEach(function (opener) {
       if (opener.getAttribute("data-modal-bound") === "1") return;
       opener.setAttribute("data-modal-bound", "1");
@@ -356,7 +365,6 @@
       });
     });
 
-    // CLOSE (botões)
     root.querySelectorAll("[data-modal-close]").forEach(function (closer) {
       if (closer.getAttribute("data-modal-bound") === "1") return;
       closer.setAttribute("data-modal-bound", "1");
@@ -370,24 +378,18 @@
       });
     });
 
-    // CLOSE (clique fora) — compat com modal-overlay/backdrop
     root.querySelectorAll(".modal-overlay, .modal-backdrop").forEach(function (overlay) {
       if (overlay.getAttribute("data-modal-overlay-bound") === "1") return;
       overlay.setAttribute("data-modal-overlay-bound", "1");
 
       overlay.addEventListener("click", function (ev) {
-        // se clicar no próprio overlay/backdrop, fecha
         if (ev.target !== overlay) return;
 
-        // tenta achar um modal pai conhecido:
-        // - overlay pode ser o próprio modal (.modal-overlay)
-        // - ou pode ser um child (.modal-backdrop) dentro de #modalX
         let modal = overlay;
         if (!modal.id) {
           const parent = overlay.closest(".modal-overlay, .modal");
           if (parent) modal = parent;
           else {
-            // fallback: tenta subir para um elemento com id
             const idParent = overlay.closest("[id]");
             if (idParent) modal = idParent;
           }
@@ -396,7 +398,6 @@
       });
     });
 
-    // ESC fecha modal aberto (best-effort)
     if (root === document) {
       if (document.body.getAttribute("data-modals-esc-bound") === "1") return;
       document.body.setAttribute("data-modals-esc-bound", "1");
@@ -404,7 +405,6 @@
       document.addEventListener("keydown", function (e) {
         if (e.key !== "Escape") return;
 
-        // tenta achar o primeiro modal visível
         const open1 = document.querySelector(".modal-overlay.visible:not(.hidden)");
         if (open1) return _closeModal_(open1);
 
@@ -489,7 +489,6 @@
   // Bootstrap
   // ============================================================
   async function bootstrap_() {
-    // ✅ CSS global do shell responsivo (sidebar off-canvas + tabelas responsivas)
     loadCssOnce_(RESPONSIVE_SHELL.css, "global");
 
     if (!isLoginPage_()) showSkeleton_();
@@ -519,7 +518,6 @@
       }
 
       const pageId = String(getPageId_() || "").toLowerCase().trim();
-
       ensurePageAssets_(pageId);
 
       const entry = PAGE_MANIFEST[pageId];
