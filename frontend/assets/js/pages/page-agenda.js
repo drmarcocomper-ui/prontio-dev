@@ -141,6 +141,134 @@
     return merged;
   }
 
+ /**
+ * PRONTIO - Página de Agenda (front)
+ *
+ * Melhorias aplicadas (sem quebrar):
+ * - Robustez contra race em carregar dia/semana (reqSeq).
+ * - Contrato local do backend (PASSO 1): Dia/Semana por data local.
+ * - Pré-validação respeita permitirEncaixe (VALIDAR == SALVAR).
+ * - PASSO 3: prefs/filtros via core.storage com fallback legado.
+ *
+ * ✅ Correção PROFISSIONAL do FORMULÁRIO (alinhado ao schema canônico do Agenda.gs):
+ * - Salvar consulta/edição envia apenas contrato canônico para o backend:
+ *   { data, hora_inicio, duracao_minutos, ID_Paciente, tipo, motivo, origem, permitirEncaixe }
+ * - Tudo extra (canal, telefone, observações, descrição de bloqueio) vai para `notas` (JSON).
+ * - ID do paciente vem do typeahead (dataset) ou do objeto selecionado.
+ */
+
+(function (global, document) {
+  const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
+
+  const callApiData =
+    (PRONTIO.api && PRONTIO.api.callApiData) ||
+    global.callApiData ||
+    function () {
+      console.error("[PRONTIO.agenda] callApiData não está definido.");
+      return Promise.reject(new Error("API não inicializada (callApiData indefinido)."));
+    };
+
+  // ===========================
+  // PASSO 3 - Storage/State (compat)
+  // ===========================
+  const coreStorage = PRONTIO.core && PRONTIO.core.storage ? PRONTIO.core.storage : null;
+  const coreState = PRONTIO.core && PRONTIO.core.state ? PRONTIO.core.state : null;
+
+  function storageGetJSON_(key, fallback) {
+    try {
+      if (coreStorage && typeof coreStorage.getJSON === "function") {
+        return coreStorage.getJSON(key, fallback);
+      }
+    } catch (_) {}
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      return JSON.parse(raw);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function storageSetJSON_(key, obj) {
+    try {
+      if (coreStorage && typeof coreStorage.setJSON === "function") {
+        coreStorage.setJSON(key, obj);
+        return;
+      }
+    } catch (_) {}
+    try {
+      localStorage.setItem(key, JSON.stringify(obj));
+    } catch (_) {}
+  }
+
+  function storageGetString_(key, fallback) {
+    try {
+      if (coreStorage && typeof coreStorage.getItem === "function") {
+        const v = coreStorage.getItem(key);
+        return v == null ? fallback : String(v);
+      }
+    } catch (_) {}
+    try {
+      const v = localStorage.getItem(key);
+      return v == null ? fallback : String(v);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function storageSetString_(key, value) {
+    try {
+      if (coreStorage && typeof coreStorage.setItem === "function") {
+        coreStorage.setItem(key, String(value));
+        return;
+      }
+    } catch (_) {}
+    try {
+      localStorage.setItem(key, String(value));
+    } catch (_) {}
+  }
+
+  // Chaves (core + legado)
+  const CORE_PREFS_KEY = "prontio.ui.agenda.prefs.v1";
+  const LEGACY_MODO_KEY = "prontio.agenda.modoVisao";
+  const LEGACY_FILTER_KEY = "prontio.agenda.filtros.v1";
+  const CORE_FILTER_KEY = "prontio.ui.agenda.filtros.v1";
+
+  function loadAgendaPrefs_() {
+    const prefs = storageGetJSON_(CORE_PREFS_KEY, null) || {};
+    const legacyModo = storageGetString_(LEGACY_MODO_KEY, null);
+    const legacyFiltros = storageGetJSON_(LEGACY_FILTER_KEY, null);
+
+    const out = {
+      modoVisao: prefs.modoVisao || (legacyModo ? String(legacyModo) : "dia"),
+      filtros: Object.assign({ nome: "", status: "" }, prefs.filtros || {})
+    };
+
+    if ((!prefs.filtros || !Object.keys(prefs.filtros || {}).length) && legacyFiltros) {
+      out.filtros.nome = String(legacyFiltros.nome || "");
+      out.filtros.status = String(legacyFiltros.status || "");
+    }
+
+    if (out.modoVisao !== "dia" && out.modoVisao !== "semana") out.modoVisao = "dia";
+    out.filtros.nome = String(out.filtros.nome || "");
+    out.filtros.status = String(out.filtros.status || "");
+
+    return out;
+  }
+
+  function saveAgendaPrefs_(patch) {
+    const current = loadAgendaPrefs_();
+    const merged = Object.assign({}, current, patch || {});
+    if (patch && patch.filtros) merged.filtros = Object.assign({}, current.filtros || {}, patch.filtros);
+
+    storageSetJSON_(CORE_PREFS_KEY, merged);
+    storageSetString_(LEGACY_MODO_KEY, merged.modoVisao);
+    storageSetJSON_(LEGACY_FILTER_KEY, merged.filtros || { nome: "", status: "" });
+    storageSetJSON_(CORE_FILTER_KEY, merged.filtros || { nome: "", status: "" });
+
+    return merged;
+  }
+
   function initAgendaPage() {
     const body = document.body;
     const pageId = body.dataset.pageId || body.getAttribute("data-page") || null;
@@ -191,13 +319,11 @@
     const agendaPrefs = loadAgendaPrefs_();
     let modoVisao = agendaPrefs.modoVisao; // "dia" | "semana"
 
-    // Persistência de filtros (mantém shape atual do arquivo)
-    const FILTER_KEY = LEGACY_FILTER_KEY; // legado permanece
+    const FILTER_KEY = LEGACY_FILTER_KEY;
     const filtrosState = (function loadFiltros_Compat_() {
       const fromCore = storageGetJSON_(CORE_FILTER_KEY, null);
       const fromLegacy = storageGetJSON_(FILTER_KEY, null);
       const base = { nome: "", status: "" };
-
       const src = fromCore || fromLegacy || base;
       return {
         nome: String(src && src.nome ? src.nome : ""),
@@ -206,11 +332,11 @@
     })();
 
     let agendamentosOriginaisDia = [];
-    let agendamentosOriginaisSemana = []; // DTOs UI (todos do período)
+    let agendamentosOriginaisSemana = [];
     let horaFocoDia = null;
 
     // =====================
-    // Controle anti-race (não quebra; só evita UI voltar no tempo)
+    // Controle anti-race
     // =====================
     let reqSeqDia = 0;
     let reqSeqSemana = 0;
@@ -339,19 +465,12 @@
     }
 
     function saveFiltros_() {
-      // PASSO 3: salvar em core prefs também
       try {
-        // core filtros (chave dedicada)
         storageSetJSON_(CORE_FILTER_KEY, { nome: filtrosState.nome, status: filtrosState.status });
-
-        // core prefs (agregado)
         saveAgendaPrefs_({
           modoVisao,
           filtros: { nome: filtrosState.nome, status: filtrosState.status }
         });
-
-        // legado ainda é mantido pelo saveAgendaPrefs_ (LEGACY_FILTER_KEY).
-        // mas garantimos explicitamente por compat:
         storageSetJSON_(FILTER_KEY, { nome: filtrosState.nome, status: filtrosState.status });
       } catch (_) {}
     }
@@ -359,6 +478,45 @@
     function applyFiltrosToUI_() {
       if (inputFiltroNome) inputFiltroNome.value = filtrosState.nome || "";
       if (selectFiltroStatus) selectFiltroStatus.value = filtrosState.status || "";
+    }
+
+    // ===========================
+    // ✅ Helpers PROFISSIONAIS (notas JSON + pacienteId)
+    // ===========================
+    function buildNotasJson_(baseNotasStr, patchObj) {
+      let base = {};
+      try {
+        const s = String(baseNotasStr || "").trim();
+        if (s && s[0] === "{") base = JSON.parse(s);
+      } catch (_) {
+        base = {};
+      }
+      if (!base || typeof base !== "object") base = {};
+      base.__legacy = true;
+
+      const patch = patchObj && typeof patchObj === "object" ? patchObj : {};
+      Object.keys(patch).forEach((k) => {
+        const v = patch[k];
+        if (v === undefined || v === null) return;
+        if (typeof v === "string" && v.trim() === "") return;
+        base[k] = v;
+      });
+
+      try { return JSON.stringify(base); } catch (_) { return ""; }
+    }
+
+    function getPacienteIdFromInput_(inputEl) {
+      if (!inputEl || !inputEl.dataset) return "";
+      return String(inputEl.dataset.pacienteId || "").trim();
+    }
+
+    function normalizeOrigemCanonic_(v) {
+      const s = String(v || "").trim().toUpperCase();
+      if (!s) return "RECEPCAO";
+      if (s.includes("RECEP")) return "RECEPCAO";
+      if (s.includes("MED")) return "MEDICO";
+      if (s.includes("SIS")) return "SISTEMA";
+      return s;
     }
 
     // =====================
@@ -458,19 +616,6 @@
       return dias[dt.getDay()];
     }
 
-    // ⚠️ Helpers ISO permanecem por compatibilidade (não usados mais para consulta diária/semanal)
-    function startOfDayIso_(dataStr) {
-      const d = parseInputDate(dataStr);
-      d.setHours(0, 0, 0, 0);
-      return d.toISOString();
-    }
-
-    function endOfDayIso_(dataStr) {
-      const d = parseInputDate(dataStr);
-      d.setHours(23, 59, 59, 999);
-      return d.toISOString();
-    }
-
     function ymdFromIso_(iso) {
       try {
         const d = new Date(iso);
@@ -508,6 +653,16 @@
       }
     }
 
+    function tryParseNotas_(s) {
+      try {
+        const raw = String(s || "").trim();
+        if (!raw || raw[0] !== "{") return null;
+        return JSON.parse(raw);
+      } catch (_) {
+        return null;
+      }
+    }
+
     // ✅ Normaliza qualquer “agendamento” para o shape UI usado na página
     function normalizeUiAg_(ag) {
       if (!ag || typeof ag !== "object") return null;
@@ -533,7 +688,8 @@
           status: ag.status ? String(ag.status) : "",
           tipo: tipo,
           bloqueio: isBloqueio,
-          permite_encaixe: ag.permite_encaixe === true
+          permite_encaixe: ag.permite_encaixe === true,
+          notas: ag.notas ? String(ag.notas) : ""
         };
       }
 
@@ -548,6 +704,8 @@
       const tipo = String(dto && dto.tipo ? dto.tipo : "");
       const isBloqueio = tipo.toUpperCase() === "BLOQUEIO";
 
+      const notasObj = tryParseNotas_(dto && dto.notas ? dto.notas : null) || {};
+
       return {
         ID_Agenda: dto && (dto.idAgenda || dto.ID_Agenda) ? String(dto.idAgenda || dto.ID_Agenda) : "",
         ID_Paciente: dto && (dto.idPaciente || dto.ID_Paciente) ? String(dto.idPaciente || dto.ID_Paciente) : "",
@@ -555,16 +713,17 @@
         hora_inicio: hhmmFromIso_(inicioIso),
         hora_fim: hhmmFromIso_(fimIso),
         duracao_minutos: diffMinutes_(inicioIso, fimIso),
-        nome_paciente: dto && dto.titulo ? String(dto.titulo) : isBloqueio ? "Bloqueio" : "",
-        telefone_paciente: "",
-        documento_paciente: "",
-        motivo: dto && dto.notas ? String(dto.notas) : "",
-        canal: "",
+        nome_paciente: (notasObj.nome_paciente || dto.titulo) ? String(notasObj.nome_paciente || dto.titulo) : (isBloqueio ? "Bloqueio" : ""),
+        telefone_paciente: notasObj.telefone_paciente ? String(notasObj.telefone_paciente) : "",
+        documento_paciente: notasObj.documento_paciente ? String(notasObj.documento_paciente) : "",
+        motivo: notasObj.motivo ? String(notasObj.motivo) : "",
+        canal: notasObj.canal ? String(notasObj.canal) : "",
         origem: dto && dto.origem ? String(dto.origem) : "",
         status: dto && dto.status ? String(dto.status) : "",
         tipo: tipo,
         bloqueio: isBloqueio,
-        permite_encaixe: false
+        permite_encaixe: notasObj.permite_encaixe === true,
+        notas: dto && dto.notas ? String(dto.notas) : ""
       };
     }
 
@@ -585,35 +744,13 @@
 
         const s = stripAccents(String(ag.status || "")).toLowerCase();
 
-        // faltas
-        if (s.includes("falt")) {
-          resumo.faltas++;
-          return;
-        }
-
-        // cancelados
-        if (s.includes("cancel")) {
-          resumo.cancelados++;
-          return;
-        }
-
-        // concluídos (aceita CONCLUIDO e ATENDIDO)
-        if (s.includes("concl") || s.includes("atendid")) {
-          resumo.concluidos++;
-          return;
-        }
-
-        // em atendimento
+        if (s.includes("falt")) { resumo.faltas++; return; }
+        if (s.includes("cancel")) { resumo.cancelados++; return; }
+        if (s.includes("concl") || s.includes("atendid")) { resumo.concluidos++; return; }
         if (s.includes("em_atend") || s.includes("em atend") || (s.includes("atend") && !s.includes("atendid"))) {
-          resumo.em_atendimento++;
-          return;
+          resumo.em_atendimento++; return;
         }
-
-        // confirmados
-        if (s.includes("confirm")) {
-          resumo.confirmados++;
-          return;
-        }
+        if (s.includes("confirm")) { resumo.confirmados++; return; }
       });
 
       return resumo;
@@ -628,7 +765,6 @@
           agendaConfig.hora_inicio_padrao = data.hora_inicio_padrao || agendaConfig.hora_inicio_padrao;
           agendaConfig.hora_fim_padrao = data.hora_fim_padrao || agendaConfig.hora_fim_padrao;
 
-          // garante número válido
           const dur = parseInt(String(data.duracao_grade_minutos || ""), 10);
           if (isFinite(dur) && dur > 0) agendaConfig.duracao_grade_minutos = dur;
         }
@@ -668,8 +804,6 @@
         hora_inicio: params.hora_inicio,
         duracao_minutos: params.duracao_minutos,
         ignoreIdAgenda: params.ignoreIdAgenda || "",
-
-        // ✅ PASSO 1.2: validar usa a MESMA regra e respeita permitirEncaixe
         permite_encaixe: params.permite_encaixe === true,
         permitirEncaixe: params.permite_encaixe === true
       };
@@ -690,7 +824,6 @@
         return r;
       } catch (e) {
         console.warn("Pré-validação conflito indisponível (fallback):", e);
-        // fallback seguro: não bloqueia usuário
         return { ok: true, conflitos: [], intervalo: null, erro: "" };
       }
     }
@@ -722,11 +855,11 @@
     function normalizePatientObj_(p) {
       if (!p) return null;
       return {
-        ID_Paciente: String(p.ID_Paciente || p.id || p.ID || p.id_paciente || ""),
-        nome: String(p.nome || ""),
-        documento: String(p.documento || ""),
-        telefone: String(p.telefone || ""),
-        data_nascimento: String(p.data_nascimento || "")
+        ID_Paciente: String(p.ID_Paciente || p.idPaciente || p.id || p.ID || p.id_paciente || ""),
+        nome: String(p.nome || p.nomeCompleto || p.nomeExibicao || ""),
+        documento: String(p.documento || p.cpf || ""),
+        telefone: String(p.telefone || p.telefonePrincipal || ""),
+        data_nascimento: String(p.data_nascimento || p.dataNascimento || "")
       };
     }
 
@@ -933,12 +1066,7 @@
       if (modo !== "dia" && modo !== "semana") return;
 
       modoVisao = modo;
-
-      // PASSO 3: salvar em core prefs + manter legado
-      saveAgendaPrefs_({
-        modoVisao,
-        filtros: { nome: filtrosState.nome, status: filtrosState.status }
-      });
+      saveAgendaPrefs_({ modoVisao, filtros: { nome: filtrosState.nome, status: filtrosState.status } });
 
       if (modo === "dia") {
         secDia && secDia.classList.remove("hidden");
@@ -975,7 +1103,6 @@
 
     function mostrarErro(mensagem) {
       if (!listaHorariosEl) return;
-      // evita injeção acidental por interpolação
       const wrap = document.createElement("div");
       wrap.className = "agenda-erro";
       wrap.textContent = String(mensagem || "Erro.");
@@ -1002,40 +1129,26 @@
       if (!statusFiltro) return true;
       const s = stripAccents(String(statusValue || "")).toLowerCase();
 
-      // compat: filtro do select é humano ("concluído"), backend pode ser "ATENDIDO"
-      if (statusFiltro.includes("concl")) {
-        return s.includes("concl") || s.includes("atendid");
-      }
-      if (statusFiltro.includes("agend")) {
-        return s.includes("agend") || s.includes("marc");
-      }
-      if (
-        statusFiltro.includes("em atendimento") ||
-        statusFiltro.includes("em_atend") ||
-        statusFiltro.includes("atend")
-      ) {
+      if (statusFiltro.includes("concl")) return s.includes("concl") || s.includes("atendid");
+      if (statusFiltro.includes("agend")) return s.includes("agend") || s.includes("marc");
+      if (statusFiltro.includes("em atendimento") || statusFiltro.includes("em_atend") || statusFiltro.includes("atend")) {
         return s.includes("em_atend") || s.includes("em atend") || (s.includes("atend") && !s.includes("atendid"));
       }
-
       return s.includes(statusFiltro);
     }
 
     function matchesFiltro_(ag, termo, statusFiltro) {
       if (!ag) return false;
-
       if (termo) {
         const nome = stripAccents(String(ag.nome_paciente || "")).toLowerCase();
         if (!nome.includes(termo)) return false;
       }
-
       if (statusFiltro) {
         if (!matchesFiltroStatus_(ag.status, statusFiltro)) return false;
       }
-
       return true;
     }
 
-    // ✅ PASSO 1.1: consulta diária agora usa action local (sem ISO/UTC)
     async function carregarAgendaDia() {
       const dataStr = inputData.value;
       if (!dataStr) return;
@@ -1055,7 +1168,6 @@
 
         if (mySeq !== reqSeqDia) return;
 
-        // data = {resumo, horarios:[{hora, agendamentos:[...]}]}
         const horarios = data && data.horarios ? data.horarios : [];
         const flat = [];
         horarios.forEach((h) => {
@@ -1072,9 +1184,7 @@
       } catch (error) {
         if (mySeq !== reqSeqDia) return;
         console.error(error);
-        mostrarErro(
-          "Não foi possível carregar a agenda do dia: " + (error && error.message ? error.message : String(error))
-        );
+        mostrarErro("Não foi possível carregar a agenda do dia: " + (error && error.message ? error.message : String(error)));
       } finally {
         if (mySeq === reqSeqDia) removerEstadoCarregando();
       }
@@ -1216,7 +1326,6 @@
       try {
         await carregarAgendaConfigSeNecessario();
 
-        // ✅ PASSO 1.1: consulta semanal agora usa action local (sem ISO/UTC)
         const data = await callApiData({
           action: "Agenda_ListarSemana",
           payload: { data_referencia: dataStr }
@@ -1224,7 +1333,6 @@
 
         if (mySeq !== reqSeqSemana) return;
 
-        // data = {dias:[{data:"YYYY-MM-DD", horarios:[{hora, agendamentos:[...]}]}]}
         const diasResp = data && data.dias ? data.dias : [];
 
         const agsUi = [];
@@ -1233,7 +1341,6 @@
         diasResp.forEach((dia) => {
           const ds = dia && dia.data ? String(dia.data) : "";
           const horarios = dia && dia.horarios ? dia.horarios : [];
-
           if (!ds) return;
 
           horarios.forEach((h) => {
@@ -1244,7 +1351,6 @@
               const ui = normalizeUiAg_(ag);
               if (!ui) return;
 
-              // garante data/hora (alguns legados podem vir vazios)
               if (!ui.data) ui.data = ds;
               if (!ui.hora_inicio && hh) ui.hora_inicio = hh;
 
@@ -1262,15 +1368,13 @@
         agendamentosOriginaisSemana = agsUi;
 
         const dias = diasResp.map((d) => String(d.data || "")).filter(Boolean);
-
         const { slots } = getSlotsByConfig_();
         desenharSemanaGrid({ dias, slots, byDayHour });
       } catch (error) {
         if (mySeq !== reqSeqSemana) return;
         console.error(error);
         if (semanaGridEl) {
-          const msg =
-            "Não foi possível carregar a semana: " + (error && error.message ? error.message : String(error));
+          const msg = "Não foi possível carregar a semana: " + (error && error.message ? error.message : String(error));
           semanaGridEl.innerHTML = "";
           const wrap = document.createElement("div");
           wrap.className = "agenda-erro";
@@ -1305,7 +1409,6 @@
       corner.textContent = "";
       headerRow.appendChild(corner);
 
-      // mantém o mesmo layout original (6 colunas) para não quebrar CSS existente
       dias.slice(0, 6).forEach((ds) => {
         const cell = document.createElement("div");
         cell.className = "semana-cell semana-header-cell semana-sticky-cell";
@@ -1386,59 +1489,35 @@
     const STATUS_OPTIONS = ["Agendado", "Confirmado", "Em atendimento", "Concluído", "Faltou", "Cancelado"];
 
     function normalizeStatusLabel_(s) {
-      // aceita status UI e canônico backend
       const v = stripAccents(String(s || "")).trim().toLowerCase();
       if (!v) return "Agendado";
-
-      // concluído/atendido
       if (v.includes("concl") || v.includes("atendid")) return "Concluído";
-
-      // em atendimento
-      if (v.includes("em_atend") || v.includes("em atend") || (v.includes("atend") && !v.includes("atendid"))) {
-        return "Em atendimento";
-      }
-
-      // aguardando (backend canônico)
-      if (v.includes("aguard")) return "Confirmado"; // melhor aproximação na UI atual
-
-      // confirmado
+      if (v.includes("em_atend") || v.includes("em atend") || (v.includes("atend") && !v.includes("atendid"))) return "Em atendimento";
+      if (v.includes("aguard")) return "Confirmado";
       if (v.includes("confirm")) return "Confirmado";
-
-      // faltou
       if (v.includes("falt")) return "Faltou";
-
-      // cancelado
       if (v.includes("cancel")) return "Cancelado";
-
-      // marcado/agendado
       if (v.includes("marc") || v.includes("agend")) return "Agendado";
-
-      // remarcado (backend canônico) -> UI atual não tem opção, cai em Agendado
       if (v.includes("remarc")) return "Agendado";
-
       return "Agendado";
     }
 
     function mapStatusToBackend_(label) {
-      // mantém compat com seu backend Agenda.gs (normaliza internamente)
       const v = stripAccents(String(label || "")).toLowerCase();
       if (v.includes("confirm")) return "CONFIRMADO";
       if (v.includes("em atend") || v.includes("em_atend")) return "EM_ATENDIMENTO";
       if (v.includes("atend") && !v.includes("concl")) return "EM_ATENDIMENTO";
-      if (v.includes("concl")) return "CONCLUIDO"; // backend converte para ATENDIDO
+      if (v.includes("concl")) return "CONCLUIDO";
       if (v.includes("falt")) return "FALTOU";
       if (v.includes("cancel")) return "CANCELADO";
-      return "AGENDADO"; // backend converte para MARCADO
+      return "AGENDADO";
     }
 
     function getStatusClass(status) {
       if (!status) return "status-agendado";
       const s = stripAccents(String(status)).toLowerCase();
-
       if (s.includes("confirm")) return "status-confirmado";
-      if (s.includes("em_atend") || s.includes("em atend") || (s.includes("atend") && !s.includes("atendid"))) {
-        return "status-em-atendimento";
-      }
+      if (s.includes("em_atend") || s.includes("em atend") || (s.includes("atend") && !s.includes("atendid"))) return "status-em-atendimento";
       if (s.includes("falt")) return "status-falta";
       if (s.includes("cancel")) return "status-cancelado";
       if (s.includes("concl") || s.includes("atendid")) return "status-concluido";
@@ -1565,14 +1644,10 @@
     // ===========================
     function abrirProntuario(ag) {
       if (!ag.ID_Paciente) {
-        alert(
-          "Este agendamento não está vinculado a um paciente cadastrado.\n\n" +
-            "Selecione um paciente no agendamento para vincular ao prontuário."
-        );
+        alert("Este agendamento não está vinculado a um paciente cadastrado.\n\nSelecione um paciente no agendamento para vincular ao prontuário.");
         return;
       }
 
-      // PASSO 3: estado canônico (não quebra se core.state não existir)
       try {
         if (coreState && typeof coreState.setPacienteAtual === "function") {
           coreState.setPacienteAtual(String(ag.ID_Paciente));
@@ -1595,10 +1670,7 @@
         telefone: ag.telefone_paciente || ""
       };
 
-      // Legado: mantém exatamente como estava (não quebrar fluxo antigo)
-      try {
-        localStorage.setItem("prontio.pacienteSelecionado", JSON.stringify(infoPaciente));
-      } catch (e) {}
+      try { localStorage.setItem("prontio.pacienteSelecionado", JSON.stringify(infoPaciente)); } catch (e) {}
 
       const contextoProntuario = {
         ID_Paciente: ag.ID_Paciente,
@@ -1612,14 +1684,11 @@
         tipo: ag.tipo || ""
       };
 
-      try {
-        localStorage.setItem("prontio.prontuarioContexto", JSON.stringify(contextoProntuario));
-      } catch (e) {}
+      try { localStorage.setItem("prontio.prontuarioContexto", JSON.stringify(contextoProntuario)); } catch (e) {}
 
       const params = new URLSearchParams();
       params.set("idPaciente", ag.ID_Paciente);
       if (ag.ID_Agenda) params.set("idAgenda", ag.ID_Agenda);
-
       window.location.href = "prontuario.html?" + params.toString();
     }
 
@@ -1652,9 +1721,7 @@
         else await carregarAgendaSemana();
       } catch (error) {
         console.error(error);
-        alert(
-          "Erro ao mudar status do agendamento: " + (error && error.message ? error.message : String(error))
-        );
+        alert("Erro ao mudar status do agendamento: " + (error && error.message ? error.message : String(error)));
         if (cardEl) cardEl.classList.remove("agendamento-atualizando");
       } finally {
         inFlight.statusById.delete(ID_Agenda);
@@ -1808,8 +1875,7 @@
       } catch (error) {
         console.error(error);
         if (msgPacientesEl) {
-          msgPacientesEl.textContent =
-            "Erro ao buscar pacientes: " + (error && error.message ? error.message : String(error));
+          msgPacientesEl.textContent = "Erro ao buscar pacientes: " + (error && error.message ? error.message : String(error));
           msgPacientesEl.className = "form-message erro";
         }
         if (listaPacientesEl) listaPacientesEl.innerHTML = "";
@@ -1876,37 +1942,43 @@
         }
 
         if (!permiteEncaixeUI) {
-          setFormMsg(
-            mensagemNovoAgendamento,
-            msg + " Marque “Permitir encaixe” para salvar mesmo com conflito de consultas.",
-            "erro"
-          );
+          setFormMsg(mensagemNovoAgendamento, msg + " Marque “Permitir encaixe” para salvar mesmo com conflito de consultas.", "erro");
           safeDisable(btnSubmitNovo, false);
           return;
         }
       }
 
-      const nomeLivre = (inputNomePaciente?.value || "").trim();
-      const vinculado = pacienteSelecionado && pacienteSelecionado.ID_Paciente;
+      // ✅ vínculo pelo typeahead (objeto selecionado OU dataset)
+      const idSelecionado =
+        (pacienteSelecionado && pacienteSelecionado.ID_Paciente) ? String(pacienteSelecionado.ID_Paciente) : getPacienteIdFromInput_(inputNomePaciente);
+      const vinculado = !!idSelecionado;
 
+      const nomeLivre = (inputNomePaciente?.value || "").trim();
       if (!vinculado && nomeLivre) {
-        setFormMsg(
-          mensagemNovoAgendamento,
-          "Aviso: paciente digitado sem seleção. O agendamento será salvo sem vínculo ao cadastro.",
-          "info"
-        );
+        setFormMsg(mensagemNovoAgendamento, "Aviso: paciente digitado sem seleção. O agendamento será salvo sem vínculo ao cadastro.", "info");
       }
 
+      // ✅ notas (metadados e legacy)
+      const notas = buildNotasJson_("", {
+        nome_paciente: vinculado ? (pacienteSelecionado?.nome || nomeLivre) : nomeLivre,
+        telefone_paciente: inputTelefone?.value || "",
+        canal: inputCanal?.value || "",
+        motivo: inputMotivo?.value || "",
+        tipo_ui: inputTipo?.value || ""
+      });
+
+      // ✅ payload canônico
       const payload = {
         data: dataStr,
         hora_inicio: horaStr,
         duracao_minutos: duracao,
-        ID_Paciente: vinculado ? pacienteSelecionado.ID_Paciente : "",
+        ID_Paciente: vinculado ? idSelecionado : "",
+        tipo: inputTipo?.value || "CONSULTA",
         motivo: inputMotivo?.value || "",
-        tipo: inputTipo?.value || "",
-        origem: inputOrigem?.value || "",
+        origem: normalizeOrigemCanonic_(inputOrigem?.value || "RECEPCAO"),
         permitirEncaixe: permiteEncaixeUI,
-        permite_encaixe: permiteEncaixeUI
+        permite_encaixe: permiteEncaixeUI,
+        notas: notas
       };
 
       setTimeout(() => setFormMsg(mensagemNovoAgendamento, "Salvando...", "info"), 120);
@@ -1918,11 +1990,7 @@
         setTimeout(() => fecharModalNovoAgendamento(), 650);
       } catch (error) {
         console.error(error);
-        setFormMsg(
-          mensagemNovoAgendamento,
-          "Erro ao salvar agendamento: " + (error && error.message ? error.message : String(error)),
-          "erro"
-        );
+        setFormMsg(mensagemNovoAgendamento, "Erro ao salvar agendamento: " + (error && error.message ? error.message : String(error)), "erro");
         safeDisable(btnSubmitNovo, false);
       }
     }
@@ -2017,33 +2085,41 @@
         }
 
         if (!permiteEncaixeUI) {
-          setFormMsg(
-            msgEditarAgendamento,
-            msg + " Marque “Permitir encaixe” para salvar mesmo com conflito de consultas.",
-            "erro"
-          );
+          setFormMsg(msgEditarAgendamento, msg + " Marque “Permitir encaixe” para salvar mesmo com conflito de consultas.", "erro");
           safeDisable(btnSubmitEditar, false);
           return;
         }
       }
 
+      const idSelecionado =
+        (pacienteSelecionadoEditar && pacienteSelecionadoEditar.ID_Paciente)
+          ? String(pacienteSelecionadoEditar.ID_Paciente)
+          : getPacienteIdFromInput_(inputEditNomePaciente);
+      const vinculado = !!idSelecionado;
+
+      const nomeLivre = String(inputEditNomePaciente?.value || "").trim();
+
+      const notasBase = agendamentoEmEdicao && agendamentoEmEdicao.notas ? agendamentoEmEdicao.notas : "";
+      const notas = buildNotasJson_(notasBase, {
+        nome_paciente: vinculado ? (pacienteSelecionadoEditar?.nome || nomeLivre) : nomeLivre,
+        canal: inputEditCanal?.value || "",
+        motivo: inputEditMotivo?.value || "",
+        tipo_ui: inputEditTipo?.value || ""
+      });
+
       const payload = {
         idAgenda: idAgenda,
-        permitirEncaixe: permiteEncaixeUI,
-        permite_encaixe: permiteEncaixeUI,
         data: dataStr,
         hora_inicio: horaStr,
         duracao_minutos: duracao,
-        tipo: inputEditTipo?.value || "",
+        ID_Paciente: vinculado ? idSelecionado : "",
+        tipo: inputEditTipo?.value || "CONSULTA",
         motivo: inputEditMotivo?.value || "",
-        origem: inputEditOrigem?.value || ""
+        origem: normalizeOrigemCanonic_(inputEditOrigem?.value || "RECEPCAO"),
+        permitirEncaixe: permiteEncaixeUI,
+        permite_encaixe: permiteEncaixeUI,
+        notas: notas
       };
-
-      if (pacienteSelecionadoEditar && pacienteSelecionadoEditar.ID_Paciente) {
-        payload.ID_Paciente = pacienteSelecionadoEditar.ID_Paciente;
-      } else {
-        payload.ID_Paciente = "";
-      }
 
       setTimeout(() => setFormMsg(msgEditarAgendamento, "Salvando alterações...", "info"), 120);
 
@@ -2057,11 +2133,7 @@
         setTimeout(() => fecharModalEditarAgendamento(), 650);
       } catch (error) {
         console.error(error);
-        setFormMsg(
-          msgEditarAgendamento,
-          "Erro ao atualizar agendamento: " + (error && error.message ? error.message : String(error)),
-          "erro"
-        );
+        setFormMsg(msgEditarAgendamento, "Erro ao atualizar agendamento: " + (error && error.message ? error.message : String(error)), "erro");
         safeDisable(btnSubmitEditar, false);
       }
     }
@@ -2117,14 +2189,21 @@
         return;
       }
 
+      // ✅ bloqueio profissional: tipo=BLOQUEIO, detalhes em notas
+      const notas = buildNotasJson_("", {
+        descricao_bloqueio: "Bloqueio de horário"
+      });
+
       const payload = {
         data: dataStr,
         hora_inicio: horaStr,
         duracao_minutos: duracao,
-        Bloqueio: true,
         tipo: "BLOQUEIO",
-        motivo: "Bloqueio de horário",
-        permitirEncaixe: false
+        motivo: "BLOQUEIO",
+        origem: "SISTEMA",
+        permitirEncaixe: false,
+        permite_encaixe: false,
+        notas: notas
       };
 
       setFormMsg(mensagemBloqueio, "Salvando bloqueio...", "info");
@@ -2139,11 +2218,7 @@
         setTimeout(() => fecharModalBloqueio(), 650);
       } catch (error) {
         console.error(error);
-        setFormMsg(
-          mensagemBloqueio,
-          "Erro ao salvar bloqueio: " + (error && error.message ? error.message : String(error)),
-          "erro"
-        );
+        setFormMsg(mensagemBloqueio, "Erro ao salvar bloqueio: " + (error && error.message ? error.message : String(error)), "erro");
         safeDisable(btnSubmitBloqueio, false);
       }
     }
@@ -2201,56 +2276,50 @@
     // =====================
     inputData.addEventListener("change", () => (modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana()));
 
-    btnHoje &&
-      btnHoje.addEventListener("click", () => {
-        setToday();
-        modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
-      });
+    btnHoje && btnHoje.addEventListener("click", () => {
+      setToday();
+      modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
+    });
 
     btnAgora && btnAgora.addEventListener("click", () => scrollToNow_());
 
-    btnDiaAnterior &&
-      btnDiaAnterior.addEventListener("click", () => {
-        if (!inputData.value) return;
-        const d = parseInputDate(inputData.value);
-        if (modoVisao === "semana") d.setDate(d.getDate() - 7);
-        else d.setDate(d.getDate() - 1);
-        inputData.value = formatDateToInput(d);
-        modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
-      });
+    btnDiaAnterior && btnDiaAnterior.addEventListener("click", () => {
+      if (!inputData.value) return;
+      const d = parseInputDate(inputData.value);
+      if (modoVisao === "semana") d.setDate(d.getDate() - 7);
+      else d.setDate(d.getDate() - 1);
+      inputData.value = formatDateToInput(d);
+      modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
+    });
 
-    btnDiaPosterior &&
-      btnDiaPosterior.addEventListener("click", () => {
-        if (!inputData.value) return;
-        const d = parseInputDate(inputData.value);
-        if (modoVisao === "semana") d.setDate(d.getDate() + 7);
-        else d.setDate(d.getDate() + 1);
-        inputData.value = formatDateToInput(d);
-        modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
-      });
+    btnDiaPosterior && btnDiaPosterior.addEventListener("click", () => {
+      if (!inputData.value) return;
+      const d = parseInputDate(inputData.value);
+      if (modoVisao === "semana") d.setDate(d.getDate() + 7);
+      else d.setDate(d.getDate() + 1);
+      inputData.value = formatDateToInput(d);
+      modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana();
+    });
 
     btnVisaoDia && btnVisaoDia.addEventListener("click", () => setVisao("dia"));
     btnVisaoSemana && btnVisaoSemana.addEventListener("click", () => setVisao("semana"));
 
-    inputFiltroNome &&
-      inputFiltroNome.addEventListener("input", () => {
-        setFiltros_(inputFiltroNome.value, selectFiltroStatus ? selectFiltroStatus.value : "");
-        onFiltrosChanged_();
-      });
+    inputFiltroNome && inputFiltroNome.addEventListener("input", () => {
+      setFiltros_(inputFiltroNome.value, selectFiltroStatus ? selectFiltroStatus.value : "");
+      onFiltrosChanged_();
+    });
 
-    inputFiltroNome &&
-      inputFiltroNome.addEventListener("keydown", (e) => {
-        if (e.key === "Enter") {
-          e.preventDefault();
-          onFiltrosChanged_();
-        }
-      });
-
-    selectFiltroStatus &&
-      selectFiltroStatus.addEventListener("change", () => {
-        setFiltros_(inputFiltroNome ? inputFiltroNome.value : "", selectFiltroStatus.value);
+    inputFiltroNome && inputFiltroNome.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
         onFiltrosChanged_();
-      });
+      }
+    });
+
+    selectFiltroStatus && selectFiltroStatus.addEventListener("change", () => {
+      setFiltros_(inputFiltroNome ? inputFiltroNome.value : "", selectFiltroStatus.value);
+      onFiltrosChanged_();
+    });
 
     btnLimparFiltros && btnLimparFiltros.addEventListener("click", () => limparFiltros_());
 
@@ -2260,64 +2329,55 @@
     // Modal Novo
     btnFecharModal && btnFecharModal.addEventListener("click", () => fecharModalNovoAgendamento());
     btnCancelarModal && btnCancelarModal.addEventListener("click", () => fecharModalNovoAgendamento());
-    modalOverlay &&
-      modalOverlay.addEventListener("click", (event) => {
-        if (event.target === modalOverlay) fecharModalNovoAgendamento();
-      });
+    modalOverlay && modalOverlay.addEventListener("click", (event) => {
+      if (event.target === modalOverlay) fecharModalNovoAgendamento();
+    });
     formNovoAgendamento && formNovoAgendamento.addEventListener("submit", salvarNovoAgendamento);
 
     // Modal Editar
     btnFecharModalEditar && btnFecharModalEditar.addEventListener("click", () => fecharModalEditarAgendamento());
     btnCancelarEditar && btnCancelarEditar.addEventListener("click", () => fecharModalEditarAgendamento());
-    modalEdit &&
-      modalEdit.addEventListener("click", (event) => {
-        if (event.target === modalEdit) fecharModalEditarAgendamento();
-      });
+    modalEdit && modalEdit.addEventListener("click", (event) => {
+      if (event.target === modalEdit) fecharModalEditarAgendamento();
+    });
     formEditarAgendamento && formEditarAgendamento.addEventListener("submit", salvarEdicaoAgendamento);
 
     // Modal Bloqueio
     btnFecharModalBloqueio && btnFecharModalBloqueio.addEventListener("click", () => fecharModalBloqueio());
     btnCancelarBloqueio && btnCancelarBloqueio.addEventListener("click", () => fecharModalBloqueio());
-    modalBloqueio &&
-      modalBloqueio.addEventListener("click", (event) => {
-        if (event.target === modalBloqueio) fecharModalBloqueio();
-      });
+    modalBloqueio && modalBloqueio.addEventListener("click", (event) => {
+      if (event.target === modalBloqueio) fecharModalBloqueio();
+    });
     formBloqueio && formBloqueio.addEventListener("submit", salvarBloqueio);
 
     // Modal Pacientes (fallback)
-    btnSelecionarPaciente &&
-      btnSelecionarPaciente.addEventListener("click", () => {
-        contextoSelecaoPaciente = "novo";
-        abrirModalPacientes();
-      });
+    btnSelecionarPaciente && btnSelecionarPaciente.addEventListener("click", () => {
+      contextoSelecaoPaciente = "novo";
+      abrirModalPacientes();
+    });
 
     btnLimparPaciente && btnLimparPaciente.addEventListener("click", () => limparPacienteSelecionado());
 
-    btnEditSelecionarPaciente &&
-      btnEditSelecionarPaciente.addEventListener("click", () => {
-        contextoSelecaoPaciente = "editar";
-        abrirModalPacientes();
-      });
+    btnEditSelecionarPaciente && btnEditSelecionarPaciente.addEventListener("click", () => {
+      contextoSelecaoPaciente = "editar";
+      abrirModalPacientes();
+    });
 
     btnEditLimparPaciente && btnEditLimparPaciente.addEventListener("click", () => limparPacienteSelecionadoEditar());
 
     btnFecharModalPacientes && btnFecharModalPacientes.addEventListener("click", () => fecharModalPacientes());
-    modalPacientes &&
-      modalPacientes.addEventListener("click", (event) => {
-        if (event.target === modalPacientes) fecharModalPacientes();
-      });
+    modalPacientes && modalPacientes.addEventListener("click", (event) => {
+      if (event.target === modalPacientes) fecharModalPacientes();
+    });
 
-    inputBuscaPaciente &&
-      inputBuscaPaciente.addEventListener("input", () => {
-        const termo = inputBuscaPaciente.value;
-        if (buscaPacienteTimeout) clearTimeout(buscaPacienteTimeout);
-        buscaPacienteTimeout = setTimeout(() => buscarPacientes(termo), 300);
-      });
+    inputBuscaPaciente && inputBuscaPaciente.addEventListener("input", () => {
+      const termo = inputBuscaPaciente.value;
+      if (buscaPacienteTimeout) clearTimeout(buscaPacienteTimeout);
+      buscaPacienteTimeout = setTimeout(() => buscarPacientes(termo), 300);
+    });
 
-    // ESC fecha qualquer modal aberto
     document.addEventListener("keydown", (e) => {
       if (e.key !== "Escape") return;
-
       if (isModalVisible(modalPacientes)) return fecharModalPacientes();
       if (isModalVisible(modalBloqueio)) return fecharModalBloqueio();
       if (isModalVisible(modalEdit)) return fecharModalEditarAgendamento();
@@ -2331,6 +2391,14 @@
     if (!inputData.value) setToday();
     setVisao(modoVisao);
   }
+
+  if (typeof PRONTIO.registerPage === "function") {
+    PRONTIO.registerPage("agenda", initAgendaPage);
+  } else {
+    PRONTIO.pages = PRONTIO.pages || {};
+    PRONTIO.pages.agenda = { init: initAgendaPage };
+  }
+})(window, document);
 
   if (typeof PRONTIO.registerPage === "function") {
     PRONTIO.registerPage("agenda", initAgendaPage);
