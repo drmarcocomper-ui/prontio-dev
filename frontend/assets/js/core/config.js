@@ -57,7 +57,7 @@
    * Se apontar para deploy antigo, o front quebra com NOT_FOUND / routeAction_ ausente.
    */
   const API_URLS = {
-    dev: "https://script.google.com/macros/s/AKfycbzN7VcgQmUTiXyhZHlfGzSdPkUmBVFHIFSvvizndAkMJTMQ7aWU3rwALxJk9soUP2euBg/exec",
+    dev: "https://script.google.com/macros/s/AKfycbxaDKPR_SORbWMZBTtX6VN-FR_-oYY9Udou2u57v8qBChIJ99u0mcwo4zfWNyiv4IoD7A/exec",
     prod: "https://script.google.com/macros/s/AKfycbwGwSrgphYjR374ftYwbMczqnJzWTZvQXyyfcDGhyHsCGfuxbjd7FfhBEkUHoKrKC6AWQ/exec"
   };
 

@@ -1,4 +1,3 @@
-// backend/Migrations.gs
 /**
  * ============================================================
  * PRONTIO - Migrations.gs (FASE 4)
@@ -13,10 +12,12 @@
  * - Usa PRONTIO_getDb_() (Utils.gs) para selecionar DEV/PROD.
  *
  * ✅ FIX (SEM QUEBRAR):
- * - Adiciona wrapper Meta_DbStatus(ctx,payload) chamando Migrations_getDbStatus_()
- *   (Registry.gs normalmente registra Meta_DbStatus).
- * - Inclui headers para AuthSessions e AgendaConfig no MIGRATIONS_SHEETS, para bootstrap consistente
- *   (não interfere se já existe; só garante header idempotente).
+ * - Não sobrescreve cabeçalho existente automaticamente (evita “trocar colunas do nada”).
+ * - Mantém criação de header apenas quando a aba está vazia.
+ *
+ * ✅ ALINHAMENTO PROFISSIONAL (Pacientes):
+ * - Como o sistema ainda não tem pacientes, padronizamos a aba única "Pacientes"
+ *   no schema v2 (compatível com Pacientes.gs).
  */
 
 var MIGRATIONS_LATEST_VERSION = 2;
@@ -30,27 +31,17 @@ var MIGRATIONS_META_HEADERS = ["key", "value", "updatedAt"];
  * ============================================================
  * IMPORTANTE:
  * - Estes nomes/campos são internos do backend.
- * - Ajuste de headers aqui NÃO quebra o front.
- * - Pode impactar módulos que leem planilha direto (ex.: Usuarios.gs legado).
+ * - Ajuste de headers aqui NÃO quebra o front (front não conhece Sheets).
  *
- * Estratégia:
- * - Manter abas legadas (Agenda, Pacientes, Evolucao) intactas.
- * - Adicionar novas abas para os 4 módulos:
- *   Clinica, Profissionais, Usuarios (compatível com Usuarios.gs),
- *   AgendaDisponibilidade, AgendaExcecoes, AgendaEventos, AgendaAcl.
- *
- * ✅ UPDATE (Documentos):
- * - Adiciona aba "Encaminhamento" para busca (formulário) com header garantido.
- * - Adiciona aba "CID" para autocomplete de CID / doença com header garantido.
- *
- * ✅ UPDATE (SEM QUEBRAR):
- * - Adiciona AuthSessions e AgendaConfig (abas já usadas por Auth.gs e AgendaConfig.gs).
+ * Estratégia profissional (agora):
+ * - "Pacientes" passa a ser v2 (uma aba só).
+ * - "Agenda" já está no formato novo (DTO).
  */
 var MIGRATIONS_SHEETS = {
   "__meta": MIGRATIONS_META_HEADERS,
 
   // =========================
-  // LEGADO (mantido)
+  // AGENDA (novo DTO)
   // =========================
   "Agenda": [
     "idAgenda",
@@ -68,21 +59,44 @@ var MIGRATIONS_SHEETS = {
     "canceladoMotivo"
   ],
 
+  // =========================
+  // PACIENTES (v2 - ABA ÚNICA OFICIAL)
+  // =========================
   "Pacientes": [
     "idPaciente",
-    "ativo",
-    "nome",
-    "nascimento",
+    "status",
+    "nomeCompleto",
+    "nomeSocial",
     "sexo",
+    "dataNascimento",
+    "estadoCivil",
     "cpf",
-    "telefone",
+    "rg",
+    "rgOrgaoEmissor",
+    "telefonePrincipal",
+    "telefoneSecundario",
     "email",
-    "endereco",
-    "observacoes",
+    "planoSaude",
+    "numeroCarteirinha",
+    "profissao",
+    "cep",
+    "logradouro",
+    "numero",
+    "complemento",
+    "bairro",
+    "cidade",
+    "estado",
+    "tipoSanguineo",
+    "alergias",
+    "observacoesClinicas",
+    "observacoesAdministrativas",
     "criadoEm",
     "atualizadoEm"
   ],
 
+  // =========================
+  // LEGADO (mantido)
+  // =========================
   "Evolucao": [
     "idEvolucao",
     "idPaciente",
@@ -114,11 +128,6 @@ var MIGRATIONS_SHEETS = {
   // =========================
   // NOVO (Fase 4 módulos)
   // =========================
-
-  /**
-   * Clínica (single clinic mode, pronto para multi-clínica)
-   * Observação: no modo 1 clínica, teremos só 1 linha.
-   */
   "Clinica": [
     "idClinica",
     "nome",
@@ -134,15 +143,12 @@ var MIGRATIONS_SHEETS = {
     "ativo"
   ],
 
-  /**
-   * Profissionais
-   */
   "Profissionais": [
     "idProfissional",
     "idClinica",
-    "tipoProfissional",          // MEDICO | NUTRICIONISTA | OUTRO
+    "tipoProfissional",
     "nomeCompleto",
-    "documentoRegistro",         // CRM/CRN/etc
+    "documentoRegistro",
     "especialidade",
     "assinaturaDigitalBase64",
     "corInterface",
@@ -151,13 +157,6 @@ var MIGRATIONS_SHEETS = {
     "atualizadoEm"
   ],
 
-  /**
-   * Usuarios
-   * Compatível com Usuarios.gs atual (que procura cabeçalhos em PT-BR com maiúsculas).
-   * Mantemos colunas "ID_Usuario", "Nome", etc.
-   *
-   * Campos novos para estratégia (idClinica/idProfissional) são opcionais e não quebram o legado.
-   */
   "Usuarios": [
     "ID_Usuario",
     "Nome",
@@ -170,49 +169,39 @@ var MIGRATIONS_SHEETS = {
     "AtualizadoEm",
     "UltimoLoginEm",
 
-    // novos (estratégia)
     "idClinica",
     "idProfissional",
     "permissoesCustomizadas"
   ],
 
-  /**
-   * Agenda 4.1 - Disponibilidade semanal
-   */
   "AgendaDisponibilidade": [
     "idDisponibilidade",
     "idClinica",
     "idProfissional",
-    "diaSemana",                 // SEG, TER, QUA, QUI, SEX, SAB, DOM
-    "horaInicio",                // "08:00"
-    "horaFim",                   // "12:00"
-    "intervaloMinutos",          // number
-    "localSala",                 // opcional
+    "diaSemana",
+    "horaInicio",
+    "horaFim",
+    "intervaloMinutos",
+    "localSala",
     "ativo",
     "criadoEm",
     "atualizadoEm"
   ],
 
-  /**
-   * Agenda 4.2 - Exceções
-   */
   "AgendaExcecoes": [
     "idExcecao",
     "idClinica",
     "idProfissional",
-    "dataInicio",                // ISO date/datetime
-    "dataFim",                   // ISO date/datetime
-    "tipo",                      // BLOQUEIO_TOTAL | HORARIO_ESPECIAL
-    "blocosEspeciais",           // JSON string ou objeto serializado
+    "dataInicio",
+    "dataFim",
+    "tipo",
+    "blocosEspeciais",
     "motivo",
     "criadoEm",
     "atualizadoEm",
     "ativo"
   ],
 
-  /**
-   * Agenda 4.3 - Eventos
-   */
   "AgendaEventos": [
     "idEvento",
     "idClinica",
@@ -220,8 +209,8 @@ var MIGRATIONS_SHEETS = {
     "idPaciente",
     "inicioDateTime",
     "fimDateTime",
-    "tipo",                      // CONSULTA | RETORNO | PROCEDIMENTO | BLOQUEIO
-    "status",                    // MARCADO | CONFIRMADO | ATENDIDO | CANCELADO | FALTOU
+    "tipo",
+    "status",
     "titulo",
     "notas",
     "permiteEncaixe",
@@ -232,15 +221,12 @@ var MIGRATIONS_SHEETS = {
     "ativo"
   ],
 
-  /**
-   * ACL - Acesso à agenda
-   */
   "AgendaAcl": [
     "idAcesso",
     "idClinica",
     "idUsuario",
     "idProfissional",
-    "permissoes",                // JSON string ou "VER|CRIAR|EDITAR|CANCELAR"
+    "permissoes",
     "ativo",
     "criadoEm",
     "atualizadoEm"
@@ -249,12 +235,6 @@ var MIGRATIONS_SHEETS = {
   // =========================
   // CONFIG / AUTH (SEM QUEBRAR)
   // =========================
-
-  /**
-   * AuthSessions (usada pelo Auth.gs)
-   * Colunas conforme Auth.gs:
-   * - Token | UserJson | ExpiresAtIso | RevokedAtIso | UserId
-   */
   "AuthSessions": [
     "Token",
     "UserJson",
@@ -263,11 +243,6 @@ var MIGRATIONS_SHEETS = {
     "UserId"
   ],
 
-  /**
-   * AgendaConfig (usada pelo AgendaConfig.gs)
-   * Colunas conforme AgendaConfig.gs:
-   * - Chave | Valor
-   */
   "AgendaConfig": [
     "Chave",
     "Valor"
@@ -276,11 +251,6 @@ var MIGRATIONS_SHEETS = {
   // =========================
   // DOCUMENTOS (buscas / autocomplete)
   // =========================
-
-  /**
-   * Encaminhamento (para autocomplete no painel Documentos)
-   * Colunas exatamente como você descreveu (inclui acento em "Avaliação").
-   */
   "Encaminhamento": [
     "Encaminhamento",
     "NomeDoProfissional",
@@ -288,9 +258,6 @@ var MIGRATIONS_SHEETS = {
     "Telefone"
   ],
 
-  /**
-   * CID (autocomplete por CID ou nome da doença)
-   */
   "CID": [
     "CID",
     "Descricao",
@@ -302,8 +269,6 @@ var MIGRATIONS_SHEETS = {
  * ============================================================
  * ✅ Handler esperado pelo Registry (Meta_BootstrapDb)
  * ============================================================
- * Registry.gs já registra "Meta_BootstrapDb" apontando para Meta_BootstrapDb.
- * Este wrapper conecta a action ao bootstrap real (Migrations_bootstrap_).
  */
 function Meta_BootstrapDb(ctx, payload) {
   return Migrations_bootstrap_();
@@ -352,7 +317,6 @@ function Migrations_getDbStatus_() {
 
 /**
  * Executa bootstrap/migrations até a última versão.
- * OBS: função interna (não exposta como action por padrão).
  */
 function Migrations_bootstrap_() {
   var db = _migGetDb_();
@@ -368,7 +332,7 @@ function Migrations_bootstrap_() {
 
   if (!currentVersion || currentVersion < 0) currentVersion = 0;
 
-  // 3) Aplica migrations incrementais (placeholder para evolução futura)
+  // 3) Aplica migrations incrementais
   var target = Number(MIGRATIONS_LATEST_VERSION);
   for (var v = currentVersion + 1; v <= target; v++) {
     _migApplyVersion_(v);
@@ -384,10 +348,6 @@ function Migrations_bootstrap_() {
   };
 }
 
-/**
- * Aplica mudanças específicas de versão.
- * Nesta versão (v2), o bootstrap já garante as novas abas.
- */
 function _migApplyVersion_(version) {
   _migSetMeta_("lastMigrationVersion", String(version));
   _migSetMeta_("lastMigrationAt", new Date().toISOString());
@@ -421,15 +381,11 @@ function _migTryReadMeta_() {
   };
 }
 
-/**
- * Define/atualiza uma chave no __meta.
- */
 function _migSetMeta_(key, value) {
   var db = _migGetDb_();
   var sheet = db.getSheetByName(MIGRATIONS_META_SHEET);
   if (!sheet) sheet = db.insertSheet(MIGRATIONS_META_SHEET);
 
-  // Garante header
   _migEnsureHeader_(sheet, MIGRATIONS_META_HEADERS);
 
   var values = sheet.getDataRange().getValues();
@@ -438,7 +394,6 @@ function _migSetMeta_(key, value) {
   var idxVal = header.indexOf("value");
   var idxUpd = header.indexOf("updatedAt");
 
-  // Procura key
   for (var i = 1; i < values.length; i++) {
     if (String(values[i][idxKey]) === String(key)) {
       sheet.getRange(i + 1, idxVal + 1).setValue(value);
@@ -447,14 +402,14 @@ function _migSetMeta_(key, value) {
     }
   }
 
-  // Insere nova linha
   sheet.appendRow([key, value, new Date()]);
   return true;
 }
 
 /**
  * Garante aba com cabeçalho correto.
- * Se existir e header estiver vazio/diferente, ajusta apenas a primeira linha.
+ * ✅ Profissional: só escreve header se a aba estiver sem header.
+ * ❌ Não sobrescreve headers existentes (evita mudanças “mágicas”).
  */
 function _migEnsureSheetWithHeader_(db, sheetName, headers) {
   var sheet = db.getSheetByName(sheetName);
@@ -473,20 +428,23 @@ function _migEnsureHeader_(sheet, headers) {
     if (String(firstRow[i] || "").trim() !== "") { isBlank = false; break; }
   }
 
-  // Se está em branco: escreve header completo
+  // ✅ Se está em branco: escreve header completo
   if (isBlank) {
     sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
     return true;
   }
 
-  // Se não está em branco, mas difere, atualiza a linha 1 (idempotente)
-  var differs = false;
-  for (var c = 0; c < headers.length; c++) {
-    if (String(firstRow[c] || "") !== String(headers[c])) { differs = true; break; }
-  }
-  if (differs) {
-    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
-  }
+  // ✅ Se não está em branco, NÃO sobrescreve.
+  // (opcional) registra divergência para debug em __meta
+  try {
+    var differs = false;
+    for (var c = 0; c < headers.length; c++) {
+      if (String(firstRow[c] || "") !== String(headers[c])) { differs = true; break; }
+    }
+    if (differs) {
+      _migSetMeta_("warnHeaderMismatch:" + sheet.getName(), new Date().toISOString());
+    }
+  } catch (_) {}
 
   return true;
 }
