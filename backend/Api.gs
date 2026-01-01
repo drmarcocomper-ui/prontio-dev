@@ -268,7 +268,7 @@ function doPost(e) {
         ], { action: action, startedAt: startedAt });
 
         _auditBestEffort_(e, ctx, "FAIL", null, null, envAuthMissing);
-        return _withCors_(_jsonOutput_(_withMetaDuration_(envAuthMissing, startedAt))));
+        return _withCors_(_jsonOutput_(_withMetaDuration_(envAuthMissing, startedAt)));
       }
     }
 

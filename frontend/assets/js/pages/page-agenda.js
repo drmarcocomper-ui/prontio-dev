@@ -1,4 +1,3 @@
-// frontend/assets/js/pages/page-agenda.js
 /**
  * PRONTIO - Página de Agenda (front)
  *
@@ -14,6 +13,12 @@
  * - Dia usa Agenda_ListarDia (payload: {data:"YYYY-MM-DD"}).
  * - Semana usa Agenda_ListarSemana (payload: {data_referencia:"YYYY-MM-DD"}).
  * - Pré-validação envia permitirEncaixe (VALIDAR == SALVAR).
+ *
+ * ✅ PASSO 3 (Estado no front - retrocompat):
+ * - modoVisao e filtros persistem via PRONTIO.core.storage (quando disponível),
+ *   com fallback para localStorage e mantendo chaves legadas.
+ * - abrirProntuario grava contexto em PRONTIO.core.state (pacienteAtual/agendaAtual)
+ *   e mantém localStorage legado (prontio.pacienteSelecionado / prontio.prontuarioContexto).
  */
 
 (function (global, document) {
@@ -26,6 +31,115 @@
       console.error("[PRONTIO.agenda] callApiData não está definido.");
       return Promise.reject(new Error("API não inicializada (callApiData indefinido)."));
     };
+
+  // ===========================
+  // PASSO 3 - Storage/State (compat)
+  // ===========================
+  const coreStorage = PRONTIO.core && PRONTIO.core.storage ? PRONTIO.core.storage : null;
+  const coreState = PRONTIO.core && PRONTIO.core.state ? PRONTIO.core.state : null;
+
+  function storageGetJSON_(key, fallback) {
+    try {
+      if (coreStorage && typeof coreStorage.getJSON === "function") {
+        return coreStorage.getJSON(key, fallback);
+      }
+    } catch (_) {}
+    // fallback localStorage
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) return fallback;
+      return JSON.parse(raw);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function storageSetJSON_(key, obj) {
+    try {
+      if (coreStorage && typeof coreStorage.setJSON === "function") {
+        coreStorage.setJSON(key, obj);
+        return;
+      }
+    } catch (_) {}
+    try {
+      localStorage.setItem(key, JSON.stringify(obj));
+    } catch (_) {}
+  }
+
+  function storageGetString_(key, fallback) {
+    try {
+      if (coreStorage && typeof coreStorage.getItem === "function") {
+        const v = coreStorage.getItem(key);
+        return v == null ? fallback : String(v);
+      }
+    } catch (_) {}
+    try {
+      const v = localStorage.getItem(key);
+      return v == null ? fallback : String(v);
+    } catch (_) {
+      return fallback;
+    }
+  }
+
+  function storageSetString_(key, value) {
+    try {
+      if (coreStorage && typeof coreStorage.setItem === "function") {
+        coreStorage.setItem(key, String(value));
+        return;
+      }
+    } catch (_) {}
+    try {
+      localStorage.setItem(key, String(value));
+    } catch (_) {}
+  }
+
+  // Chaves (core + legado)
+  const CORE_PREFS_KEY = "prontio.ui.agenda.prefs.v1";
+  const LEGACY_MODO_KEY = "prontio.agenda.modoVisao"; // legado já usado
+  const LEGACY_FILTER_KEY = "prontio.agenda.filtros.v1"; // legado já usado
+  const CORE_FILTER_KEY = "prontio.ui.agenda.filtros.v1";
+
+  function loadAgendaPrefs_() {
+    const prefs = storageGetJSON_(CORE_PREFS_KEY, null) || {};
+    // legado
+    const legacyModo = storageGetString_(LEGACY_MODO_KEY, null);
+    const legacyFiltros = storageGetJSON_(LEGACY_FILTER_KEY, null);
+
+    const out = {
+      modoVisao: prefs.modoVisao || (legacyModo ? String(legacyModo) : "dia"),
+      filtros: Object.assign({ nome: "", status: "" }, prefs.filtros || {})
+    };
+
+    if ((!prefs.filtros || !Object.keys(prefs.filtros || {}).length) && legacyFiltros) {
+      out.filtros.nome = String(legacyFiltros.nome || "");
+      out.filtros.status = String(legacyFiltros.status || "");
+    }
+
+    // normaliza
+    if (out.modoVisao !== "dia" && out.modoVisao !== "semana") out.modoVisao = "dia";
+    out.filtros.nome = String(out.filtros.nome || "");
+    out.filtros.status = String(out.filtros.status || "");
+
+    return out;
+  }
+
+  function saveAgendaPrefs_(patch) {
+    const current = loadAgendaPrefs_();
+    const merged = Object.assign({}, current, patch || {});
+    if (patch && patch.filtros) merged.filtros = Object.assign({}, current.filtros || {}, patch.filtros);
+
+    // core
+    storageSetJSON_(CORE_PREFS_KEY, merged);
+
+    // retrocompat
+    storageSetString_(LEGACY_MODO_KEY, merged.modoVisao);
+    storageSetJSON_(LEGACY_FILTER_KEY, merged.filtros || { nome: "", status: "" });
+
+    // também mantém uma key "core filtros" específica (facilita migração futura)
+    storageSetJSON_(CORE_FILTER_KEY, merged.filtros || { nome: "", status: "" });
+
+    return merged;
+  }
 
   function initAgendaPage() {
     const body = document.body;
@@ -71,12 +185,25 @@
     const selectFiltroStatus = get("filtro-status");
     const btnLimparFiltros = get("btn-limpar-filtros");
 
-    let modoVisao =
-      localStorage.getItem("prontio.agenda.modoVisao") === "semana" ? "semana" : "dia";
+    // =====================
+    // PASSO 3: modoVisao/filtros via core.storage (com legado)
+    // =====================
+    const agendaPrefs = loadAgendaPrefs_();
+    let modoVisao = agendaPrefs.modoVisao; // "dia" | "semana"
 
-    // Persistência de filtros
-    const FILTER_KEY = "prontio.agenda.filtros.v1";
-    const filtrosState = loadFiltros_();
+    // Persistência de filtros (mantém shape atual do arquivo)
+    const FILTER_KEY = LEGACY_FILTER_KEY; // legado permanece
+    const filtrosState = (function loadFiltros_Compat_() {
+      const fromCore = storageGetJSON_(CORE_FILTER_KEY, null);
+      const fromLegacy = storageGetJSON_(FILTER_KEY, null);
+      const base = { nome: "", status: "" };
+
+      const src = fromCore || fromLegacy || base;
+      return {
+        nome: String(src && src.nome ? src.nome : ""),
+        status: String(src && src.status ? src.status : "")
+      };
+    })();
 
     let agendamentosOriginaisDia = [];
     let agendamentosOriginaisSemana = []; // DTOs UI (todos do período)
@@ -211,26 +338,21 @@
       return Math.max(a, Math.min(b, x));
     }
 
-    function loadFiltros_() {
-      try {
-        const raw = localStorage.getItem(FILTER_KEY);
-        if (!raw) return { nome: "", status: "" };
-        const obj = JSON.parse(raw);
-        return {
-          nome: String(obj && obj.nome ? obj.nome : ""),
-          status: String(obj && obj.status ? obj.status : "")
-        };
-      } catch (_) {
-        return { nome: "", status: "" };
-      }
-    }
-
     function saveFiltros_() {
+      // PASSO 3: salvar em core prefs também
       try {
-        localStorage.setItem(
-          FILTER_KEY,
-          JSON.stringify({ nome: filtrosState.nome, status: filtrosState.status })
-        );
+        // core filtros (chave dedicada)
+        storageSetJSON_(CORE_FILTER_KEY, { nome: filtrosState.nome, status: filtrosState.status });
+
+        // core prefs (agregado)
+        saveAgendaPrefs_({
+          modoVisao,
+          filtros: { nome: filtrosState.nome, status: filtrosState.status }
+        });
+
+        // legado ainda é mantido pelo saveAgendaPrefs_ (LEGACY_FILTER_KEY).
+        // mas garantimos explicitamente por compat:
+        storageSetJSON_(FILTER_KEY, { nome: filtrosState.nome, status: filtrosState.status });
       } catch (_) {}
     }
 
@@ -393,7 +515,7 @@
       // Se já veio no formato legado/UI, preserva
       if (ag.ID_Agenda || ag.data || ag.hora_inicio) {
         const tipo = String(ag.tipo || "");
-        const isBloqueio = (ag.bloqueio === true) || tipo.toUpperCase() === "BLOQUEIO";
+        const isBloqueio = ag.bloqueio === true || tipo.toUpperCase() === "BLOQUEIO";
 
         return {
           ID_Agenda: ag.ID_Agenda ? String(ag.ID_Agenda) : "",
@@ -402,7 +524,7 @@
           hora_inicio: ag.hora_inicio ? String(ag.hora_inicio) : "",
           hora_fim: ag.hora_fim ? String(ag.hora_fim) : "",
           duracao_minutos: ag.duracao_minutos ? Number(ag.duracao_minutos) : 0,
-          nome_paciente: ag.nome_paciente ? String(ag.nome_paciente) : (isBloqueio ? "Bloqueio" : ""),
+          nome_paciente: ag.nome_paciente ? String(ag.nome_paciente) : isBloqueio ? "Bloqueio" : "",
           telefone_paciente: ag.telefone_paciente ? String(ag.telefone_paciente) : "",
           documento_paciente: ag.documento_paciente ? String(ag.documento_paciente) : "",
           motivo: ag.motivo ? String(ag.motivo) : "",
@@ -427,19 +549,19 @@
       const isBloqueio = tipo.toUpperCase() === "BLOQUEIO";
 
       return {
-        ID_Agenda: (dto && (dto.idAgenda || dto.ID_Agenda)) ? String(dto.idAgenda || dto.ID_Agenda) : "",
-        ID_Paciente: (dto && (dto.idPaciente || dto.ID_Paciente)) ? String(dto.idPaciente || dto.ID_Paciente) : "",
+        ID_Agenda: dto && (dto.idAgenda || dto.ID_Agenda) ? String(dto.idAgenda || dto.ID_Agenda) : "",
+        ID_Paciente: dto && (dto.idPaciente || dto.ID_Paciente) ? String(dto.idPaciente || dto.ID_Paciente) : "",
         data: ymdFromIso_(inicioIso),
         hora_inicio: hhmmFromIso_(inicioIso),
         hora_fim: hhmmFromIso_(fimIso),
         duracao_minutos: diffMinutes_(inicioIso, fimIso),
-        nome_paciente: (dto && dto.titulo) ? String(dto.titulo) : (isBloqueio ? "Bloqueio" : ""),
+        nome_paciente: dto && dto.titulo ? String(dto.titulo) : isBloqueio ? "Bloqueio" : "",
         telefone_paciente: "",
         documento_paciente: "",
-        motivo: (dto && dto.notas) ? String(dto.notas) : "",
+        motivo: dto && dto.notas ? String(dto.notas) : "",
         canal: "",
-        origem: (dto && dto.origem) ? String(dto.origem) : "",
-        status: (dto && dto.status) ? String(dto.status) : "",
+        origem: dto && dto.origem ? String(dto.origem) : "",
+        status: dto && dto.status ? String(dto.status) : "",
         tipo: tipo,
         bloqueio: isBloqueio,
         permite_encaixe: false
@@ -558,10 +680,10 @@
         if (!r || r.ok !== true) {
           return {
             ok: false,
-            erro: (r && r.erro) ? String(r.erro) : "Conflito de horário.",
-            conflitos: (r && r.conflitos) ? r.conflitos : [],
-            intervalo: (r && r.intervalo) ? r.intervalo : null,
-            code: (r && r.code) ? String(r.code) : ""
+            erro: r && r.erro ? String(r.erro) : "Conflito de horário.",
+            conflitos: r && r.conflitos ? r.conflitos : [],
+            intervalo: r && r.intervalo ? r.intervalo : null,
+            code: r && r.code ? String(r.code) : ""
           };
         }
 
@@ -576,7 +698,7 @@
     function describeConflitos_(r) {
       if (!r) return "Conflito de horário.";
       const conflitos = Array.isArray(r.conflitos) ? r.conflitos : [];
-      if (!conflitos.length) return (r.erro || "Conflito de horário.");
+      if (!conflitos.length) return r.erro || "Conflito de horário.";
 
       const top = conflitos.slice(0, 2).map((c) => {
         const tipo = c.bloqueio ? "Bloqueio" : "Consulta";
@@ -811,9 +933,12 @@
       if (modo !== "dia" && modo !== "semana") return;
 
       modoVisao = modo;
-      try {
-        localStorage.setItem("prontio.agenda.modoVisao", modoVisao);
-      } catch (e) {}
+
+      // PASSO 3: salvar em core prefs + manter legado
+      saveAgendaPrefs_({
+        modoVisao,
+        filtros: { nome: filtrosState.nome, status: filtrosState.status }
+      });
 
       if (modo === "dia") {
         secDia && secDia.classList.remove("hidden");
@@ -884,7 +1009,11 @@
       if (statusFiltro.includes("agend")) {
         return s.includes("agend") || s.includes("marc");
       }
-      if (statusFiltro.includes("em atendimento") || statusFiltro.includes("em_atend") || statusFiltro.includes("atend")) {
+      if (
+        statusFiltro.includes("em atendimento") ||
+        statusFiltro.includes("em_atend") ||
+        statusFiltro.includes("atend")
+      ) {
         return s.includes("em_atend") || s.includes("em atend") || (s.includes("atend") && !s.includes("atendid"));
       }
 
@@ -927,10 +1056,10 @@
         if (mySeq !== reqSeqDia) return;
 
         // data = {resumo, horarios:[{hora, agendamentos:[...]}]}
-        const horarios = (data && data.horarios) ? data.horarios : [];
+        const horarios = data && data.horarios ? data.horarios : [];
         const flat = [];
         horarios.forEach((h) => {
-          const arr = (h && h.agendamentos) ? h.agendamentos : [];
+          const arr = h && h.agendamentos ? h.agendamentos : [];
           arr.forEach((ag) => {
             const ui = normalizeUiAg_(ag);
             if (ui) flat.push(ui);
@@ -944,8 +1073,7 @@
         if (mySeq !== reqSeqDia) return;
         console.error(error);
         mostrarErro(
-          "Não foi possível carregar a agenda do dia: " +
-            (error && error.message ? error.message : String(error))
+          "Não foi possível carregar a agenda do dia: " + (error && error.message ? error.message : String(error))
         );
       } finally {
         if (mySeq === reqSeqDia) removerEstadoCarregando();
@@ -1097,7 +1225,7 @@
         if (mySeq !== reqSeqSemana) return;
 
         // data = {dias:[{data:"YYYY-MM-DD", horarios:[{hora, agendamentos:[...]}]}]}
-        const diasResp = (data && data.dias) ? data.dias : [];
+        const diasResp = data && data.dias ? data.dias : [];
 
         const agsUi = [];
         const byDayHour = {};
@@ -1142,8 +1270,7 @@
         console.error(error);
         if (semanaGridEl) {
           const msg =
-            "Não foi possível carregar a semana: " +
-            (error && error.message ? error.message : String(error));
+            "Não foi possível carregar a semana: " + (error && error.message ? error.message : String(error));
           semanaGridEl.innerHTML = "";
           const wrap = document.createElement("div");
           wrap.className = "agenda-erro";
@@ -1256,14 +1383,7 @@
     // ===========================
     // Status (alinhado com backend)
     // ===========================
-    const STATUS_OPTIONS = [
-      "Agendado",
-      "Confirmado",
-      "Em atendimento",
-      "Concluído",
-      "Faltou",
-      "Cancelado"
-    ];
+    const STATUS_OPTIONS = ["Agendado", "Confirmado", "Em atendimento", "Concluído", "Faltou", "Cancelado"];
 
     function normalizeStatusLabel_(s) {
       // aceita status UI e canônico backend
@@ -1316,7 +1436,9 @@
       const s = stripAccents(String(status)).toLowerCase();
 
       if (s.includes("confirm")) return "status-confirmado";
-      if (s.includes("em_atend") || s.includes("em atend") || (s.includes("atend") && !s.includes("atendid"))) return "status-em-atendimento";
+      if (s.includes("em_atend") || s.includes("em atend") || (s.includes("atend") && !s.includes("atendid"))) {
+        return "status-em-atendimento";
+      }
       if (s.includes("falt")) return "status-falta";
       if (s.includes("cancel")) return "status-cancelado";
       if (s.includes("concl") || s.includes("atendid")) return "status-concluido";
@@ -1439,7 +1561,7 @@
     }
 
     // ===========================
-    // Prontuário
+    // Prontuário (PASSO 3 + legado)
     // ===========================
     function abrirProntuario(ag) {
       if (!ag.ID_Paciente) {
@@ -1450,6 +1572,22 @@
         return;
       }
 
+      // PASSO 3: estado canônico (não quebra se core.state não existir)
+      try {
+        if (coreState && typeof coreState.setPacienteAtual === "function") {
+          coreState.setPacienteAtual(String(ag.ID_Paciente));
+        } else if (coreState && typeof coreState.set === "function") {
+          coreState.set("pacienteAtualId", String(ag.ID_Paciente));
+        }
+        if (ag.ID_Agenda) {
+          if (coreState && typeof coreState.setAgendaAtual === "function") {
+            coreState.setAgendaAtual(String(ag.ID_Agenda));
+          } else if (coreState && typeof coreState.set === "function") {
+            coreState.set("agendaAtualId", String(ag.ID_Agenda));
+          }
+        }
+      } catch (_) {}
+
       const infoPaciente = {
         ID_Paciente: ag.ID_Paciente,
         nome: ag.nome_paciente || "",
@@ -1457,6 +1595,7 @@
         telefone: ag.telefone_paciente || ""
       };
 
+      // Legado: mantém exatamente como estava (não quebrar fluxo antigo)
       try {
         localStorage.setItem("prontio.pacienteSelecionado", JSON.stringify(infoPaciente));
       } catch (e) {}
@@ -1514,8 +1653,7 @@
       } catch (error) {
         console.error(error);
         alert(
-          "Erro ao mudar status do agendamento: " +
-            (error && error.message ? error.message : String(error))
+          "Erro ao mudar status do agendamento: " + (error && error.message ? error.message : String(error))
         );
         if (cardEl) cardEl.classList.remove("agendamento-atualizando");
       } finally {
@@ -1543,10 +1681,7 @@
         else await carregarAgendaSemana();
       } catch (error) {
         console.error(error);
-        alert(
-          "Erro ao remover bloqueio: " +
-            (error && error.message ? error.message : String(error))
-        );
+        alert("Erro ao remover bloqueio: " + (error && error.message ? error.message : String(error)));
         if (cardEl) cardEl.classList.remove("agendamento-atualizando");
       } finally {
         inFlight.removerBloqById.delete(ID_Agenda);
@@ -2064,9 +2199,7 @@
     // =====================
     // Listeners gerais
     // =====================
-    inputData.addEventListener("change", () =>
-      (modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana())
-    );
+    inputData.addEventListener("change", () => (modoVisao === "dia" ? carregarAgendaDia() : carregarAgendaSemana()));
 
     btnHoje &&
       btnHoje.addEventListener("click", () => {

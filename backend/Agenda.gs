@@ -504,6 +504,7 @@ function _agendaNormalizeCreateInput_(payload, params) {
   // compat: ID_Paciente
   var idPaciente = payload.idPaciente ? String(payload.idPaciente) : (payload.ID_Paciente ? String(payload.ID_Paciente) : "");
 
+  // no legado, front manda "motivo" como principal
   var titulo = payload.titulo || payload.motivo || "";
   var notas = payload.notas || "";
   var tipo = payload.tipo ? String(payload.tipo) : (payload.Bloqueio === true ? AGENDA_TIPO.BLOQUEIO : AGENDA_TIPO.CONSULTA);
@@ -515,7 +516,6 @@ function _agendaNormalizeCreateInput_(payload, params) {
   var permitirEncaixe = payload.permitirEncaixe === true || payload.permite_encaixe === true;
 
   // ✅ Compat interna (se alguém mandar inicio/fim):
-  // Mantemos aceitação, mas a regra oficial do PRONTIO Agenda é LOCAL {data,hora_inicio,duracao}.
   if (payload.inicio && payload.fim) {
     var ini = _agendaParseDateRequired_(payload.inicio, "inicio");
     var fim = _agendaParseDateRequired_(payload.fim, "fim");
@@ -1065,9 +1065,7 @@ function _agendaParseDate_(v) {
   }
 
   if (typeof v === "string") {
-    // ✅ Importante:
-    // ISO sempre vira Date válido, mas Date(ISO) representa um instante UTC.
-    // Isso é OK para armazenamento, desde que TODAS as operações de "dia" sejam feitas via build local (BuildDateTime).
+    // ISO -> Date válido. Operações de "dia" devem ser por build local.
     var dStr = new Date(v);
     if (!isNaN(dStr.getTime())) return dStr;
 
@@ -1124,11 +1122,133 @@ function _agendaThrow_(code, message, details) {
   throw err;
 }
 
+// ============================================================
+// ✅ IMPLEMENTAÇÃO FALTANTE (LEGACY): _agendaLegacyDtoToFront_
+// ============================================================
+
 /**
- * ============================================================
- * OBS: Funções não fornecidas no seu snippet original:
- * - _agendaLegacyDtoToFront_
- * - _agendaLegacyBuildResumo_
- * Essas permanecem como estavam no seu projeto.
- * ============================================================
+ * Converte DTO (novo) -> shape que o front antigo espera.
+ * Saída (UI legacy):
+ * {
+ *   ID_Agenda, ID_Paciente,
+ *   data:"YYYY-MM-DD",
+ *   hora_inicio:"HH:MM",
+ *   hora_fim:"HH:MM",
+ *   duracao_minutos:number,
+ *   nome_paciente:string,
+ *   telefone_paciente:string,
+ *   documento_paciente:string,
+ *   motivo:string,
+ *   canal:string,
+ *   origem:string,
+ *   status:string,
+ *   tipo:string,
+ *   bloqueio:boolean,
+ *   permite_encaixe:boolean
+ * }
  */
+function _agendaLegacyDtoToFront_(dto) {
+  dto = _agendaNormalizeRowToDto_(dto || {});
+
+  var tipo = _agendaNormalizeTipo_(dto.tipo);
+  var status = _agendaNormalizeStatus_(dto.status);
+  var origem = _agendaNormalizeOrigem_(dto.origem);
+
+  var dtIni = _agendaParseDate_(dto.inicio);
+  var dtFim = _agendaParseDate_(dto.fim);
+
+  // Se datas inválidas, ainda devolve algo (não quebra render)
+  var dataStr = dtIni ? _agendaFormatDate_(dtIni) : "";
+  var hIni = dtIni ? _agendaFormatHHMM_(dtIni) : "";
+  var hFim = dtFim ? _agendaFormatHHMM_(dtFim) : "";
+  var durMin = 0;
+  if (dtIni && dtFim) durMin = Math.max(1, Math.round((dtFim.getTime() - dtIni.getTime()) / 60000));
+
+  // Notas legacy podem carregar metadados do paciente/canal/etc.
+  var notasObj = _agendaLegacyTryParseNotas_(dto.notas);
+  var nomePaciente = String(notasObj.nome_paciente || dto.titulo || "").trim();
+  var telefonePaciente = String(notasObj.telefone_paciente || "").trim();
+  var documentoPaciente = String(notasObj.documento_paciente || "").trim();
+  var motivo = String(notasObj.motivo || dto.titulo || "").trim();
+  var canal = String(notasObj.canal || "").trim();
+
+  // fallback adicional: se ainda vazio e não é bloqueio
+  if (!nomePaciente && tipo !== AGENDA_TIPO.BLOQUEIO) nomePaciente = String(dto.titulo || "").trim();
+
+  var isBloqueio = (tipo === AGENDA_TIPO.BLOQUEIO) || (notasObj && notasObj.bloqueio === true);
+
+  // permitir encaixe pode estar em notas legacy
+  var permiteEncaixe = (notasObj && notasObj.permite_encaixe === true);
+
+  return {
+    ID_Agenda: String(dto.idAgenda || ""),
+    ID_Paciente: String(dto.idPaciente || ""),
+    data: dataStr,
+    hora_inicio: hIni,
+    hora_fim: hFim,
+    duracao_minutos: durMin,
+    nome_paciente: isBloqueio ? "Bloqueio" : nomePaciente,
+    telefone_paciente: telefonePaciente,
+    documento_paciente: documentoPaciente,
+    motivo: motivo,
+    canal: canal,
+    origem: String(origem || ""),
+    status: String(status || ""),
+    tipo: String(tipo || ""),
+    bloqueio: isBloqueio,
+    permite_encaixe: permiteEncaixe
+  };
+}
+
+// ============================================================
+// ✅ IMPLEMENTAÇÃO FALTANTE (LEGACY): _agendaLegacyBuildResumo_
+// ============================================================
+
+/**
+ * Calcula resumo (compat com front antigo):
+ * { total, confirmados, faltas, cancelados, concluidos, em_atendimento }
+ *
+ * Regras:
+ * - ignora bloqueios
+ * - concluidos conta ATENDIDO e também CONCLUIDO (retrocompat)
+ */
+function _agendaLegacyBuildResumo_(ags) {
+  var resumo = {
+    total: 0,
+    confirmados: 0,
+    faltas: 0,
+    cancelados: 0,
+    concluidos: 0,
+    em_atendimento: 0
+  };
+
+  var list = Array.isArray(ags) ? ags : [];
+  for (var i = 0; i < list.length; i++) {
+    var ag = list[i];
+    if (!ag) continue;
+    if (ag.bloqueio === true) continue;
+
+    resumo.total++;
+
+    var st = String(ag.status || "").toUpperCase();
+
+    // CANCELADO
+    if (st.indexOf("CANCEL") >= 0) { resumo.cancelados++; continue; }
+
+    // FALTOU
+    if (st.indexOf("FALT") >= 0) { resumo.faltas++; continue; }
+
+    // EM_ATENDIMENTO
+    if (st.indexOf("EM_ATEND") >= 0) { resumo.em_atendimento++; continue; }
+
+    // CONCLUIDO/ATENDIDO
+    if (st.indexOf("CONCL") >= 0 || st.indexOf("ATENDID") >= 0) { resumo.concluidos++; continue; }
+
+    // CONFIRMADO / AGUARDANDO
+    if (st.indexOf("CONFIRM") >= 0 || st.indexOf("AGUARD") >= 0) { resumo.confirmados++; continue; }
+
+    // MARCADO (não soma em campos específicos)
+  }
+
+  return resumo;
+}
