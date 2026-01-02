@@ -6,28 +6,45 @@
   PRONTIO.pages = PRONTIO.pages || {};
   PRONTIO._pageInited = PRONTIO._pageInited || {};
 
+  function getEntryInit_() {
+    return PRONTIO.features &&
+      PRONTIO.features.agenda &&
+      PRONTIO.features.agenda.entry &&
+      typeof PRONTIO.features.agenda.entry.init === "function"
+      ? PRONTIO.features.agenda.entry.init
+      : null;
+  }
+
   function initAgendaPage() {
     if (PRONTIO._pageInited.agenda === true) return;
     PRONTIO._pageInited.agenda = true;
 
-    const entry =
-      PRONTIO.features &&
-      PRONTIO.features.agenda &&
-      PRONTIO.features.agenda.entry
-        ? PRONTIO.features.agenda.entry
-        : null;
+    let attempt = 0;
+    const maxAttempts = 25; // ~2.5s
 
-    if (!entry || typeof entry.init !== "function") {
-      console.error("[PRONTIO][Agenda] agenda.entry.init não encontrado.");
-      return;
+    function tick() {
+      attempt += 1;
+      const initFn = getEntryInit_();
+
+      if (initFn) {
+        try {
+          initFn({ document: document, window: global });
+        } catch (e) {
+          console.error("[PRONTIO][Agenda] Erro ao inicializar agenda.entry:", e);
+        }
+        return;
+      }
+
+      if (attempt >= maxAttempts) {
+        console.error("[PRONTIO][Agenda] agenda.entry.init não encontrado. Scripts carregados:", (PRONTIO._debug && PRONTIO._debug.loaded) || []);
+        console.error("[PRONTIO][Agenda] Scripts que falharam:", (PRONTIO._debug && PRONTIO._debug.failed) || []);
+        return;
+      }
+
+      setTimeout(tick, 100);
     }
 
-    // ✅ passa window também (evita env.window undefined em qualquer versão do entry)
-    try {
-      entry.init({ document: document, window: global });
-    } catch (e) {
-      console.error("[PRONTIO][Agenda] Erro ao inicializar agenda.entry:", e);
-    }
+    tick();
   }
 
   PRONTIO.pages.agenda = PRONTIO.pages.agenda || {};
