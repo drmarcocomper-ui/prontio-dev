@@ -8,16 +8,15 @@
  * - Normalizar a resposta (envelope vs data direto).
  * - Padronizar erros.
  *
- * Contrato canônico adotado (backend Registry):
- * - Agenda.Listar
- * - Agenda.Criar
- * - Agenda.Atualizar
- * - Agenda.Cancelar
- * - Agenda.ValidarConflito
- * - Agenda.BloquearHorario
- * - Agenda.DesbloquearHorario
- * - AgendaConfig.Obter
- * - AgendaConfig.Salvar
+ * ✅ Ajuste de compatibilidade (com o backend atual mostrado em Agenda.gs):
+ * - Backend expõe:
+ *   - Agenda.ListarPorPeriodo
+ *   - Agenda.Criar
+ *   - Agenda.Atualizar
+ *   - Agenda.Cancelar
+ *   - Agenda_ValidarConflito (legacy)
+ *   - Agenda_BloquearHorario (legacy)
+ *   - Agenda_RemoverBloqueio (legacy)
  *
  * Observação:
  * - Pacientes NÃO fica mais aqui.
@@ -110,6 +109,27 @@
   }
 
   // ------------------------------------------------------------
+  // Helpers: datas para Agenda.ListarPorPeriodo
+  // ------------------------------------------------------------
+  function ymdToLocalStart_(ymd) {
+    const s = assertYmd(ymd, "ymd");
+    const y = parseInt(s.slice(0, 4), 10);
+    const m = parseInt(s.slice(5, 7), 10) - 1;
+    const d = parseInt(s.slice(8, 10), 10);
+    const dt = new Date(y, m, d, 0, 0, 0, 0);
+    return dt;
+  }
+
+  function ymdToLocalEnd_(ymd) {
+    const s = assertYmd(ymd, "ymd");
+    const y = parseInt(s.slice(0, 4), 10);
+    const m = parseInt(s.slice(5, 7), 10) - 1;
+    const d = parseInt(s.slice(8, 10), 10);
+    const dt = new Date(y, m, d, 23, 59, 59, 999);
+    return dt;
+  }
+
+  // ------------------------------------------------------------
   // API pública (feature)
   // ------------------------------------------------------------
   function createAgendaApi(PRONTIORef) {
@@ -129,19 +149,25 @@
       },
 
       // -----------------------
-      // Agenda (canônico)
+      // Agenda (compat backend atual)
       // -----------------------
       async listar(params) {
         // params: { periodo:{inicio,fim}, filtros?, recursos? }
         const p = params || {};
         const periodo = p.periodo || {};
-        const inicio = assertYmd(periodo.inicio, "periodo.inicio");
-        const fim = assertYmd(periodo.fim, "periodo.fim");
+        const inicioYmd = assertYmd(periodo.inicio, "periodo.inicio");
+        const fimYmd = assertYmd(periodo.fim, "periodo.fim");
 
-        return await callAction(callApiData, "Agenda.Listar", {
-          periodo: { inicio, fim },
-          filtros: p.filtros || {},
-          recursos: p.recursos || {}
+        // ✅ Backend atual: Agenda.ListarPorPeriodo recebe inicio/fim (Date/ISO/ymd)
+        // Mas para não "perder" eventos do dia, enviamos Date local com fim 23:59:59.999.
+        const inicio = ymdToLocalStart_(inicioYmd);
+        const fim = ymdToLocalEnd_(fimYmd);
+
+        return await callAction(callApiData, "Agenda.ListarPorPeriodo", {
+          inicio: inicio,
+          fim: fim,
+          incluirCancelados: !!(p.filtros && p.filtros.incluirCancelados === true),
+          idPaciente: (p.filtros && p.filtros.idPaciente) ? String(p.filtros.idPaciente) : null
         });
       },
 
@@ -182,16 +208,19 @@
       },
 
       async validarConflito(payload) {
+        // ✅ Backend atual expõe: "Agenda_ValidarConflito"
         // payload: {data, hora_inicio, duracao_minutos, ignoreIdAgenda?, permitirEncaixe?, tipo?}
-        return await callAction(callApiData, "Agenda.ValidarConflito", payload || {});
+        return await callAction(callApiData, "Agenda_ValidarConflito", payload || {});
       },
 
       async bloquearHorario(payload) {
+        // ✅ Backend atual expõe: "Agenda_BloquearHorario" (legacy)
         // payload: {data, hora_inicio, duracao_minutos, titulo?, notas?, origem?}
-        return await callAction(callApiData, "Agenda.BloquearHorario", payload || {});
+        return await callAction(callApiData, "Agenda_BloquearHorario", payload || {});
       },
 
       async desbloquearHorario(idAgenda, motivo) {
+        // ✅ Backend atual expõe: "Agenda_RemoverBloqueio" (legacy)
         const id = String(idAgenda || "").trim();
         if (!id) {
           const err = new Error('"idAgenda" é obrigatório.');
@@ -199,8 +228,8 @@
           err.details = { field: "idAgenda" };
           throw err;
         }
-        return await callAction(callApiData, "Agenda.DesbloquearHorario", {
-          idAgenda: id,
+        return await callAction(callApiData, "Agenda_RemoverBloqueio", {
+          ID_Agenda: id,
           motivo: motivo ? String(motivo).slice(0, 500) : ""
         });
       }

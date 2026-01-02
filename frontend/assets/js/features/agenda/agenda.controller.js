@@ -8,6 +8,10 @@
  * - View: render/estado visual (features/agenda/agenda.view.js).
  * - Formatters: helpers puros (features/agenda/agenda.formatters.js).
  * - Widgets: typeahead genérico (assets/js/widgets/widget-typeahead.js).
+ *
+ * ✅ Padronização (2026):
+ * - Nome do paciente no front: "nomeCompleto"
+ * - Removido uso de "nome_paciente"
  */
 
 (function (global) {
@@ -107,6 +111,14 @@
     // =========================
     // Helpers gerais
     // =========================
+
+    // ✅ Nome oficial no front: nomeCompleto
+    function getNomeCompleto_(obj) {
+      if (!obj) return "";
+      // compat com possíveis retornos antigos do PacientesApi
+      return String(obj.nomeCompleto || obj.nome || "").trim();
+    }
+
     function setTodayIfEmpty_() {
       if (!dom || !dom.inputData) return;
       if (!dom.inputData.value) dom.inputData.value = FX.formatDateToInput(new Date());
@@ -153,10 +165,13 @@
 
     function matchesFiltro_(ag, termo, statusFiltro) {
       if (!ag) return false;
+
+      // ✅ antes: ag.nome_paciente
       if (termo) {
-        const nome = FX.stripAccents(String(ag.nome_paciente || "")).toLowerCase();
+        const nome = FX.stripAccents(String(ag.nomeCompleto || "")).toLowerCase();
         if (!nome.includes(termo)) return false;
       }
+
       if (statusFiltro) return matchesFiltroStatus_(ag.status, statusFiltro);
       return true;
     }
@@ -406,13 +421,13 @@
         if (p.documento) parts.push(p.documento);
         if (p.telefone) parts.push(p.telefone);
         if (p.data_nascimento) parts.push("Nasc.: " + p.data_nascimento);
-        return { title: p.nome || "(sem nome)", subtitle: parts.join(" • ") };
+        return { title: getNomeCompleto_(p) || "(sem nome)", subtitle: parts.join(" • ") };
       }
 
       function invalidateIfMismatch(inputEl, selectedGetter, selectedClear) {
         const typed = String(inputEl.value || "").trim();
         const sel = selectedGetter();
-        const selNome = sel && sel.nome ? String(sel.nome).trim() : "";
+        const selNome = sel ? getNomeCompleto_(sel) : "";
         if (!typed || !sel) return;
         if (typed !== selNome) selectedClear();
       }
@@ -433,7 +448,7 @@
           },
           onSelect: (p) => {
             state.pacienteNovo = p;
-            dom.novoNomePaciente.value = p.nome || "";
+            dom.novoNomePaciente.value = getNomeCompleto_(p) || "";
             if (p.telefone && dom.novoTelefone && !String(dom.novoTelefone.value || "").trim()) {
               dom.novoTelefone.value = p.telefone;
             }
@@ -457,7 +472,7 @@
           },
           onSelect: (p) => {
             state.pacienteEditar = p;
-            dom.editNomePaciente.value = p.nome || "";
+            dom.editNomePaciente.value = getNomeCompleto_(p) || "";
           }
         });
       }
@@ -498,10 +513,10 @@
               const mode = (ctx && ctx.mode) ? String(ctx.mode) : "novo";
               if (mode === "editar") {
                 state.pacienteEditar = p;
-                if (dom.editNomePaciente) dom.editNomePaciente.value = p && p.nome ? p.nome : "";
+                if (dom.editNomePaciente) dom.editNomePaciente.value = getNomeCompleto_(p) || "";
               } else {
                 state.pacienteNovo = p;
-                if (dom.novoNomePaciente) dom.novoNomePaciente.value = p && p.nome ? p.nome : "";
+                if (dom.novoNomePaciente) dom.novoNomePaciente.value = getNomeCompleto_(p) || "";
                 if (p && p.telefone && dom.novoTelefone && !String(dom.novoTelefone.value || "").trim()) {
                   dom.novoTelefone.value = p.telefone;
                 }
@@ -640,7 +655,9 @@
         if (dom.editHoraInicio) dom.editHoraInicio.value = ag.hora_inicio || "";
         if (dom.editDuracao) dom.editDuracao.value = ag.duracao_minutos || 15;
 
-        if (dom.editNomePaciente) dom.editNomePaciente.value = ag.nome_paciente || "";
+        // ✅ antes: ag.nome_paciente
+        if (dom.editNomePaciente) dom.editNomePaciente.value = String(ag.nomeCompleto || "").trim();
+
         if (dom.editTipo) dom.editTipo.value = ag.tipo || "";
         if (dom.editMotivo) dom.editMotivo.value = ag.motivo || "";
         if (dom.editOrigem) dom.editOrigem.value = ag.origem || "";
@@ -682,9 +699,12 @@
           return;
         }
         try {
+          // ✅ padronizado: nomeCompleto
           localStorage.setItem("prontio.pacienteSelecionado", JSON.stringify({
             ID_Paciente: ag.ID_Paciente,
-            nome: ag.nome_paciente || "",
+            nomeCompleto: String(ag.nomeCompleto || "").trim(),
+            // compat (outros pontos podem ainda ler "nome")
+            nome: String(ag.nomeCompleto || "").trim(),
             documento: ag.documento_paciente || "",
             telefone: ag.telefone_paciente || ""
           }));

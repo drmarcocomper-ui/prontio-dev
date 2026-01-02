@@ -11,6 +11,10 @@
  * Regras:
  * - Não conhece DOM.
  * - Só conhece callApiData (core).
+ *
+ * ✅ Padronização (2026):
+ * - Nome no front: "nomeCompleto" (oficial)
+ * - Campo "nome" fica como alias (compat), mas não é mais a verdade.
  */
 
 (function (global) {
@@ -54,14 +58,63 @@
     return unwrapData(res);
   }
 
+  /**
+   * Normaliza paciente vindo do backend (novo ou legado) para o shape usado no front.
+   * ✅ Nome oficial: nomeCompleto
+   *
+   * Aceita chaves comuns do projeto:
+   * - idPaciente / ID_Paciente / id / ID
+   * - nomeCompleto / nome / Nome
+   * - cpf / documento
+   * - telefonePrincipal / telefone
+   * - dataNascimento / data_nascimento
+   */
   function normalizePatientObj(p) {
     if (!p || typeof p !== "object") return null;
+
+    const idPaciente = String(p.idPaciente || p.ID_Paciente || p.id || p.ID || "").trim();
+
+    const nomeCompleto = String(
+      p.nomeCompleto ||
+      p.NomeCompleto ||
+      p.nome ||
+      p.Nome ||
+      ""
+    ).trim();
+
+    // Documento: prioriza CPF quando existir
+    const documento = String(
+      p.cpf ||
+      p.CPF ||
+      p.documento ||
+      p.documento_paciente ||
+      ""
+    ).trim();
+
+    const telefone = String(
+      p.telefonePrincipal ||
+      p.telefone ||
+      p.telefone_paciente ||
+      ""
+    ).trim();
+
+    const dataNascimento = String(
+      p.dataNascimento ||
+      p.data_nascimento ||
+      p.nascimento ||
+      ""
+    ).trim();
+
     return {
-      idPaciente: String(p.ID_Paciente || p.idPaciente || p.id || p.ID || ""),
-      nome: String(p.nome || ""),
-      documento: String(p.documento || ""),
-      telefone: String(p.telefone || ""),
-      data_nascimento: String(p.data_nascimento || "")
+      idPaciente,
+      // ✅ oficial
+      nomeCompleto,
+      // alias (compat com partes antigas; não usar como "verdade")
+      nome: nomeCompleto,
+
+      documento,
+      telefone,
+      data_nascimento: dataNascimento
     };
   }
 

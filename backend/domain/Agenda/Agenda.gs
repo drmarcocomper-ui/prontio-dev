@@ -42,6 +42,12 @@
  * ✅ Erros:
  * - code: CONFLICT | VALIDATION_ERROR | NOT_FOUND
  * - Front decide por code, não por texto
+ *
+ * ============================================================
+ * ✅ ATUALIZAÇÃO DE CONTRATO (2026-01-01):
+ * - Nome oficial do paciente: Pacientes.nomeCompleto
+ * - Remover "nome_paciente" e usar "nomeCompleto" nas respostas.
+ *   (Tanto nas actions NOVAS quanto nas LEGACY)
  */
 
 function handleAgendaAction(action, payload) {
@@ -115,14 +121,67 @@ var AGENDA_ORIGEM = {
 };
 
 // ============================================================
+// ✅ NomeCompleto (resolução por idPaciente) — usado pelas actions NOVAS e LEGACY
+// ============================================================
+
+var _agendaPacienteCache_ = null;
+
+function _agendaTryGetPacienteById_(idPaciente) {
+  var id = String(idPaciente || "").trim();
+  if (!id) return null;
+
+  if (!_agendaPacienteCache_) _agendaPacienteCache_ = {};
+  if (Object.prototype.hasOwnProperty.call(_agendaPacienteCache_, id)) return _agendaPacienteCache_[id];
+
+  var p = null;
+  try {
+    // ✅ conforme sua planilha/repo
+    p = Repo_getById_("Pacientes", "idPaciente", id);
+  } catch (_) {
+    p = null;
+  }
+
+  _agendaPacienteCache_[id] = p;
+  return p;
+}
+
+function _agendaGetNomeCompletoOficial_(pacienteObj) {
+  if (!pacienteObj || typeof pacienteObj !== "object") return "";
+  return String(pacienteObj.nomeCompleto || "").trim();
+}
+
+/**
+ * Anexa nomeCompleto ao DTO de agenda (não persiste; só resposta).
+ * Regra:
+ * - Se BLOQUEIO: nomeCompleto="Bloqueio"
+ * - Se não: resolve por idPaciente em Pacientes.nomeCompleto
+ */
+function _agendaAttachNomeCompleto_(dto) {
+  dto = _agendaNormalizeRowToDto_(dto || {});
+  var tipo = _agendaNormalizeTipo_(dto.tipo);
+  var isBloqueio = (tipo === AGENDA_TIPO.BLOQUEIO);
+
+  if (isBloqueio) {
+    dto.nomeCompleto = "Bloqueio";
+    return dto;
+  }
+
+  var nome = "";
+  if (dto.idPaciente) {
+    var p = _agendaTryGetPacienteById_(dto.idPaciente);
+    nome = _agendaGetNomeCompletoOficial_(p);
+  }
+  dto.nomeCompleto = nome || "(sem nome)";
+  return dto;
+}
+
+// ============================================================
 // Handlers NOVOS
 // ============================================================
 
 function Agenda_Action_ListarPorPeriodo_(ctx, payload) {
   payload = payload || {};
 
-  // ⚠️ Aceita Date/ISO por retrocompatibilidade interna, mas o contrato oficial do front
-  // para consultas diárias/semanas é {data, hora_inicio, duracao...}. Aqui é período genérico.
   var ini = _agendaParseDateRequired_(payload.inicio, "inicio");
   var fim = _agendaParseDateRequired_(payload.fim, "fim");
 
@@ -156,7 +215,8 @@ function Agenda_Action_ListarPorPeriodo_(ctx, payload) {
     var overlaps = (evIni.getTime() <= fim.getTime()) && (evFim.getTime() >= ini.getTime());
     if (!overlaps) continue;
 
-    out.push(e);
+    // ✅ anexa nomeCompleto para o front (novo contrato)
+    out.push(_agendaAttachNomeCompleto_(e));
   }
 
   out.sort(function (a, b) {
@@ -179,7 +239,6 @@ function Agenda_Action_Criar_(ctx, payload) {
 
   var norm = _agendaNormalizeCreateInput_(payload, params);
 
-  // ✅ Bloqueio: mantém sem paciente, status canônico (MARCADO)
   if (norm.tipo === AGENDA_TIPO.BLOQUEIO) {
     norm.idPaciente = "";
     norm.status = AGENDA_STATUS.MARCADO;
@@ -196,7 +255,6 @@ function Agenda_Action_Criar_(ctx, payload) {
   var idAgenda = Ids_nextId_("AGENDA");
   var now = new Date();
 
-  // ✅ Persistência: mantemos ISO (estável para storage), mas SEM usar ISO no contrato do front.
   var dto = {
     idAgenda: idAgenda,
     idPaciente: norm.idPaciente || "",
@@ -214,7 +272,9 @@ function Agenda_Action_Criar_(ctx, payload) {
   };
 
   Repo_insert_(AGENDA_ENTITY, dto);
-  return { item: dto };
+
+  // ✅ anexa nomeCompleto na resposta
+  return { item: _agendaAttachNomeCompleto_(dto) };
 }
 
 function Agenda_Action_Atualizar_(ctx, payload) {
@@ -261,7 +321,6 @@ function Agenda_Action_Atualizar_(ctx, payload) {
     }
   }
 
-  // mergedPatch.inicio/fim já estão em ISO (strings) quando vêm de patch date
   var newInicio = (mergedPatch.inicio !== undefined) ? _agendaParseDate_(mergedPatch.inicio) : _agendaParseDate_(existing.inicio);
   var newFim = (mergedPatch.fim !== undefined) ? _agendaParseDate_(mergedPatch.fim) : _agendaParseDate_(existing.fim);
 
@@ -292,7 +351,7 @@ function Agenda_Action_Atualizar_(ctx, payload) {
   if (!ok) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado para atualizar.", { idAgenda: idAgenda });
 
   var after = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
-  return { item: _agendaNormalizeRowToDto_(after) };
+  return { item: _agendaAttachNomeCompleto_(after) };
 }
 
 function Agenda_Action_Cancelar_(ctx, payload) {
@@ -305,7 +364,7 @@ function Agenda_Action_Cancelar_(ctx, payload) {
 
   existing = _agendaNormalizeRowToDto_(existing);
   existing.status = _agendaNormalizeStatus_(existing.status);
-  if (existing.status === AGENDA_STATUS.CANCELADO) return { item: existing };
+  if (existing.status === AGENDA_STATUS.CANCELADO) return { item: _agendaAttachNomeCompleto_(existing) };
 
   var nowIso = new Date().toISOString();
   var patch = {
@@ -319,27 +378,9 @@ function Agenda_Action_Cancelar_(ctx, payload) {
   if (!ok) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado para cancelar.", { idAgenda: idAgenda });
 
   var after = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
-  return { item: _agendaNormalizeRowToDto_(after) };
+  return { item: _agendaAttachNomeCompleto_(after) };
 }
 
-/**
- * ============================================================
- * ✅ PASSO 1.2 / 1.3 - Validação oficial (VALIDAR == SALVAR)
- * ============================================================
- * Entrada (contrato local):
- * {
- *   data:"YYYY-MM-DD",
- *   hora_inicio:"HH:MM",
- *   duracao_minutos:N,
- *   ignoreIdAgenda?:string,
- *   permitirEncaixe?:boolean,
- *   permite_encaixe?:boolean
- * }
- *
- * Saída (compat):
- * { ok:true, conflitos:[], intervalo:{...} }
- * { ok:false, erro:"...", conflitos:[...], intervalo:{...}, code:"CONFLICT|VALIDATION_ERROR" }
- */
 function Agenda_Action_ValidarConflito_(ctx, payload) {
   payload = payload || {};
 
@@ -358,11 +399,9 @@ function Agenda_Action_ValidarConflito_(ctx, payload) {
     permiteSobreposicao: false
   };
 
-  // ✅ Construção LOCAL (contrato oficial)
   var ini = _agendaBuildDateTime_(dataStr, horaStr);
   var fim = new Date(ini.getTime() + dur * 60000);
 
-  // ✅ PASSO 1.2: respeita encaixe (VALIDAR == SALVAR)
   var permitirEncaixe = (payload.permite_encaixe === true) || (payload.permitirEncaixe === true);
 
   try {
@@ -376,7 +415,6 @@ function Agenda_Action_ValidarConflito_(ctx, payload) {
 
     return { ok: true, conflitos: [], intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur } };
   } catch (err) {
-    // Converte detalhes do novo padrão para o formato esperado no front legado
     var conflitos = [];
     try {
       var det = err && err.details ? err.details : null;
@@ -447,7 +485,6 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
 
     var evIsBloqueio = (evTipo === AGENDA_TIPO.BLOQUEIO);
 
-    // 🔒 Bloqueio SEMPRE vence (independente de encaixe / sobreposição)
     if (evIsBloqueio) {
       _agendaThrow_("CONFLICT", "Horário bloqueado no intervalo.", {
         conflitos: [{
@@ -461,7 +498,6 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
       });
     }
 
-    // 🔒 Se estamos criando/atualizando um BLOQUEIO, qualquer evento conflita
     if (isBloqueioNovo) {
       _agendaThrow_("CONFLICT", "Não é possível bloquear: existe agendamento no intervalo.", {
         conflitos: [{
@@ -475,10 +511,7 @@ function _agendaAssertSemConflitos_(ctx, args, params) {
       });
     }
 
-    // Se o sistema estiver configurado para permitir sobreposição geral
     if (cfgPermiteSobreposicao) continue;
-
-    // Encaixe ignora conflitos APENAS de consultas (nunca bloqueio — já tratado acima)
     if (permitirEncaixe) continue;
 
     _agendaThrow_("CONFLICT", "Já existe agendamento no intervalo.", {
@@ -500,11 +533,8 @@ function _agendaNormalizeCreateInput_(payload, params) {
   params = params || {};
   payload = payload || {};
 
-  // padrão oficial: idPaciente
-  // compat: ID_Paciente
   var idPaciente = payload.idPaciente ? String(payload.idPaciente) : (payload.ID_Paciente ? String(payload.ID_Paciente) : "");
 
-  // no legado, front manda "motivo" como principal
   var titulo = payload.titulo || payload.motivo || "";
   var notas = payload.notas || "";
   var tipo = payload.tipo ? String(payload.tipo) : (payload.Bloqueio === true ? AGENDA_TIPO.BLOQUEIO : AGENDA_TIPO.CONSULTA);
@@ -515,7 +545,6 @@ function _agendaNormalizeCreateInput_(payload, params) {
 
   var permitirEncaixe = payload.permitirEncaixe === true || payload.permite_encaixe === true;
 
-  // ✅ Compat interna (se alguém mandar inicio/fim):
   if (payload.inicio && payload.fim) {
     var ini = _agendaParseDateRequired_(payload.inicio, "inicio");
     var fim = _agendaParseDateRequired_(payload.fim, "fim");
@@ -540,7 +569,6 @@ function _agendaNormalizeCreateInput_(payload, params) {
   var duracao = (payload.duracao_minutos !== undefined) ? Number(payload.duracao_minutos) : Number(params.duracaoPadraoMin || 30);
   if (isNaN(duracao) || duracao <= 0) duracao = Number(params.duracaoPadraoMin || 30);
 
-  // ✅ Construção LOCAL (contrato oficial)
   var ini2 = _agendaBuildDateTime_(dataStr, horaInicio);
   var fim2 = new Date(ini2.getTime() + duracao * 60000);
 
@@ -576,13 +604,11 @@ function _agendaBuildUpdatePatch_(existing, patch, topCompat, params) {
   if (out.status !== undefined) out.status = _agendaNormalizeStatus_(out.status);
   if (out.origem !== undefined) out.origem = _agendaNormalizeOrigem_(out.origem);
 
-  // Se patch inclui inicio/fim, assumimos ISO/Date (retrocompat interna)
   var hasNewDates = (patch.inicio !== undefined) || (patch.fim !== undefined);
   if (hasNewDates) {
     if (patch.inicio !== undefined) out.inicio = _agendaParseDateRequired_(patch.inicio, "inicio").toISOString();
     if (patch.fim !== undefined) out.fim = _agendaParseDateRequired_(patch.fim, "fim").toISOString();
   } else {
-    // ✅ Legado atualiza via data/hora/duração (contrato local)
     var dataStr = (topCompat.data !== undefined) ? String(topCompat.data) : null;
     var horaInicio = (topCompat.hora_inicio !== undefined) ? String(topCompat.hora_inicio) : null;
     var duracao = (topCompat.duracao_minutos !== undefined) ? Number(topCompat.duracao_minutos) : null;
@@ -629,7 +655,9 @@ function _agendaNormalizeRowToDto_(rowObj) {
     criadoEm: rowObj.criadoEm || "",
     atualizadoEm: rowObj.atualizadoEm || "",
     canceladoEm: rowObj.canceladoEm || "",
-    canceladoMotivo: rowObj.canceladoMotivo || ""
+    canceladoMotivo: rowObj.canceladoMotivo || "",
+    // ✅ garante que o campo exista (mesmo que vazio) para o front novo
+    nomeCompleto: rowObj.nomeCompleto || ""
   };
 }
 
@@ -641,7 +669,6 @@ function Agenda_ListarEventosDiaParaValidacao_(dataStr) {
   dataStr = String(dataStr || "").trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) return [];
 
-  // ✅ Dia LOCAL (00:00 -> 23:59:59.999)
   var ini = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 0, 0, 0, 0);
   var fim = new Date(Number(dataStr.slice(0, 4)), Number(dataStr.slice(5, 7)) - 1, Number(dataStr.slice(8, 10)), 23, 59, 59, 999);
 
@@ -662,7 +689,6 @@ function Agenda_ListarEventosDiaParaValidacao_(dataStr) {
     var dtFim = _agendaParseDate_(dto.fim);
     if (!dtIni || !dtFim) continue;
 
-    // ✅ Comparação por data local (sem depender de ISO/UTC)
     if (_agendaFormatDate_(dtIni) !== dataStr) continue;
 
     var dur = Math.max(1, Math.round((dtFim.getTime() - dtIni.getTime()) / 60000));
@@ -877,7 +903,6 @@ function Agenda_Legacy_ValidarConflito_(ctx, payload) {
   var ini = _agendaBuildDateTime_(dataStr, horaStr);
   var fim = new Date(ini.getTime() + dur * 60000);
 
-  // ✅ PASSO 1.2: validar chama a MESMA regra e respeita permitirEncaixe do payload legado
   var permitirEncaixe = payload.permite_encaixe === true || payload.permitirEncaixe === true;
 
   try {
@@ -892,7 +917,6 @@ function Agenda_Legacy_ValidarConflito_(ctx, payload) {
     return { ok: true, conflitos: [], intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur } };
 
   } catch (err) {
-    // Legado mantém shape antigo, mas agora os detalhes vêm do novo padrão
     var conflitos = [];
     try {
       var det = err && err.details ? err.details : null;
@@ -933,7 +957,7 @@ function _agendaLegacyPackNotas_(payload) {
     __legacy: true,
     motivo: payload.motivo || payload.titulo || "",
     canal: payload.canal || "",
-    nome_paciente: payload.nome_paciente || "",
+    // ✅ REMOVIDO: nome_paciente
     documento_paciente: payload.documento_paciente || "",
     telefone_paciente: payload.telefone_paciente || "",
     data_nascimento: payload.data_nascimento || "",
@@ -967,7 +991,7 @@ function _agendaLegacyMergeNotas_(existingNotas, payload) {
 
   if (payload.motivo !== undefined) base.motivo = String(payload.motivo || "");
   if (payload.canal !== undefined) base.canal = String(payload.canal || "");
-  if (payload.nome_paciente !== undefined) base.nome_paciente = String(payload.nome_paciente || "");
+  // ✅ REMOVIDO: nome_paciente
   if (payload.documento_paciente !== undefined) base.documento_paciente = String(payload.documento_paciente || "");
   if (payload.telefone_paciente !== undefined) base.telefone_paciente = String(payload.telefone_paciente || "");
   if (payload.data_nascimento !== undefined) base.data_nascimento = String(payload.data_nascimento || "");
@@ -993,11 +1017,6 @@ function _agendaLegacyMapUiStatusToCore_(label) {
   return AGENDA_STATUS.MARCADO;
 }
 
-/**
- * ✅ Normalização FINAL
- * Retorna sempre status CANÔNICO.
- * Aceita valores antigos.
- */
 function _agendaNormalizeStatus_(status) {
   var s = String(status || "").trim().toUpperCase();
   if (!s) return AGENDA_STATUS.MARCADO;
@@ -1065,7 +1084,6 @@ function _agendaParseDate_(v) {
   }
 
   if (typeof v === "string") {
-    // ISO -> Date válido. Operações de "dia" devem ser por build local.
     var dStr = new Date(v);
     if (!isNaN(dStr.getTime())) return dStr;
 
@@ -1123,57 +1141,7 @@ function _agendaThrow_(code, message, details) {
 }
 
 // ============================================================
-// ✅ RESOLUÇÃO DE PACIENTE (LEGACY): nome oficial = nomeCompleto
-// ============================================================
-
-var _agendaPacienteCache_ = null;
-
-function _agendaTryGetPacienteById_(idPaciente) {
-  var id = String(idPaciente || "").trim();
-  if (!id) return null;
-
-  if (!_agendaPacienteCache_) _agendaPacienteCache_ = {};
-  if (Object.prototype.hasOwnProperty.call(_agendaPacienteCache_, id)) return _agendaPacienteCache_[id];
-
-  var p = null;
-
-  try {
-    // Preferir qualquer função de domínio, se existir
-    if (typeof Pacientes_getById_ === "function") {
-      p = Pacientes_getById_(id);
-    } else if (typeof Pacientes_Action_ObterPorId_ === "function") {
-      var r = Pacientes_Action_ObterPorId_(
-        { action: "Agenda.ResolvePaciente", user: null, env: (typeof PRONTIO_ENV !== "undefined" ? PRONTIO_ENV : "DEV"), apiVersion: (typeof PRONTIO_API_VERSION !== "undefined" ? PRONTIO_API_VERSION : "1.0.0-DEV") },
-        { idPaciente: id }
-      );
-      p = (r && (r.item || r.paciente || r.data)) ? (r.item || r.paciente || r.data) : null;
-    } else {
-      // Fallback: entidade "Pacientes" com chave "idPaciente" (conforme sua planilha)
-      p = Repo_getById_("Pacientes", "idPaciente", id) ||
-          Repo_getById_("Pacientes", "ID_Paciente", id) ||
-          Repo_getById_("Paciente", "idPaciente", id) ||
-          Repo_getById_("Paciente", "ID_Paciente", id);
-    }
-  } catch (_) {
-    p = null;
-  }
-
-  _agendaPacienteCache_[id] = p;
-  return p;
-}
-
-function _agendaExtractPacienteNomeOficial_(pacienteObj) {
-  if (!pacienteObj || typeof pacienteObj !== "object") return "";
-  // ✅ Nome oficial definido por você: nomeCompleto
-  var s = String(pacienteObj.nomeCompleto || "").trim();
-  if (s) return s;
-  // fallbacks só para compatibilidade defensiva
-  s = String(pacienteObj.nome || pacienteObj.Nome || pacienteObj.NOME || "").trim();
-  return s;
-}
-
-// ============================================================
-// ✅ IMPLEMENTAÇÃO FALTANTE (LEGACY): _agendaLegacyDtoToFront_
+// ✅ IMPLEMENTAÇÃO (LEGACY): _agendaLegacyDtoToFront_ (SEM nome_paciente)
 // ============================================================
 
 function _agendaLegacyDtoToFront_(dto) {
@@ -1194,26 +1162,23 @@ function _agendaLegacyDtoToFront_(dto) {
 
   var notasObj = _agendaLegacyTryParseNotas_(dto.notas);
 
-  // ⚠️ Antes: nome_paciente caía em dto.titulo (incorreto).
-  // Agora: nome oficial é resolvido via Pacientes.nomeCompleto.
-  var nomePaciente = String(notasObj.nome_paciente || "").trim();
-  var telefonePaciente = String(notasObj.telefone_paciente || "").trim();
-  var documentoPaciente = String(notasObj.documento_paciente || "").trim();
-  var motivo = String(notasObj.motivo || dto.titulo || "").trim();
-  var canal = String(notasObj.canal || "").trim();
+  var telefonePaciente = String((notasObj && notasObj.telefone_paciente) ? notasObj.telefone_paciente : "").trim();
+  var documentoPaciente = String((notasObj && notasObj.documento_paciente) ? notasObj.documento_paciente : "").trim();
+  var motivo = String((notasObj && notasObj.motivo) ? notasObj.motivo : (dto.titulo || "")).trim();
+  var canal = String((notasObj && notasObj.canal) ? notasObj.canal : "").trim();
 
   var isBloqueio = (tipo === AGENDA_TIPO.BLOQUEIO) || (notasObj && notasObj.bloqueio === true);
   var permiteEncaixe = (notasObj && notasObj.permite_encaixe === true);
 
-  // ✅ FIX: se não veio nome nas notas, resolve pelo idPaciente (nomeCompleto)
-  if (!isBloqueio && !nomePaciente) {
+  // ✅ Nome oficial: sempre vem de Pacientes.nomeCompleto (via idPaciente)
+  var nomeCompleto = "";
+  if (isBloqueio) {
+    nomeCompleto = "Bloqueio";
+  } else {
     var p = _agendaTryGetPacienteById_(dto.idPaciente);
-    var resolved = _agendaExtractPacienteNomeOficial_(p);
-    if (resolved) nomePaciente = resolved;
+    nomeCompleto = _agendaGetNomeCompletoOficial_(p);
+    if (!nomeCompleto) nomeCompleto = "(sem nome)";
   }
-
-  // fallback final (evitar vazio na UI)
-  if (!isBloqueio && !nomePaciente) nomePaciente = "(sem nome)";
 
   return {
     ID_Agenda: String(dto.idAgenda || ""),
@@ -1222,7 +1187,7 @@ function _agendaLegacyDtoToFront_(dto) {
     hora_inicio: hIni,
     hora_fim: hFim,
     duracao_minutos: durMin,
-    nome_paciente: isBloqueio ? "Bloqueio" : nomePaciente,
+    nomeCompleto: nomeCompleto,
     telefone_paciente: telefonePaciente,
     documento_paciente: documentoPaciente,
     motivo: motivo,

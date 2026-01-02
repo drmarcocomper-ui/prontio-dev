@@ -289,17 +289,15 @@ function _prontuarioPacienteObterResumo_(payload) {
 
   var p = (raw && raw.paciente) ? raw.paciente : raw;
 
-  var nome = _prontuarioPickFirst_(p, [
-  "nomeCompleto",
-  "nomeExibicao",
-  "nomeSocial",
-  "nome",
-  "Nome",
-  "NOME",
-  "nome_paciente",
-  "Nome_Paciente",
-  "nomePaciente"
-]);
+    var nome = _prontuarioPickFirst_(p, [
+    "nomeCompleto",
+    "nomeExibicao",
+    "nomeSocial",
+    "nome",
+    "Nome",
+    "NOME"
+    // ✅ removido: "nome_paciente", "Nome_Paciente", "nomePaciente"
+  ]);
 
 var dn = _prontuarioPickFirst_(p, [
   "dataNascimento",
@@ -542,7 +540,8 @@ function _prontuarioDocGetPacienteNome_(idPaciente) {
   try {
     var resp = _prontuarioPacienteObterResumo_({ idPaciente: idPaciente });
     var p = resp && resp.paciente ? resp.paciente : {};
-    var nome = p.nomeCompleto || p.nomeExibicao || p.nome || "";
+    // ✅ padrão: nomeCompleto
+    var nome = p.nomeCompleto || p.nomeExibicao || p.nomeSocial || p.nome || "";
     return String(nome || "").trim() || "—";
   } catch (_) {
     return "—";

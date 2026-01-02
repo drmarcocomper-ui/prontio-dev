@@ -14,6 +14,10 @@
  * - Não chama API
  * - Não acessa DOM
  * - Pode ser usado por widgets/features
+ *
+ * ✅ Padronização (2026):
+ * - Nome do paciente no front: "nomeCompleto"
+ * - Removido: "nome_paciente"
  */
 
 (function (global) {
@@ -203,8 +207,15 @@
   }
 
   /**
-   * DTO canônico (backend) -> UI shape mínimo que a página usa hoje.
-   * Observação: UI atual usa `nome_paciente` para exibir, mas DTO tem `titulo`.
+   * DTO (backend) -> UI shape mínimo que a página usa hoje.
+   *
+   * ✅ Padronização:
+   * - Campo de nome no front: nomeCompleto
+   * - Se for bloqueio: nomeCompleto = "Bloqueio"
+   *
+   * Observação:
+   * - Se o backend ainda não enviar nomeCompleto, mantém fallback "(sem nome)".
+   * - Não usa `titulo` como nome do paciente.
    */
   function dtoToUi(dto) {
     const inicioIso = dto && dto.inicio ? String(dto.inicio) : "";
@@ -212,6 +223,10 @@
 
     const tipo = String(dto && dto.tipo ? dto.tipo : "");
     const isBloqueio = tipo.toUpperCase() === "BLOQUEIO";
+
+    const nomeCompleto = isBloqueio
+      ? "Bloqueio"
+      : (dto && dto.nomeCompleto ? String(dto.nomeCompleto).trim() : "");
 
     return {
       ID_Agenda: dto && dto.idAgenda ? String(dto.idAgenda) : "",
@@ -221,7 +236,10 @@
       hora_fim: hhmmFromIso(fimIso),
       duracao_minutos: diffMinutes(inicioIso, fimIso),
 
-      nome_paciente: isBloqueio ? "Bloqueio" : (dto && dto.titulo ? String(dto.titulo) : "(sem nome)"),
+      // ✅ novo padrão
+      nomeCompleto: nomeCompleto || "(sem nome)",
+
+      // campos auxiliares (mantidos para compat com outras telas/fluxos)
       telefone_paciente: "",
       documento_paciente: "",
       motivo: dto && dto.notas ? String(dto.notas) : "",

@@ -1,3 +1,6 @@
+// frontend/assets/js/pages/page-pacientes.js
+// ✅ Padronização (2026): usar nomeCompleto e remover nome_paciente
+
 (function (global, document) {
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
 
@@ -9,14 +12,20 @@
       return Promise.reject(new Error("API não inicializada (callApiData indefinido)."));
     };
 
-  function setPacienteAtualGlobalFromPacientes(id, nome) {
+  function setPacienteAtualGlobalFromPacientes(id, nomeCompleto) {
+    var nome = String(nomeCompleto || "").trim();
+
     var info = {
       origem: "pacientes",
       id: id,
       idPaciente: id,
       ID_Paciente: id,
-      nome: nome,
-      nomeCompleto: nome
+
+      // ✅ oficial
+      nomeCompleto: nome,
+
+      // alias (compat com módulos antigos; não é a verdade)
+      nome: nome
     };
 
     try {
@@ -110,7 +119,7 @@
       const matches = w.details && Array.isArray(w.details.matches) ? w.details.matches : null;
       if (matches && matches.length) {
         const itens = matches.slice(0, 3).map(function (m) {
-          const nome = (m && m.nomeCompleto) ? String(m.nomeCompleto) : "Sem nome";
+          const nome = (m && m.nomeCompleto) ? String(m.nomeCompleto) : (m && m.nome ? String(m.nome) : "Sem nome");
           const id = (m && m.idPaciente) ? String(m.idPaciente) : "";
           return id ? (nome + " [ID: " + id + "]") : nome;
         });
@@ -174,7 +183,7 @@
   }
 
   let pacienteSelecionadoId = null;
-  let pacienteSelecionadoNome = null;
+  let pacienteSelecionadoNomeCompleto = null;
   let pacienteSelecionadoAtivo = null;
   let pacientesCache = [];
 
@@ -236,8 +245,6 @@
         if (orden) orden.disabled = true;
       } catch (_) {}
     } else {
-      // Ao sair do loading, não forçamos habilitar aqui.
-      // A lógica de seleção/estado atualiza os botões corretamente depois.
       try {
         const filtro = document.getElementById("filtroTexto");
         if (filtro) filtro.disabled = false;
@@ -886,7 +893,7 @@
 
       const tr = document.createElement("tr");
       tr.dataset.idPaciente = id;
-      tr.dataset.nomePaciente = nome;
+      tr.dataset.nomeCompleto = nome; // ✅ padronizado
       tr.dataset.ativo = ativoBool ? "SIM" : "NAO";
 
       if (!ativoBool) tr.classList.add("linha-inativa");
@@ -946,7 +953,7 @@
 
   function selecionarPacienteNaTabela(tr) {
     const id = tr.dataset.idPaciente || null;
-    const nome = tr.dataset.nomePaciente || "";
+    const nome = tr.dataset.nomeCompleto || "";
     const ativo = tr.dataset.ativo === "SIM";
 
     const linhas = document.querySelectorAll("#tabelaPacientesBody tr");
@@ -969,9 +976,9 @@
     }
   }
 
-  function atualizarSelecaoPaciente(id, nome, ativo) {
+  function atualizarSelecaoPaciente(id, nomeCompleto, ativo) {
     pacienteSelecionadoId = id;
-    pacienteSelecionadoNome = nome;
+    pacienteSelecionadoNomeCompleto = nomeCompleto;
     pacienteSelecionadoAtivo = ativo;
 
     const infoDiv = document.getElementById("pacienteSelecionadoInfo");
@@ -992,7 +999,7 @@
       return;
     }
 
-    if (infoDiv) infoDiv.textContent = "Paciente selecionado: " + nome + " (ID: " + id + ")";
+    if (infoDiv) infoDiv.textContent = "Paciente selecionado: " + nomeCompleto + " (ID: " + id + ")";
     if (btnIrProntuario) btnIrProntuario.disabled = false;
     if (btnEditar) btnEditar.disabled = false;
     if (btnCopiar) btnCopiar.disabled = false;
@@ -1007,7 +1014,7 @@
       }
     }
 
-    setPacienteAtualGlobalFromPacientes(id, nome);
+    setPacienteAtualGlobalFromPacientes(id, nomeCompleto);
   }
 
   function entrarModoEdicaoPacienteSelecionado() {
@@ -1050,7 +1057,7 @@
       return;
     }
 
-    setPacienteAtualGlobalFromPacientes(pacienteSelecionadoId, pacienteSelecionadoNome || "");
+    setPacienteAtualGlobalFromPacientes(pacienteSelecionadoId, pacienteSelecionadoNomeCompleto || "");
 
     try {
       global.localStorage.setItem(
@@ -1059,7 +1066,10 @@
           origem: "pacientes",
           ID_Paciente: pacienteSelecionadoId,
           idPaciente: pacienteSelecionadoId,
-          nome_paciente: pacienteSelecionadoNome || ""
+          // ✅ padronizado (removido nome_paciente)
+          nomeCompleto: pacienteSelecionadoNomeCompleto || "",
+          // alias (compat)
+          nome: pacienteSelecionadoNomeCompleto || ""
         })
       );
     } catch (e) {

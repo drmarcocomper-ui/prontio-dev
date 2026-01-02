@@ -12,6 +12,10 @@
  * - NÃO chama API
  * - NÃO guarda regra de negócio
  * - Pode receber callbacks do controller/page para ações do usuário
+ *
+ * ✅ Padronização (2026):
+ * - Nome do paciente no front: "nomeCompleto"
+ * - Removido uso de "nome_paciente"
  */
 
 (function (global) {
@@ -48,6 +52,12 @@
     if (!el) return;
     el.textContent = text || "";
     el.className = "form-message" + (kind ? " " + kind : "");
+  }
+
+  // ✅ helper local de exibição do nome (sem regra de negócio)
+  function getNomeExibicao(ag) {
+    const n = ag && ag.nomeCompleto ? String(ag.nomeCompleto).trim() : "";
+    return n || "(sem nome)";
   }
 
   function createAgendaView(opts) {
@@ -159,7 +169,8 @@
 
       const nome = doc.createElement("span");
       nome.className = "agendamento-nome";
-      nome.textContent = ag.nome_paciente || "(sem nome)";
+      // ✅ antes: ag.nome_paciente
+      nome.textContent = getNomeExibicao(ag);
       nomeWrap.appendChild(nome);
 
       const tipo = doc.createElement("span");
@@ -427,7 +438,8 @@
                 item.classList.add("semana-bloqueio-item");
                 item.textContent = "Bloqueado";
               } else {
-                const partes = [ag.nome_paciente || "(sem nome)"];
+                // ✅ antes: ag.nome_paciente
+                const partes = [getNomeExibicao(ag)];
                 if (ag.tipo) partes.push(ag.tipo);
                 if (ag.status) partes.push(ag.status);
                 item.textContent = partes.join(" • ");

@@ -13,6 +13,10 @@
  * - Não depende de planilha/estrutura interna.
  * - Não depende de AgendaController.
  * - Usa view.openModal/view.closeModal quando fornecidos (senão fallback simples).
+ *
+ * ✅ Padronização (2026):
+ * - Nome oficial no front: "nomeCompleto"
+ * - Removido uso de "nome_paciente" e evitado "nome" como verdade.
  */
 
 (function (global) {
@@ -92,6 +96,12 @@
       return !!modalEl && !modalEl.classList.contains("hidden");
     }
 
+    // ✅ helper local para nome oficial
+    function _getNomeCompleto(p) {
+      if (!p || typeof p !== "object") return "";
+      return String(p.nomeCompleto || p.nome || "").trim();
+    }
+
     function _renderList(pacientes) {
       if (!listEl) return;
       listEl.innerHTML = "";
@@ -103,7 +113,7 @@
 
         const linha1 = document.createElement("div");
         linha1.className = "paciente-lista-nome";
-        linha1.textContent = p.nome || "(sem nome)";
+        linha1.textContent = _getNomeCompleto(p) || "(sem nome)";
 
         const linha2 = document.createElement("div");
         linha2.className = "paciente-lista-detalhes";

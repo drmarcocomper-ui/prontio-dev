@@ -4,6 +4,12 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.agenda = PRONTIO.features.agenda || {};
 
+  // ✅ helper local: nome oficial no front é nomeCompleto
+  function getNomeCompleto_(p) {
+    if (!p) return "";
+    return String(p.nomeCompleto || p.nome || "").trim();
+  }
+
   function bindAgendaEvents({ document, dom, controller, state, view }) {
     // Init (controller precisa do dom)
     controller.initWithDom(dom);
@@ -103,7 +109,8 @@
     dom.btnEditLimparPaciente &&
       dom.btnEditLimparPaciente.addEventListener("click", () => {
         state.pacienteEditar = null;
-        dom.editNomePaciente && (dom.editNomePaciente.value = state.agendamentoEmEdicao ? (state.agendamentoEmEdicao.nome_paciente || "") : "");
+        // ✅ antes: state.agendamentoEmEdicao.nome_paciente
+        dom.editNomePaciente && (dom.editNomePaciente.value = state.agendamentoEmEdicao ? (state.agendamentoEmEdicao.nomeCompleto || "") : "");
       });
 
     // Busca pacientes no modal (lista simples)
@@ -147,7 +154,8 @@
 
               const linha1 = document.createElement("div");
               linha1.className = "paciente-lista-nome";
-              linha1.textContent = p.nome || "(sem nome)";
+              // ✅ antes: p.nome
+              linha1.textContent = getNomeCompleto_(p) || "(sem nome)";
 
               const linha2 = document.createElement("div");
               linha2.className = "paciente-lista-detalhes";
@@ -181,12 +189,14 @@
         minChars: 2,
         fetchItems: async (q) => await controller.onBuscarPacientes(q),
         renderItem: (p) => ({
-          title: p.nome || "(sem nome)",
+          // ✅ antes: p.nome
+          title: getNomeCompleto_(p) || "(sem nome)",
           subtitle: [p.documento, p.telefone, p.data_nascimento ? "Nasc.: " + p.data_nascimento : ""].filter(Boolean).join(" • ")
         }),
         onSelect: (p) => {
           state.pacienteNovo = p;
-          dom.novoNomePaciente && (dom.novoNomePaciente.value = p.nome || "");
+          // ✅ antes: dom.novoNomePaciente.value = p.nome
+          dom.novoNomePaciente && (dom.novoNomePaciente.value = getNomeCompleto_(p) || "");
           if (p.telefone && dom.novoTelefone && !String(dom.novoTelefone.value || "").trim()) dom.novoTelefone.value = p.telefone;
         }
       });
@@ -196,12 +206,14 @@
         minChars: 2,
         fetchItems: async (q) => await controller.onBuscarPacientes(q),
         renderItem: (p) => ({
-          title: p.nome || "(sem nome)",
+          // ✅ antes: p.nome
+          title: getNomeCompleto_(p) || "(sem nome)",
           subtitle: [p.documento, p.telefone, p.data_nascimento ? "Nasc.: " + p.data_nascimento : ""].filter(Boolean).join(" • ")
         }),
         onSelect: (p) => {
           state.pacienteEditar = p;
-          dom.editNomePaciente && (dom.editNomePaciente.value = p.nome || "");
+          // ✅ antes: dom.editNomePaciente.value = p.nome
+          dom.editNomePaciente && (dom.editNomePaciente.value = getNomeCompleto_(p) || "");
         }
       });
     }
