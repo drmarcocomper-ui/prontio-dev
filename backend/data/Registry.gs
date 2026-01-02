@@ -1,4 +1,3 @@
-// backend/Registry.gs
 /**
  * ============================================================
  * PRONTIO - Registry.gs
@@ -41,6 +40,12 @@
  *
  * ✅ UPDATE (sem quebrar):
  * - Alias: "Agenda.ValidarConflito" -> mesmo handler canônico
+ *
+ * ✅ UPDATE (PROFISSIONAL / FRONT NOVO):
+ * - Adiciona actions canônicas:
+ *   - Agenda.Listar  (adapter -> Agenda.ListarPorPeriodo)
+ *   - Agenda.BloquearHorario / Agenda.DesbloquearHorario (wrappers)
+ *   - AgendaConfig.Obter / AgendaConfig.Salvar (aliases canônicos)
  */
 
 var REGISTRY_ACTIONS = null;
@@ -131,6 +136,123 @@ function _Registry_agendaValidarConflitoHandler_() {
     }
 
     return _Registry_missingHandler_("handleAgendaAction / Agenda_Legacy_ValidarConflito_ / Agenda_Action_ValidarConflito")(ctx, payload);
+  };
+}
+
+/**
+ * ✅ Adapter profissional:
+ * "Agenda.Listar" (novo contrato do front) -> "Agenda.ListarPorPeriodo"
+ *
+ * Aceita:
+ * - payload.periodo.inicio/fim como YYYY-MM-DD (recomendado)
+ * - ou payload.inicio/fim (compat)
+ * - filtros opcionais: filtros.incluirCancelados, filtros.idPaciente
+ *
+ * Converte para o payload do handler existente Agenda_Action_ListarPorPeriodo_
+ * { inicio: <Date|ISO>, fim: <Date|ISO>, incluirCancelados, idPaciente }
+ *
+ * ✅ FIX CRÍTICO:
+ * Se inicio/fim vierem em YYYY-MM-DD, converte para dia inteiro:
+ * - inicio: 00:00:00.000
+ * - fim:    23:59:59.999
+ */
+function _Registry_agendaListarHandler_() {
+  function _isYmd_(s) {
+    return /^\d{4}-\d{2}-\d{2}$/.test(String(s || "").trim());
+  }
+
+  function _ymdStart_(ymd) {
+    var s = String(ymd).trim();
+    var y = Number(s.slice(0, 4));
+    var m = Number(s.slice(5, 7)) - 1;
+    var d = Number(s.slice(8, 10));
+    return new Date(y, m, d, 0, 0, 0, 0);
+  }
+
+  function _ymdEnd_(ymd) {
+    var s = String(ymd).trim();
+    var y = Number(s.slice(0, 4));
+    var m = Number(s.slice(5, 7)) - 1;
+    var d = Number(s.slice(8, 10));
+    return new Date(y, m, d, 23, 59, 59, 999);
+  }
+
+  return function (ctx, payload) {
+    payload = payload || {};
+    var periodo = payload.periodo || {};
+    var inicioRaw = (periodo.inicio !== undefined) ? periodo.inicio : payload.inicio;
+    var fimRaw = (periodo.fim !== undefined) ? periodo.fim : payload.fim;
+
+    var filtros = payload.filtros || {};
+    var incluirCancelados = filtros.incluirCancelados === true || payload.incluirCancelados === true;
+    var idPaciente = filtros.idPaciente ? String(filtros.idPaciente) : (payload.idPaciente ? String(payload.idPaciente) : null);
+
+    if (typeof Agenda_Action_ListarPorPeriodo_ !== "function") {
+      return _Registry_missingHandler_("Agenda_Action_ListarPorPeriodo_")(ctx, payload);
+    }
+
+    var inicio = inicioRaw;
+    var fim = fimRaw;
+
+    if (_isYmd_(inicioRaw)) inicio = _ymdStart_(inicioRaw);
+    if (_isYmd_(fimRaw)) fim = _ymdEnd_(fimRaw);
+
+    return Agenda_Action_ListarPorPeriodo_(ctx, {
+      inicio: inicio,
+      fim: fim,
+      incluirCancelados: incluirCancelados,
+      idPaciente: idPaciente
+    });
+  };
+}
+
+/**
+ * ✅ Wrapper profissional:
+ * Agenda.BloquearHorario -> Agenda.Criar (tipo=BLOQUEIO)
+ * Espera payload: {data, hora_inicio, duracao_minutos, titulo?, notas?, origem?}
+ */
+function _Registry_agendaBloquearHandler_() {
+  return function (ctx, payload) {
+    payload = payload || {};
+
+    if (typeof Agenda_Action_Criar_ !== "function") {
+      return _Registry_missingHandler_("Agenda_Action_Criar_")(ctx, payload);
+    }
+
+    var p = {
+      data: payload.data,
+      hora_inicio: payload.hora_inicio,
+      duracao_minutos: payload.duracao_minutos,
+      tipo: "BLOQUEIO",
+      titulo: payload.titulo || "BLOQUEIO",
+      notas: payload.notas || "",
+      origem: payload.origem || "SISTEMA",
+      permitirEncaixe: false
+    };
+
+    return Agenda_Action_Criar_(ctx, p);
+  };
+}
+
+/**
+ * ✅ Wrapper profissional:
+ * Agenda.DesbloquearHorario -> Agenda.Cancelar (idempotente)
+ * Espera payload: {idAgenda, motivo?}
+ */
+function _Registry_agendaDesbloquearHandler_() {
+  return function (ctx, payload) {
+    payload = payload || {};
+    if (typeof Agenda_Action_Cancelar_ !== "function") {
+      return _Registry_missingHandler_("Agenda_Action_Cancelar_")(ctx, payload);
+    }
+    var idAgenda = payload.idAgenda ? String(payload.idAgenda) : "";
+    if (!idAgenda) {
+      var e = new Error('"idAgenda" é obrigatório.');
+      e.code = "VALIDATION_ERROR";
+      e.details = { field: "idAgenda" };
+      throw e;
+    }
+    return Agenda_Action_Cancelar_(ctx, { idAgenda: idAgenda, motivo: payload.motivo || "Desbloquear horário" });
   };
 }
 
@@ -392,6 +514,46 @@ function _Registry_build_() {
     requiresLock: false,
     lockKey: null
   };
+  
+  // =========================
+// HEALTH (diagnóstico)
+// =========================
+map["Meta.HealthCheck"] = {
+  action: "Meta.HealthCheck",
+  handler: (typeof Meta_HealthCheck_ === "function")
+    ? Meta_HealthCheck_
+    : _Registry_missingHandler_("Meta_HealthCheck_"),
+  requiresAuth: true,
+  roles: [],            // qualquer autenticado pode ver saúde (ajuste se quiser)
+  validations: [],
+  requiresLock: false,
+  lockKey: null
+};
+
+map["Health.Integration"] = {
+  action: "Health.Integration",
+  handler: (typeof Health_Integration_ === "function")
+    ? Health_Integration_
+    : _Registry_missingHandler_("Health_Integration_"),
+  requiresAuth: true,
+  roles: [],            // qualquer autenticado
+  validations: [],
+  requiresLock: true,   // cria/cancela bloqueio (quando dryRun=false)
+  lockKey: "HEALTH_INTEGRATION"
+};
+
+// opcional: alias "Meta.HealthIntegration"
+map["Meta.HealthIntegration"] = {
+  action: "Meta.HealthIntegration",
+  handler: (typeof Meta_HealthIntegration_ === "function")
+    ? Meta_HealthIntegration_
+    : (typeof Health_Integration_ === "function" ? Health_Integration_ : _Registry_missingHandler_("Meta_HealthIntegration_ / Health_Integration_")),
+  requiresAuth: true,
+  roles: [],
+  validations: [],
+  requiresLock: true,
+  lockKey: "HEALTH_INTEGRATION"
+};
 
   // =========================
   // ATENDIMENTO
@@ -481,6 +643,16 @@ function _Registry_build_() {
     lockKey: null
   };
 
+  map["Agenda.Listar"] = {
+    action: "Agenda.Listar",
+    handler: _Registry_agendaListarHandler_(),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
   map["Agenda.Criar"] = {
     action: "Agenda.Criar",
     handler: (typeof Agenda_Action_Criar_ === "function")
@@ -512,6 +684,26 @@ function _Registry_build_() {
       : _Registry_missingHandler_("Agenda_Action_Cancelar_"),
     requiresAuth: true,
     roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda.BloquearHorario"] = {
+    action: "Agenda.BloquearHorario",
+    handler: _Registry_agendaBloquearHandler_(),
+    requiresAuth: true,
+    roles: [], // ajuste se quiser
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA"
+  };
+
+  map["Agenda.DesbloquearHorario"] = {
+    action: "Agenda.DesbloquearHorario",
+    handler: _Registry_agendaDesbloquearHandler_(),
+    requiresAuth: true,
+    roles: [], // ajuste se quiser
     validations: [],
     requiresLock: true,
     lockKey: "AGENDA"
@@ -583,7 +775,26 @@ function _Registry_build_() {
     lockKey: "AGENDA_CONFIG"
   };
 
-  // ✅ PASSO 1: validação de conflito (fonte da verdade no novo Agenda.gs)
+  map["AgendaConfig.Obter"] = {
+    action: "AgendaConfig.Obter",
+    handler: map["AgendaConfig_Obter"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["AgendaConfig.Salvar"] = {
+    action: "AgendaConfig.Salvar",
+    handler: map["AgendaConfig_Salvar"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "AGENDA_CONFIG"
+  };
+
   map["Agenda_ValidarConflito"] = {
     action: "Agenda_ValidarConflito",
     handler: _Registry_agendaValidarConflitoHandler_(), // call-time
@@ -594,7 +805,6 @@ function _Registry_build_() {
     lockKey: null
   };
 
-  // ✅ Alias sem quebrar (caso alguém chame no formato dotted)
   map["Agenda.ValidarConflito"] = {
     action: "Agenda.ValidarConflito",
     handler: map["Agenda_ValidarConflito"].handler,
@@ -1150,6 +1360,12 @@ function Registry_ListActions(ctx, payload) {
     hasMedicamentos: keys.indexOf("Medicamentos.ListarAtivos") >= 0,
     hasAgendaListarEventosDiaParaValidacao: keys.indexOf("Agenda_ListarEventosDiaParaValidacao") >= 0,
     hasPacientesCriar: keys.indexOf("Pacientes_Criar") >= 0,
-    hasUsuariosEnsureSchema: keys.indexOf("Usuarios_EnsureSchema") >= 0
+    hasUsuariosEnsureSchema: keys.indexOf("Usuarios_EnsureSchema") >= 0,
+
+    // ✅ novos canônicos (diagnóstico)
+    hasAgendaListar: keys.indexOf("Agenda.Listar") >= 0,
+    hasAgendaBloquearHorario: keys.indexOf("Agenda.BloquearHorario") >= 0,
+    hasAgendaDesbloquearHorario: keys.indexOf("Agenda.DesbloquearHorario") >= 0,
+    hasAgendaConfigDot: keys.indexOf("AgendaConfig.Obter") >= 0 && keys.indexOf("AgendaConfig.Salvar") >= 0
   };
 }
