@@ -13,7 +13,7 @@
   PRONTIO._mainBootstrapRan = true;
 
   // ✅ bump para quebrar cache
-  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.3";
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.4";
   PRONTIO.APP_VERSION = APP_VERSION;
 
   // ============================================================
@@ -29,10 +29,9 @@
 
     // ✅ Agenda (carrega tudo que a agenda realmente usa na árvore atual)
     // Ordem:
-    // - state (feature) primeiro (corrige createAgendaState undefined)
+    // - widget-typeahead + pacientes api/picker (busca/seleção)
+    // - agenda.state (feature) primeiro
     // - formatters/api/view/controller/events/entry
-    // - pacientes api/picker (agenda usa busca/seleção)
-    // - widget-typeahead (agenda usa autocomplete)
     // - page bootstrap por último
     agenda: {
       js: [
