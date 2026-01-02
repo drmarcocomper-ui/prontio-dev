@@ -13,7 +13,7 @@
   PRONTIO._mainBootstrapRan = true;
 
   // ✅ bump para quebrar cache
-  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.4";
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.5";
   PRONTIO.APP_VERSION = APP_VERSION;
 
   // ============================================================
@@ -27,12 +27,7 @@
 
     atendimento: { js: ["assets/js/pages/page-atendimento.js"], css: ["assets/css/pages/page-atendimento.css"] },
 
-    // ✅ Agenda (carrega tudo que a agenda realmente usa na árvore atual)
-    // Ordem:
-    // - widget-typeahead + pacientes api/picker (busca/seleção)
-    // - agenda.state (feature) primeiro
-    // - formatters/api/view/controller/events/entry
-    // - page bootstrap por último
+    // ✅ Agenda
     agenda: {
       js: [
         "assets/js/widgets/widget-typeahead.js",
@@ -164,21 +159,14 @@
     }
   }
 
-  function isLoginPage_() {
-    return getDataPage_() === "login";
-  }
+  function isLoginPage_() { return getDataPage_() === "login"; }
 
   function isChatStandalone_() {
-    try {
-      return document.body && document.body.getAttribute("data-chat-standalone") === "true";
-    } catch (e) {
-      return false;
-    }
+    try { return document.body && document.body.getAttribute("data-chat-standalone") === "true"; }
+    catch (e) { return false; }
   }
 
-  function getPageId_() {
-    return (document.body && document.body.getAttribute("data-page-id")) || "";
-  }
+  function getPageId_() { return (document.body && document.body.getAttribute("data-page-id")) || ""; }
 
   // ============================================================
   // Loader util (cache-busting)
@@ -205,11 +193,12 @@
     return false;
   }
 
+  // ✅ CORREÇÃO CRÍTICA: scripts dinâmicos em ordem garantida
   function loadScript_(src) {
     return new Promise((resolve) => {
       const s = document.createElement("script");
       s.src = withVersion_(src);
-      s.defer = true;
+      s.async = false; // ✅ garante ordem de execução
       s.onload = function () { resolve(true); };
       s.onerror = function () { resolve(false); };
       document.head.appendChild(s);
@@ -309,7 +298,6 @@
       }
     } catch (_) {}
 
-    // ✅ Shell responsivo: JS global
     try {
       await loadOnce_(RESPONSIVE_SHELL.js);
       if (PRONTIO.ui && PRONTIO.ui.responsiveShell && typeof PRONTIO.ui.responsiveShell.init === "function") {
