@@ -411,27 +411,7 @@
     </div>
   </div>
 
-  <!-- Scripts CORE necessários antes da Agenda (mantém o padrão do projeto) -->
-  <script defer src="assets/js/core/api.js"></script>
-  <script defer src="assets/js/core/storage.js"></script>
-  <script defer src="assets/js/core/state.js"></script>
-
-  <!-- Scripts do módulo Agenda (quebrados em arquivos menores) -->
-  <script defer src="assets/js/agenda/state.js"></script>
-  <script defer src="assets/js/agenda/pref.js"></script>
-  <script defer src="assets/js/agenda/utils.js"></script>
-  <script defer src="assets/js/agenda/api.js"></script>
-  <script defer src="assets/js/agenda/patients-typeahead.js"></script>
-  <script defer src="assets/js/agenda/modals-new.js"></script>
-  <script defer src="assets/js/agenda/day.js"></script>
-  <script defer src="assets/js/agenda/week.js"></script>
-  <script defer src="assets/js/agenda/new.js"></script>
-  <script defer src="assets/js/agenda/index.js"></script>
-
-  <!-- Bootstrap da página (registerPage / init) -->
-  <script defer src="assets/js/pages/page-agenda.js"></script>
-
-  <!-- Script principal do sistema -->
+  <!-- ✅ Script principal do sistema (carrega core + widgets + feature + page via PAGE_MANIFEST) -->
   <script defer src="assets/js/main.js"></script>
 </body>
 </html>

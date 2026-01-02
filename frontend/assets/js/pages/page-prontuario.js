@@ -100,6 +100,9 @@
     return obj;
   }
 
+  // ✅ Padronização (2026):
+  // - Fonte oficial do nome no front: nomeCompleto
+  // - Removido uso de nome_paciente
   function carregarContextoProntuario() {
     const params = getQueryParams();
     let ctxStorage = null;
@@ -118,26 +121,43 @@
       }
     } catch (e) {}
 
+    const idPaciente =
+      params.idPaciente ||
+      params.pacienteId ||
+      params.id ||
+      (ctxStorage && (ctxStorage.ID_Paciente || ctxStorage.idPaciente)) ||
+      (ctxState && (ctxState.ID_Paciente || ctxState.idPaciente)) ||
+      "";
+
+    const idAgenda =
+      params.idAgenda ||
+      params.agendaId ||
+      (ctxStorage && (ctxStorage.ID_Agenda || ctxStorage.idAgenda)) ||
+      (ctxState && (ctxState.ID_Agenda || ctxState.idAgenda)) ||
+      "";
+
+    // ✅ Nome: prioriza nomeCompleto (query/localStorage/state)
+    const nomeCompleto =
+      params.nomeCompleto ||
+      params.pacienteNomeCompleto ||
+      params.nome ||
+      params.pacienteNome ||
+      (ctxStorage && (ctxStorage.nomeCompleto || ctxStorage.nome)) ||
+      (ctxState && (ctxState.nomeCompleto || ctxState.nome)) ||
+      "—";
+
     return {
-      idPaciente:
-        params.idPaciente ||
-        params.pacienteId ||
-        params.id ||
-        (ctxStorage && (ctxStorage.ID_Paciente || ctxStorage.idPaciente)) ||
-        (ctxState && (ctxState.ID_Paciente || ctxState.idPaciente)) ||
-        "",
-      idAgenda:
-        params.idAgenda ||
-        params.agendaId ||
-        (ctxStorage && (ctxStorage.ID_Agenda || ctxStorage.idAgenda)) ||
-        (ctxState && (ctxState.ID_Agenda || ctxState.idAgenda)) ||
-        "",
-      nome:
-        params.nome ||
-        params.pacienteNome ||
-        (ctxStorage && (ctxStorage.nome_paciente || ctxStorage.nome)) ||
-        (ctxState && (ctxState.nome || ctxState.nomeCompleto)) ||
-        "—",
+      idPaciente: String(idPaciente || "").trim(),
+      ID_Paciente: String(idPaciente || "").trim(),
+
+      idAgenda: String(idAgenda || "").trim(),
+      ID_Agenda: String(idAgenda || "").trim(),
+
+      // ✅ oficial
+      nomeCompleto: String(nomeCompleto || "").trim() || "—",
+
+      // alias (compat)
+      nome: String(nomeCompleto || "").trim() || "—",
     };
   }
 
@@ -199,7 +219,8 @@
   }
 
   async function carregarResumoPaciente_(ctx) {
-    setTextOrDash_("#prontuario-paciente-nome", ctx.nome || "—");
+    // ✅ sempre usa nomeCompleto no topo
+    setTextOrDash_("#prontuario-paciente-nome", ctx.nomeCompleto || "—");
 
     if (!ctx.idPaciente) {
       setTextOrDash_("#prontuario-paciente-idade", "—");
@@ -217,13 +238,17 @@
 
       const pac = data && data.paciente ? data.paciente : data;
 
-      const nome = (pac && (pac.nomeCompleto || pac.nomeExibicao || pac.nome || pac.Nome)) || ctx.nome || "—";
+      const nome = (pac && (pac.nomeCompleto || pac.nomeExibicao || pac.nomeSocial || pac.nome || pac.Nome)) || ctx.nomeCompleto || "—";
       const idade = pac && (pac.idade || pac.Idade);
       const profissao = pac && (pac.profissao || pac.Profissao);
       const plano = pac && (pac.planoSaude || pac.convenio || pac.PlanoSaude || pac.Convenio || pac.plano);
       const carteirinha = pac && (pac.carteirinha || pac.numeroCarteirinha || pac.NumeroCarteirinha || pac.Carteirinha);
 
-      setTextOrDash_("#prontuario-paciente-nome", nome);
+      // ✅ atualiza ctx em memória (mantém consistência do nome)
+      ctx.nomeCompleto = String(nome || "").trim() || ctx.nomeCompleto || "—";
+      ctx.nome = ctx.nomeCompleto;
+
+      setTextOrDash_("#prontuario-paciente-nome", ctx.nomeCompleto);
       setTextOrDash_("#prontuario-paciente-idade", idade);
       setTextOrDash_("#prontuario-paciente-profissao", profissao);
       setTextOrDash_("#prontuario-paciente-plano", plano);
@@ -753,14 +778,14 @@
 
   // ✅ Atualizado: payload novo + compatível
   function _collectDocPayload_(ctx) {
-  const t = String(docTipoAtual || "").toLowerCase();
-  const payload = {
-    idPaciente: String(ctx.idPaciente || ctx.ID_Paciente || "").trim(),
-    idAgenda: String(ctx.idAgenda || ctx.ID_Agenda || "").trim(),
-    tipoDocumento: t,
-    data: qs("#docData")?.value || "",
-    texto: qs("#docTexto")?.value || "",
-  };
+    const t = String(docTipoAtual || "").toLowerCase();
+    const payload = {
+      idPaciente: String(ctx.idPaciente || ctx.ID_Paciente || "").trim(),
+      idAgenda: String(ctx.idAgenda || ctx.ID_Agenda || "").trim(),
+      tipoDocumento: t,
+      data: qs("#docData")?.value || "",
+      texto: qs("#docTexto")?.value || "",
+    };
 
     if (t === "atestado") {
       payload.dias = Number(qs("#docDias")?.value || 0);
@@ -1321,7 +1346,8 @@
     try {
       const base = new URL("exames.html", global.location.origin);
       if (ctx.idPaciente) base.searchParams.set("pacienteId", ctx.idPaciente);
-      if (ctx.nome) base.searchParams.set("pacienteNome", ctx.nome);
+      // ✅ padronizado (nomeCompleto)
+      if (ctx.nomeCompleto) base.searchParams.set("pacienteNomeCompleto", ctx.nomeCompleto);
       if (ctx.idAgenda) base.searchParams.set("agendaId", ctx.idAgenda);
       global.location.href = base.toString();
     } catch (e) {
