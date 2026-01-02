@@ -13,8 +13,13 @@
   PRONTIO._mainBootstrapRan = true;
 
   // ✅ bump para quebrar cache
-  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.5";
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.6";
   PRONTIO.APP_VERSION = APP_VERSION;
+
+  // Debug simples (útil no GitHub Pages)
+  PRONTIO._debug = PRONTIO._debug || {};
+  PRONTIO._debug.loaded = PRONTIO._debug.loaded || [];
+  PRONTIO._debug.failed = PRONTIO._debug.failed || [];
 
   // ============================================================
   // Manifest explícito
@@ -73,7 +78,7 @@
   };
 
   // ============================================================
-  // Shell responsivo (profissional) - GLOBAL
+  // Shell responsivo - GLOBAL
   // ============================================================
   const RESPONSIVE_SHELL = {
     css: "assets/css/components/responsive-shell.css",
@@ -169,7 +174,7 @@
   function getPageId_() { return (document.body && document.body.getAttribute("data-page-id")) || ""; }
 
   // ============================================================
-  // Loader util (cache-busting)
+  // Loader util (cache-busting + ordem garantida)
   // ============================================================
   function withVersion_(src) {
     if (!src || src.includes("?")) return src;
@@ -193,14 +198,20 @@
     return false;
   }
 
-  // ✅ CORREÇÃO CRÍTICA: scripts dinâmicos em ordem garantida
   function loadScript_(src) {
     return new Promise((resolve) => {
       const s = document.createElement("script");
       s.src = withVersion_(src);
-      s.async = false; // ✅ garante ordem de execução
-      s.onload = function () { resolve(true); };
-      s.onerror = function () { resolve(false); };
+      s.async = false; // ✅ execução em ordem
+      s.onload = function () {
+        PRONTIO._debug.loaded.push(src);
+        resolve(true);
+      };
+      s.onerror = function () {
+        PRONTIO._debug.failed.push(src);
+        console.error("[PRONTIO][main] Falha ao carregar script:", src);
+        resolve(false);
+      };
       document.head.appendChild(s);
     });
   }
@@ -221,7 +232,7 @@
   }
 
   // ============================================================
-  // CSS loader seguro
+  // CSS loader
   // ============================================================
   PRONTIO._loadedCss = PRONTIO._loadedCss || {};
   function loadCssOnce_(href, tag) {
@@ -528,7 +539,8 @@
       const entry = PAGE_MANIFEST[pageId];
       if (entry && entry.js && entry.js.length) {
         for (let i = 0; i < entry.js.length; i++) {
-          await loadOnce_(entry.js[i]);
+          const ok = await loadOnce_(entry.js[i]);
+          if (!ok) console.error("[PRONTIO][main] Script do manifest falhou:", entry.js[i]);
         }
       }
 
