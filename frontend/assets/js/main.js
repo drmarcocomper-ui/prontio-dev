@@ -7,20 +7,17 @@
   PRONTIO.ui = PRONTIO.ui || {};
   PRONTIO.ui.modals = PRONTIO.ui.modals || {};
 
-  // ✅ marca cedo para impedir auto-init duplicado em loaders
   PRONTIO._mainBootstrapped = true;
 
-  // ✅ Se main.js for incluído 2x, não roda bootstrap de novo
   if (PRONTIO._mainBootstrapRan === true) return;
   PRONTIO._mainBootstrapRan = true;
 
-  // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
-  // (bump recomendado por causa da migração nomeCompleto e modularização da Agenda)
-  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.2";
+  // ✅ bump para quebrar cache
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.3";
   PRONTIO.APP_VERSION = APP_VERSION;
 
   // ============================================================
-  // ✅ Manifest explícito (evita tentar carregar páginas que não existem)
+  // Manifest explícito
   // ============================================================
   const PAGE_MANIFEST = {
     login: {
@@ -30,16 +27,28 @@
 
     atendimento: { js: ["assets/js/pages/page-atendimento.js"], css: ["assets/css/pages/page-atendimento.css"] },
 
-    // ✅ Agenda (modular — baseado na árvore real do projeto)
-    // Ordem importa: formatters -> api -> view -> controller -> events -> entry -> page bootstrap
+    // ✅ Agenda (carrega tudo que a agenda realmente usa na árvore atual)
+    // Ordem:
+    // - state (feature) primeiro (corrige createAgendaState undefined)
+    // - formatters/api/view/controller/events/entry
+    // - pacientes api/picker (agenda usa busca/seleção)
+    // - widget-typeahead (agenda usa autocomplete)
+    // - page bootstrap por último
     agenda: {
       js: [
+        "assets/js/widgets/widget-typeahead.js",
+
+        "assets/js/features/pacientes/pacientes.api.js",
+        "assets/js/features/pacientes/pacientes.picker.js",
+
+        "assets/js/features/agenda/agenda.state.js",
         "assets/js/features/agenda/agenda.formatters.js",
         "assets/js/features/agenda/agenda.api.js",
         "assets/js/features/agenda/agenda.view.js",
         "assets/js/features/agenda/agenda.controller.js",
         "assets/js/features/agenda/agenda.events.js",
         "assets/js/features/agenda/agenda.entry.js",
+
         "assets/js/pages/page-agenda.js"
       ],
       css: ["assets/css/pages/page-agenda.css"]
@@ -50,7 +59,6 @@
     exames: { js: ["assets/js/pages/page-exames.js"], css: ["assets/css/pages/page-exames.css"] },
     laudo: { js: ["assets/js/pages/page-laudo.js"], css: ["assets/css/pages/page-laudo.css"] },
 
-    // ✅ Pacientes (API/picker são features; page usa pages/page-pacientes.js)
     pacientes: {
       js: [
         "assets/js/features/pacientes/pacientes.api.js",
@@ -79,7 +87,7 @@
   };
 
   // ============================================================
-  // Skeleton (mantido)
+  // Skeleton
   // ============================================================
   function ensureSkeletonStyle_() {
     if (document.getElementById("prontio-skeleton-style")) return;
@@ -174,11 +182,10 @@
   }
 
   // ============================================================
-  // Loader util (cache-busting p/ GitHub Pages)
+  // Loader util (cache-busting)
   // ============================================================
   function withVersion_(src) {
     if (!src || src.includes("?")) return src;
-    // aplica versionamento para qualquer JS dentro de assets/js (inclui features/*)
     if (!src.startsWith("assets/js/")) return src;
     return src + "?v=" + encodeURIComponent(APP_VERSION);
   }
