@@ -5,14 +5,14 @@ function Agenda_Action_ListarPorPeriodo_(ctx, payload) {
   var fim = _agendaParseDateRequired_(payload.fim, "fim");
 
   if (fim.getTime() < ini.getTime()) {
-    _agendaThrow_("VALIDATION_ERROR", '"fim" não pode ser menor que "inicio".', {
-      inicio: ini.toISOString(),
-      fim: fim.toISOString()
-    });
+    _agendaThrow_("VALIDATION_ERROR", '"fim" não pode ser menor que "inicio".', {});
   }
 
   var incluirCancelados = payload.incluirCancelados === true;
   var idPaciente = payload.idPaciente ? String(payload.idPaciente) : null;
+
+  // Opcional: permitir filtro por profissional também (útil com "conflito por profissional")
+  var idProfissional = payload.idProfissional ? String(payload.idProfissional) : null;
 
   var all = Repo_list_(AGENDA_ENTITY);
   var out = [];
@@ -26,237 +26,265 @@ function Agenda_Action_ListarPorPeriodo_(ctx, payload) {
 
     if (!incluirCancelados && e.status === AGENDA_STATUS.CANCELADO) continue;
     if (idPaciente && String(e.idPaciente || "") !== idPaciente) continue;
+    if (idProfissional && String(e.idProfissional || "") !== idProfissional) continue;
 
     var evIni = _agendaParseDate_(e.inicio);
     var evFim = _agendaParseDate_(e.fim);
     if (!evIni || !evFim) continue;
 
-    var overlaps = (evIni.getTime() <= fim.getTime()) && (evFim.getTime() >= ini.getTime());
-    if (!overlaps) continue;
+    if (evIni.getTime() > fim.getTime() || evFim.getTime() < ini.getTime()) continue;
 
     out.push(_agendaAttachNomeCompleto_(e));
   }
 
   out.sort(function (a, b) {
-    var da = _agendaParseDate_(a.inicio);
-    var db = _agendaParseDate_(b.inicio);
-    return (da ? da.getTime() : 0) - (db ? db.getTime() : 0);
+    return _agendaParseDate_(a.inicio).getTime() - _agendaParseDate_(b.inicio).getTime();
   });
 
-  return { items: out, count: out.length };
+  return {
+    success: true,
+    data: { items: out, count: out.length },
+    errors: []
+  };
 }
 
 function Agenda_Action_Criar_(ctx, payload) {
   payload = payload || {};
+  var params = Config_getAgendaParams_();
 
-  var params = (typeof Config_getAgendaParams_ === "function") ? Config_getAgendaParams_() : {
-    duracaoPadraoMin: 30,
-    slotMin: 10,
-    permiteSobreposicao: false
-  };
+  var idProfissional = payload.idProfissional ? String(payload.idProfissional) : "";
+  if (!idProfissional) {
+    _agendaThrow_("VALIDATION_ERROR", '"idProfissional" é obrigatório.', { field: "idProfissional" });
+  }
 
   var norm = _agendaNormalizeCreateInput_(payload, params);
+
+  // garante presença no DTO final (mesmo se normalize não mexer nisso)
+  norm.idProfissional = idProfissional;
 
   if (norm.tipo === AGENDA_TIPO.BLOQUEIO) {
     norm.idPaciente = "";
     norm.status = AGENDA_STATUS.MARCADO;
   }
 
-  _agendaAssertSemConflitos_(ctx, {
-    inicio: norm.inicio,
-    fim: norm.fim,
-    permitirEncaixe: norm.permitirEncaixe === true,
-    modoBloqueio: norm.tipo === AGENDA_TIPO.BLOQUEIO,
-    ignoreIdAgenda: null
-  }, params);
+  var lockKey = "agenda:" + idProfissional + ":" + _agendaFormatYYYYMMDD_(norm.inicio);
 
-  var idAgenda = Ids_nextId_("AGENDA");
-  var now = new Date();
+  var createdDto = null;
 
-  var dto = {
-    idAgenda: idAgenda,
-    idPaciente: norm.idPaciente || "",
-    inicio: norm.inicio.toISOString(),
-    fim: norm.fim.toISOString(),
-    titulo: norm.titulo || "",
-    notas: norm.notas || "",
-    tipo: norm.tipo || AGENDA_TIPO.CONSULTA,
-    status: norm.status || AGENDA_STATUS.MARCADO,
-    origem: norm.origem || AGENDA_ORIGEM.RECEPCAO,
-    criadoEm: now.toISOString(),
-    atualizadoEm: now.toISOString(),
-    canceladoEm: "",
-    canceladoMotivo: ""
+  Locks_withLock_(lockKey, function () {
+
+    _agendaAssertSemConflitos_(ctx, {
+      inicio: norm.inicio,
+      fim: norm.fim,
+      idProfissional: idProfissional,
+      permitirEncaixe: norm.permitirEncaixe === true,
+      modoBloqueio: norm.tipo === AGENDA_TIPO.BLOQUEIO,
+      ignoreIdAgenda: null
+    }, params);
+
+    var idAgenda = Ids_nextId_("AGENDA");
+    var now = new Date().toISOString();
+
+    var dto = {
+      idAgenda: idAgenda,
+      idProfissional: idProfissional,
+      idPaciente: norm.idPaciente || "",
+      inicio: norm.inicio.toISOString(),
+      fim: norm.fim.toISOString(),
+      titulo: norm.titulo || "",
+      notas: norm.notas || "",
+      tipo: norm.tipo,
+      status: norm.status,
+      origem: norm.origem,
+      criadoEm: now,
+      atualizadoEm: now,
+      canceladoEm: "",
+      canceladoMotivo: ""
+    };
+
+    Repo_insert_(AGENDA_ENTITY, dto);
+    createdDto = dto;
+  });
+
+  return {
+    success: true,
+    data: { item: _agendaAttachNomeCompleto_(createdDto) },
+    errors: []
   };
-
-  Repo_insert_(AGENDA_ENTITY, dto);
-  return { item: _agendaAttachNomeCompleto_(dto) };
 }
 
 function Agenda_Action_Atualizar_(ctx, payload) {
   payload = payload || {};
-
-  var idAgenda = payload.idAgenda ? String(payload.idAgenda) : "";
+  var idAgenda = String(payload.idAgenda || "");
   if (!idAgenda) _agendaThrow_("VALIDATION_ERROR", '"idAgenda" é obrigatório.', { field: "idAgenda" });
+
+  var params = Config_getAgendaParams_();
 
   var existing = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
   if (!existing) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado.", { idAgenda: idAgenda });
 
   existing = _agendaNormalizeRowToDto_(existing);
-  existing.tipo = _agendaNormalizeTipo_(existing.tipo);
-  existing.status = _agendaNormalizeStatus_(existing.status);
-  existing.origem = _agendaNormalizeOrigem_(existing.origem);
 
-  var params = (typeof Config_getAgendaParams_ === "function") ? Config_getAgendaParams_() : {
-    duracaoPadraoMin: 30,
-    slotMin: 10,
-    permiteSobreposicao: false
-  };
+  // idProfissional é essencial para conflito por profissional.
+  // Preferência: usar o do registro existente; permitir patch se você suportar troca (geralmente não).
+  var idProfissional = String(existing.idProfissional || "");
+  if (!idProfissional) {
+    // fallback: aceitar do payload para registros legados sem idProfissional preenchido
+    idProfissional = payload.idProfissional ? String(payload.idProfissional) : "";
+  }
+  if (!idProfissional) {
+    _agendaThrow_("VALIDATION_ERROR", '"idProfissional" é obrigatório.', { field: "idProfissional" });
+  }
 
   var patchIn = (payload.patch && typeof payload.patch === "object") ? payload.patch : {};
   var mergedPatch = _agendaBuildUpdatePatch_(existing, patchIn, payload, params);
 
-  if (mergedPatch.status !== undefined) {
-    var s = _agendaNormalizeStatus_(mergedPatch.status);
-    if (s === AGENDA_STATUS.CANCELADO) {
-      _agendaThrow_("VALIDATION_ERROR", 'Use "Agenda.Cancelar" para cancelar um agendamento.', { idAgenda: idAgenda });
-    }
-    mergedPatch.status = s;
-  }
+  var newInicio = (mergedPatch.inicio !== undefined)
+    ? _agendaParseDate_(mergedPatch.inicio)
+    : _agendaParseDate_(existing.inicio);
 
-  var isCancelado = (String(existing.status || "") === AGENDA_STATUS.CANCELADO);
-  if (isCancelado) {
-    var blocked = ["inicio", "fim", "tipo", "status", "idPaciente"];
-    for (var k = 0; k < blocked.length; k++) {
-      if (mergedPatch[blocked[k]] !== undefined) {
-        _agendaThrow_("VALIDATION_ERROR", "Agendamento cancelado não pode ter data/tipo/status/paciente alterados.", {
-          idAgenda: idAgenda,
-          field: blocked[k]
-        });
-      }
-    }
-  }
-
-  var newInicio = (mergedPatch.inicio !== undefined) ? _agendaParseDate_(mergedPatch.inicio) : _agendaParseDate_(existing.inicio);
-  var newFim = (mergedPatch.fim !== undefined) ? _agendaParseDate_(mergedPatch.fim) : _agendaParseDate_(existing.fim);
+  var newFim = (mergedPatch.fim !== undefined)
+    ? _agendaParseDate_(mergedPatch.fim)
+    : _agendaParseDate_(existing.fim);
 
   if (!newInicio || !newFim) _agendaThrow_("VALIDATION_ERROR", "Datas inválidas em atualização.", { idAgenda: idAgenda });
   if (newFim.getTime() < newInicio.getTime()) _agendaThrow_("VALIDATION_ERROR", '"fim" não pode ser menor que "inicio".', {});
 
-  var tipoFinal = (mergedPatch.tipo !== undefined)
-    ? String(_agendaNormalizeTipo_(mergedPatch.tipo))
-    : String(existing.tipo || AGENDA_TIPO.CONSULTA);
+  // lock por profissional + data do novo início
+  var lockKey = "agenda:" + idProfissional + ":" + _agendaFormatYYYYMMDD_(newInicio);
 
-  mergedPatch.tipo = (mergedPatch.tipo !== undefined) ? _agendaNormalizeTipo_(mergedPatch.tipo) : undefined;
+  Locks_withLock_(lockKey, function () {
 
-  if (tipoFinal === AGENDA_TIPO.BLOQUEIO) mergedPatch.idPaciente = "";
+    _agendaAssertSemConflitos_(ctx, {
+      inicio: newInicio,
+      fim: newFim,
+      idProfissional: idProfissional,
+      permitirEncaixe: payload.permitirEncaixe === true,
+      modoBloqueio: mergedPatch.tipo === AGENDA_TIPO.BLOQUEIO,
+      ignoreIdAgenda: idAgenda
+    }, params);
 
-  var permitirEncaixe = (typeof payload.permitirEncaixe !== "undefined") ? (payload.permitirEncaixe === true) : false;
+    mergedPatch.atualizadoEm = new Date().toISOString();
 
-  _agendaAssertSemConflitos_(ctx, {
-    inicio: newInicio,
-    fim: newFim,
-    permitirEncaixe: permitirEncaixe,
-    modoBloqueio: (tipoFinal === AGENDA_TIPO.BLOQUEIO),
-    ignoreIdAgenda: idAgenda
-  }, params);
+    // garante não perder idProfissional em registros legados
+    if (!existing.idProfissional && mergedPatch.idProfissional === undefined) {
+      mergedPatch.idProfissional = idProfissional;
+    }
 
-  mergedPatch.atualizadoEm = new Date().toISOString();
-
-  var ok = Repo_update_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda, mergedPatch);
-  if (!ok) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado para atualizar.", { idAgenda: idAgenda });
+    var ok = Repo_update_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda, mergedPatch);
+    if (!ok) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado para atualizar.", { idAgenda: idAgenda });
+  });
 
   var after = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
-  return { item: _agendaAttachNomeCompleto_(after) };
+
+  return {
+    success: true,
+    data: { item: _agendaAttachNomeCompleto_(after) },
+    errors: []
+  };
 }
 
 function Agenda_Action_Cancelar_(ctx, payload) {
   payload = payload || {};
-  var idAgenda = payload.idAgenda ? String(payload.idAgenda) : "";
+  var idAgenda = String(payload.idAgenda || "");
   if (!idAgenda) _agendaThrow_("VALIDATION_ERROR", '"idAgenda" é obrigatório.', { field: "idAgenda" });
 
   var existing = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
   if (!existing) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado.", { idAgenda: idAgenda });
 
   existing = _agendaNormalizeRowToDto_(existing);
-  existing.status = _agendaNormalizeStatus_(existing.status);
-  if (existing.status === AGENDA_STATUS.CANCELADO) return { item: _agendaAttachNomeCompleto_(existing) };
 
-  var nowIso = new Date().toISOString();
-  var patch = {
-    status: AGENDA_STATUS.CANCELADO,
-    canceladoEm: nowIso,
-    canceladoMotivo: payload.motivo ? String(payload.motivo).slice(0, 500) : "",
-    atualizadoEm: nowIso
-  };
+  var idProfissional = String(existing.idProfissional || "");
+  if (!idProfissional) {
+    idProfissional = payload.idProfissional ? String(payload.idProfissional) : "";
+  }
+  if (!idProfissional) {
+    _agendaThrow_("VALIDATION_ERROR", '"idProfissional" é obrigatório.', { field: "idProfissional" });
+  }
 
-  var ok = Repo_update_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda, patch);
-  if (!ok) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado para cancelar.", { idAgenda: idAgenda });
+  var dtIni = _agendaParseDate_(existing.inicio);
+  if (!dtIni) _agendaThrow_("VALIDATION_ERROR", "Agendamento com início inválido.", { idAgenda: idAgenda });
+
+  var lockKey = "agenda:" + idProfissional + ":" + _agendaFormatYYYYMMDD_(dtIni);
+
+  Locks_withLock_(lockKey, function () {
+    var nowIso = new Date().toISOString();
+    var ok = Repo_update_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda, {
+      status: AGENDA_STATUS.CANCELADO,
+      canceladoEm: nowIso,
+      canceladoMotivo: payload.motivo ? String(payload.motivo).slice(0, 500) : "",
+      atualizadoEm: nowIso
+    });
+    if (!ok) _agendaThrow_("NOT_FOUND", "Agendamento não encontrado para cancelar.", { idAgenda: idAgenda });
+  });
 
   var after = Repo_getById_(AGENDA_ENTITY, AGENDA_ID_FIELD, idAgenda);
-  return { item: _agendaAttachNomeCompleto_(after) };
+
+  return {
+    success: true,
+    data: { item: _agendaAttachNomeCompleto_(after) },
+    errors: []
+  };
 }
 
 function Agenda_Action_ValidarConflito_(ctx, payload) {
   payload = payload || {};
 
-  var dataStr = String(payload.data || "").trim();
-  var horaStr = String(payload.hora_inicio || "").trim();
-  var dur = Number(payload.duracao_minutos || 0);
-  var ignoreId = String(payload.ignoreIdAgenda || "").trim();
+  var idProfissional = payload.idProfissional ? String(payload.idProfissional) : "";
+  if (!idProfissional) {
+    _agendaThrow_("VALIDATION_ERROR", '"idProfissional" é obrigatório.', { field: "idProfissional" });
+  }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(dataStr)) _agendaThrow_("VALIDATION_ERROR", '"data" inválida.', { field: "data" });
-  if (!/^\d{2}:\d{2}$/.test(horaStr)) _agendaThrow_("VALIDATION_ERROR", '"hora_inicio" inválida.', { field: "hora_inicio" });
-  if (!dur || isNaN(dur) || dur <= 0) _agendaThrow_("VALIDATION_ERROR", '"duracao_minutos" inválida.', { field: "duracao_minutos" });
+  var ini = _agendaBuildDateTime_(payload.data, payload.horaInicio);
+  var dur = Number(payload.duracaoMin || 0);
+  if (!dur || isNaN(dur) || dur <= 0) {
+    _agendaThrow_("VALIDATION_ERROR", '"duracaoMin" inválida.', { field: "duracaoMin" });
+  }
 
-  var params = (typeof Config_getAgendaParams_ === "function") ? Config_getAgendaParams_() : {
-    duracaoPadraoMin: 30,
-    slotMin: 10,
-    permiteSobreposicao: false
-  };
-
-  var ini = _agendaBuildDateTime_(dataStr, horaStr);
   var fim = new Date(ini.getTime() + dur * 60000);
-
-  var permitirEncaixe = (payload.permite_encaixe === true) || (payload.permitirEncaixe === true);
 
   try {
     _agendaAssertSemConflitos_(ctx, {
       inicio: ini,
       fim: fim,
-      permitirEncaixe: permitirEncaixe,
+      idProfissional: idProfissional,
+      permitirEncaixe: payload.permitirEncaixe === true,
       modoBloqueio: false,
-      ignoreIdAgenda: ignoreId || null
-    }, params);
-
-    return { ok: true, conflitos: [], intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur } };
-  } catch (err) {
-    var conflitos = [];
-    try {
-      var det = err && err.details ? err.details : null;
-      var arr = det && det.conflitos ? det.conflitos : null;
-
-      if (arr && arr.length) {
-        for (var i = 0; i < arr.length; i++) {
-          var c = arr[i];
-          var ci = _agendaParseDate_(c.inicio);
-          var cf = _agendaParseDate_(c.fim);
-          conflitos.push({
-            ID_Agenda: c.idAgenda || "",
-            bloqueio: String(c.tipo || "").toUpperCase().indexOf("BLOQ") >= 0,
-            hora_inicio: ci ? _agendaFormatHHMM_(ci) : "",
-            hora_fim: cf ? _agendaFormatHHMM_(cf) : ""
-          });
-        }
-      }
-    } catch (_) {}
+      ignoreIdAgenda: payload.ignoreIdAgenda || null
+    }, Config_getAgendaParams_());
 
     return {
-      ok: false,
-      erro: (err && err.message) ? String(err.message) : "Conflito de horário.",
-      conflitos: conflitos,
-      intervalo: { data: dataStr, hora_inicio: horaStr, duracao_minutos: dur },
-      code: (err && err.code) ? String(err.code) : "CONFLICT"
+      success: true,
+      data: {
+        ok: true,
+        conflitos: [],
+        intervalo: {
+          idProfissional: idProfissional,
+          data: payload.data,
+          horaInicio: payload.horaInicio,
+          duracaoMin: dur
+        }
+      },
+      errors: []
+    };
+
+  } catch (err) {
+    return {
+      success: false,
+      data: {
+        ok: false,
+        intervalo: {
+          idProfissional: idProfissional,
+          data: payload.data,
+          horaInicio: payload.horaInicio,
+          duracaoMin: dur
+        }
+      },
+      errors: [{
+        code: err.code || "CONFLICT",
+        message: err.message || "Conflito de horário",
+        details: err.details || {}
+      }]
     };
   }
 }

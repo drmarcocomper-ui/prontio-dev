@@ -315,3 +315,60 @@ function Repo_softDelete_(sheetName, idField, idValue) {
   patch.status = "INATIVO";
   return Repo_update_(sheetName, idField, idValue, patch);
 }
+function DEBUG_REPO_SHEETS() {
+  var ss = null;
+
+  try {
+    if (typeof Repository_getSpreadsheet_ === "function") {
+      ss = Repository_getSpreadsheet_();
+    }
+  } catch (_) {}
+
+  // fallback: tenta SpreadsheetApp padrão
+  if (!ss) {
+    try { ss = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) {}
+  }
+
+  if (!ss) {
+    Logger.log("ERRO: não consegui obter Spreadsheet.");
+    return;
+  }
+
+  var sheets = ss.getSheets().map(function (sh) { return sh.getName(); });
+
+  Logger.log(JSON.stringify({
+    spreadsheetId: ss.getId(),
+    spreadsheetName: ss.getName(),
+    sheets: sheets
+  }, null, 2));
+
+  Logger.log("AGENDA_ENTITY=" + (typeof AGENDA_ENTITY !== "undefined" ? AGENDA_ENTITY : "undefined"));
+  Logger.log("ATENDIMENTO_ENTITY=" + (typeof ATENDIMENTO_ENTITY !== "undefined" ? ATENDIMENTO_ENTITY : "undefined"));
+}
+function DEBUG_SHEET_STATS_(sheetName) {
+  var sh = Repo_getSheet_(sheetName);
+  var header = Repo_getHeader_(sh);
+  var lastRow = sh.getLastRow();
+  var lastCol = sh.getLastColumn();
+
+  var sample = [];
+  if (lastRow >= 2 && header.length > 0) {
+    var n = Math.min(5, lastRow - 1);
+    sample = sh.getRange(2, 1, n, Math.min(header.length, 12)).getValues(); // amostra 5 linhas, até 12 colunas
+  }
+
+  Logger.log(JSON.stringify({
+    sheet: sheetName,
+    lastRow: lastRow,
+    lastCol: lastCol,
+    headerLen: header.length,
+    header: header,
+    sampleRows: sample
+  }, null, 2));
+}
+
+function DEBUG_AGENDA_ATENDIMENTO_STATS() {
+  DEBUG_SHEET_STATS_("Agenda");
+  DEBUG_SHEET_STATS_("Atendimento");
+  DEBUG_SHEET_STATS_("AgendaEventos"); // só pra conferir onde estão os dados
+}

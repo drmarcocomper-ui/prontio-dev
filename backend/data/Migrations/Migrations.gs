@@ -15,12 +15,15 @@
  * - Não sobrescreve cabeçalho existente automaticamente (evita “trocar colunas do nada”).
  * - Mantém criação de header apenas quando a aba está vazia.
  *
- * ✅ ALINHAMENTO PROFISSIONAL (Pacientes):
- * - Como o sistema ainda não tem pacientes, padronizamos a aba única "Pacientes"
- *   no schema v2 (compatível com Pacientes.gs).
+ * ✅ ALINHAMENTO PROFISSIONAL:
+ * - Agenda/Atendimento passam a carregar idProfissional no header (base para conflito/lock por profissional).
+ *
+ * ⚠️ Nota:
+ * - A aba "Agenda" aqui representa o MODELO LEGADO (idAgenda/inicio/fim...).
+ * - O modelo novo de agenda está em "AgendaEventos".
  */
 
-var MIGRATIONS_LATEST_VERSION = 2;
+var MIGRATIONS_LATEST_VERSION = 3;
 
 var MIGRATIONS_META_SHEET = "__meta";
 var MIGRATIONS_META_HEADERS = ["key", "value", "updatedAt"];
@@ -33,18 +36,22 @@ var MIGRATIONS_META_HEADERS = ["key", "value", "updatedAt"];
  * - Estes nomes/campos são internos do backend.
  * - Ajuste de headers aqui NÃO quebra o front (front não conhece Sheets).
  *
- * Estratégia profissional (agora):
+ * Estratégia:
  * - "Pacientes" passa a ser v2 (uma aba só).
- * - "Agenda" já está no formato novo (DTO).
+ * - "Agenda" (LEGADO) e "Atendimento" incluem idProfissional (por profissional).
+ * - "AgendaEventos" (NOVO) já inclui idProfissional e idClinica.
  */
 var MIGRATIONS_SHEETS = {
   "__meta": MIGRATIONS_META_HEADERS,
 
   // =========================
-  // AGENDA (novo DTO)
+  // AGENDA (LEGADO) - POR PROFISSIONAL
   // =========================
   "Agenda": [
     "idAgenda",
+    "idProfissional",
+    // (opcional) se quiser multi-clínica no legado, descomente:
+    // "idClinica",
     "idPaciente",
     "inicio",
     "fim",
@@ -57,6 +64,30 @@ var MIGRATIONS_SHEETS = {
     "atualizadoEm",
     "canceladoEm",
     "canceladoMotivo"
+  ],
+
+  // =========================
+  // ATENDIMENTO - POR PROFISSIONAL
+  // =========================
+  "Atendimento": [
+    "idAtendimento",
+    "idAgenda",
+    "idProfissional",
+    // (opcional) se quiser multi-clínica, descomente:
+    // "idClinica",
+    "idPaciente",
+    "dataRef",
+    "status",
+    "ordem",
+    "chegadaEm",
+    "chamadoEm",
+    "inicioAtendimentoEm",
+    "concluidoEm",
+    "sala",
+    "observacoes",
+    "criadoEm",
+    "atualizadoEm",
+    "ativo"
   ],
 
   // =========================

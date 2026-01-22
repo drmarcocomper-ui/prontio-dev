@@ -8,6 +8,14 @@
  *
  * Este Schema é sobre o "modelo de dados" (DTO).
  * O mapeamento para planilha ficará no Repository/Migrations (Fase 4).
+ *
+ * ============================================================
+ * Atualização aplicada:
+ * - Atendimento agora está definido AQUI (fonte única), sem patch externo.
+ * - Agenda (legado) ganhou idProfissional (obrigatório) para suportar
+ *   "conflito por profissional" e locks dinâmicos.
+ * - Agenda (legado) ganhou idClinica (recomendado) para multi-clínica/relatórios.
+ * ============================================================
  */
 
 function Schema_get_(entityName) {
@@ -161,6 +169,96 @@ function Schema_all_() {
       }
     },
 
+    // =========================================================
+    // ATENDIMENTO (fonte única aqui; substitui patch externo)
+    // =========================================================
+
+    Atendimento: {
+      entity: "Atendimento",
+      idField: "idAtendimento",
+
+      // Exclusão lógica (não apaga histórico clínico)
+      softDelete: {
+        field: "ativo",
+        inactiveValue: false
+      },
+
+      fields: {
+        /* ============================
+           Identificação
+           ============================ */
+        idAtendimento: { type: "string", required: true },
+        idAgenda: { type: "string", required: true },
+        idPaciente: { type: "string", required: false },
+
+        /**
+         * ✅ Recomendado para consistência com "Agenda por profissional"
+         * e para consultas/relatórios e autorização.
+         */
+        idProfissional: { type: "string", required: true },
+
+        /**
+         * Opcional, mas recomendado em cenários multi-clínica.
+         * Se hoje for single-clínica, pode ficar vazio e ser preenchido na migração.
+         */
+        idClinica: { type: "string", required: false },
+
+        /* ============================
+           Referência temporal
+           ============================ */
+        dataRef: { type: "string", required: true, maxLength: 10 }, // YYYY-MM-DD
+        ordem: { type: "string", required: false },
+
+        /* ============================
+           STATUS CLÍNICO (ENUM CANÔNICO)
+           ============================
+           Fluxo:
+           MARCADO → CONFIRMADO → AGUARDANDO → EM_ATENDIMENTO → ATENDIDO
+                                ↘ FALTOU
+           Qualquer estado → CANCELADO / REMARCADO
+        */
+        status: {
+          type: "string",
+          required: true,
+          enum: [
+            "MARCADO",
+            "CONFIRMADO",
+            "AGUARDANDO",
+            "EM_ATENDIMENTO",
+            "ATENDIDO",
+            "FALTOU",
+            "CANCELADO",
+            "REMARCADO"
+          ]
+        },
+
+        /* ============================
+           Marcos temporais do atendimento
+           (preenchidos conforme status)
+           ============================ */
+        confirmadoEm: { type: "date", required: false },          // CONFIRMADO
+        chegadaEm: { type: "date", required: false },             // AGUARDANDO
+        inicioAtendimentoEm: { type: "date", required: false },   // EM_ATENDIMENTO
+        atendidoEm: { type: "date", required: false },            // ATENDIDO
+        faltouEm: { type: "date", required: false },              // FALTOU
+        canceladoEm: { type: "date", required: false },           // CANCELADO
+        remarcadoEm: { type: "date", required: false },           // REMARCADO
+
+        /* ============================
+           Dados complementares
+           ============================ */
+        sala: { type: "string", required: false, maxLength: 60 },
+        observacoes: { type: "string", required: false, maxLength: 2000 },
+
+        /* ============================
+           Auditoria básica
+           ============================ */
+        criadoEm: { type: "date", required: true },
+        atualizadoEm: { type: "date", required: true },
+        ativo: { type: "boolean", required: true }
+      }
+    },
+
     // =========================
     // LEGADO (mantido)
     // =========================
@@ -196,9 +294,20 @@ function Schema_all_() {
       softDelete: { field: "status", inactiveValue: "CANCELADO" },
       fields: {
         idAgenda: { type: "string", required: true },
+
+        /**
+         * ✅ Atualizado (por profissional):
+         * - idProfissional obrigatório para conflito/lock por profissional
+         * - idClinica recomendado (multi-clínica / relatórios)
+         */
+        idClinica: { type: "string", required: false },
+        idProfissional: { type: "string", required: true },
+
         idPaciente: { type: "string", required: false },
+
         inicio: { type: "date", required: true },
         fim: { type: "date", required: true },
+
         titulo: { type: "string", required: false, maxLength: 120 },
         notas: { type: "string", required: false, maxLength: 2000 },
         tipo: { type: "string", required: false, enum: ["CONSULTA", "RETORNO", "PROCEDIMENTO", "BLOQUEIO", "OUTRO"] },
