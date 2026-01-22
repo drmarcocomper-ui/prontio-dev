@@ -506,3 +506,15 @@ function AgendaConfig_getAgendaParams_() {
   _agendaCfgCacheSet_(_AGENDA_CFG_CACHE_KEY_PARAMS_, out, _AGENDA_CFG_CACHE_TTL_SEC_);
   return out;
 }
+/**
+ * Alias para padronizar consumo dentro do backend.
+ * A Agenda hoje tenta usar Config_getAgendaParams_() se existir.
+ *
+ * ✅ Segurança:
+ * - só define o alias se ainda não existir em outro arquivo.
+ */
+if (typeof Config_getAgendaParams_ !== "function") {
+  function Config_getAgendaParams_() {
+    return AgendaConfig_getAgendaParams_();
+  }
+}

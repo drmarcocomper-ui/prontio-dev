@@ -208,7 +208,6 @@ function _Agenda_Action_ValidarConflito_DelegarAgendaGs_(payload) {
 
   // Preferência máxima: roteador do módulo Agenda (mantém assinatura padrão)
   if (typeof handleAgendaAction === "function") {
-    // Agenda.gs já decide validar == salvar
     return handleAgendaAction("Agenda_ValidarConflito", payload);
   }
 
@@ -219,6 +218,23 @@ function _Agenda_Action_ValidarConflito_DelegarAgendaGs_(payload) {
   }
 
   return null; // sinaliza indisponível
+}
+
+function _Agenda_TryParseDate_(v) {
+  try {
+    if (!v) return null;
+    var d = new Date(String(v));
+    return isNaN(d.getTime()) ? null : d;
+  } catch (_) {
+    return null;
+  }
+}
+
+function _Agenda_FmtHHMM_(d) {
+  if (!(d instanceof Date) || isNaN(d.getTime())) return "";
+  var h = ("0" + d.getHours()).slice(-2);
+  var m = ("0" + d.getMinutes()).slice(-2);
+  return h + ":" + m;
 }
 
 /**
@@ -233,7 +249,6 @@ function Agenda_Action_ValidarConflito(payload) {
   payload = payload || {};
 
   // Normaliza compat de encaixe para o novo handler (se ele usar)
-  // (front pode mandar permite_encaixe ou permitirEncaixe)
   if (payload && typeof payload === "object") {
     if (payload.permitirEncaixe === undefined && payload.permite_encaixe === true) payload.permitirEncaixe = true;
     if (payload.permite_encaixe === undefined && payload.permitirEncaixe === true) payload.permite_encaixe = true;
@@ -242,13 +257,8 @@ function Agenda_Action_ValidarConflito(payload) {
   // 1) Preferência: mesma regra do salvar (Agenda.gs)
   try {
     var rNew = _Agenda_Action_ValidarConflito_DelegarAgendaGs_(payload);
-
-    // O handler oficial (Agenda_Action_ValidarConflito_) retorna:
-    // { ok, conflitos, intervalo, erro, code }
-    // Mantemos isso.
     if (rNew && typeof rNew === "object") return rNew;
   } catch (err) {
-    // Se o handler do Agenda.gs lançar, convertemos para o formato estável
     var code = (err && err.code) ? String(err.code) : "INTERNAL_ERROR";
     var message = (err && err.message) ? String(err.message) : "Erro ao validar conflito.";
 
@@ -257,17 +267,23 @@ function Agenda_Action_ValidarConflito(payload) {
     try {
       var det = err && err.details ? err.details : null;
       var arr = det && det.conflitos ? det.conflitos : null;
+
       if (Array.isArray(arr)) {
         for (var i = 0; i < arr.length; i++) {
           var c = arr[i] || {};
-          // Mantém shape compat com front legado
+
+          var di = _Agenda_TryParseDate_(c.inicio);
+          var df = _Agenda_TryParseDate_(c.fim);
+          var dur = 0;
+          if (di && df) dur = Math.max(1, Math.round((df.getTime() - di.getTime()) / 60000));
+
           conflitos.push({
             ID_Agenda: String(c.idAgenda || ""),
             bloqueio: String(c.tipo || "").toUpperCase().indexOf("BLOQ") >= 0,
-            data: "", // opcional; front não depende disso
-            hora_inicio: "",
-            hora_fim: "",
-            duracao_minutos: 0
+            data: payload && payload.data ? String(payload.data) : "",
+            hora_inicio: di ? _Agenda_FmtHHMM_(di) : (payload && payload.hora_inicio ? String(payload.hora_inicio) : ""),
+            hora_fim: df ? _Agenda_FmtHHMM_(df) : "",
+            duracao_minutos: dur
           });
         }
       }

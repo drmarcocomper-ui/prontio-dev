@@ -1,4 +1,3 @@
-// frontend/assets/js/main.js
 (function (global, document) {
   "use strict";
 
@@ -7,22 +6,20 @@
   PRONTIO.ui = PRONTIO.ui || {};
   PRONTIO.ui.modals = PRONTIO.ui.modals || {};
 
+  // ✅ marca cedo para impedir auto-init duplicado em loaders
   PRONTIO._mainBootstrapped = true;
 
+  // ✅ Se main.js for incluído 2x, não roda bootstrap de novo
   if (PRONTIO._mainBootstrapRan === true) return;
   PRONTIO._mainBootstrapRan = true;
 
-  // ✅ bump para quebrar cache
-  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.6";
+  // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
+  // (bump recomendado por causa da modularização da Agenda/Prontuário)
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.0.9.3";
   PRONTIO.APP_VERSION = APP_VERSION;
 
-  // Debug simples (útil no GitHub Pages)
-  PRONTIO._debug = PRONTIO._debug || {};
-  PRONTIO._debug.loaded = PRONTIO._debug.loaded || [];
-  PRONTIO._debug.failed = PRONTIO._debug.failed || [];
-
   // ============================================================
-  // Manifest explícito
+  // ✅ Manifest explícito (evita tentar carregar páginas que não existem)
   // ============================================================
   const PAGE_MANIFEST = {
     login: {
@@ -32,22 +29,16 @@
 
     atendimento: { js: ["assets/js/pages/page-atendimento.js"], css: ["assets/css/pages/page-atendimento.css"] },
 
-    // ✅ Agenda
+    // ✅ Agenda (Etapa 2A - modular)
+    // Ordem importa: state -> prefs -> typeahead -> day -> modal -> index -> page bootstrap
     agenda: {
       js: [
-        "assets/js/widgets/widget-typeahead.js",
-
-        "assets/js/features/pacientes/pacientes.api.js",
-        "assets/js/features/pacientes/pacientes.picker.js",
-
-        "assets/js/features/agenda/agenda.state.js",
-        "assets/js/features/agenda/agenda.formatters.js",
-        "assets/js/features/agenda/agenda.api.js",
-        "assets/js/features/agenda/agenda.view.js",
-        "assets/js/features/agenda/agenda.controller.js",
-        "assets/js/features/agenda/agenda.events.js",
-        "assets/js/features/agenda/agenda.entry.js",
-
+        "assets/js/agenda/state.js",
+        "assets/js/agenda/prefs.js",
+        "assets/js/agenda/patients-typeahead.js",
+        "assets/js/agenda/day.js",
+        "assets/js/agenda/modals-new.js",
+        "assets/js/agenda/index.js",
         "assets/js/pages/page-agenda.js"
       ],
       css: ["assets/css/pages/page-agenda.css"]
@@ -57,17 +48,25 @@
     configuracoes: { js: ["assets/js/pages/page-configuracoes.js"], css: ["assets/css/pages/page-configuracoes.css"] },
     exames: { js: ["assets/js/pages/page-exames.js"], css: ["assets/css/pages/page-exames.css"] },
     laudo: { js: ["assets/js/pages/page-laudo.js"], css: ["assets/css/pages/page-laudo.css"] },
+    pacientes: { js: ["assets/js/pages/page-pacientes.js"], css: ["assets/css/pages/page-pacientes.css"] },
 
-    pacientes: {
+    // ✅ Prontuário (Etapa 2B - modular)
+    // Ordem importa: utils -> api -> context -> paciente -> receita -> documentos -> evolucoes -> entry (registra init)
+    // ⚠️ Importante: NÃO carregar assets/js/pages/page-prontuario.js (monolito antigo) em paralelo.
+    prontuario: {
       js: [
-        "assets/js/features/pacientes/pacientes.api.js",
-        "assets/js/features/pacientes/pacientes.picker.js",
-        "assets/js/pages/page-pacientes.js"
+        "assets/js/features/prontuario/prontuario.utils.js",
+        "assets/js/features/prontuario/prontuario.api.js",
+        "assets/js/features/prontuario/prontuario.context.js",
+        "assets/js/features/prontuario/prontuario.paciente.js",
+        "assets/js/features/prontuario/prontuario.receita-panel.js",
+        "assets/js/features/prontuario/prontuario.documentos-panel.js",
+        "assets/js/features/prontuario/prontuario.evolucoes.js",
+        "assets/js/features/prontuario/prontuario.entry.js"
       ],
-      css: ["assets/css/pages/page-pacientes.css"]
+      css: ["assets/css/pages/page-prontuario.css"]
     },
 
-    prontuario: { js: ["assets/js/pages/page-prontuario.js"], css: ["assets/css/pages/page-prontuario.css"] },
     receita: { js: ["assets/js/pages/page-receita.js"], css: ["assets/css/pages/page-receita.css"] },
     relatorios: { js: ["assets/js/pages/page-relatorios.js"], css: ["assets/css/pages/page-relatorios.css"] },
     usuarios: { js: ["assets/js/pages/page-usuarios.js"], css: ["assets/css/pages/page-usuarios.css"] },
@@ -78,7 +77,7 @@
   };
 
   // ============================================================
-  // Shell responsivo - GLOBAL
+  // Shell responsivo (profissional) - GLOBAL
   // ============================================================
   const RESPONSIVE_SHELL = {
     css: "assets/css/components/responsive-shell.css",
@@ -86,7 +85,7 @@
   };
 
   // ============================================================
-  // Skeleton
+  // Skeleton (mantido)
   // ============================================================
   function ensureSkeletonStyle_() {
     if (document.getElementById("prontio-skeleton-style")) return;
@@ -164,17 +163,24 @@
     }
   }
 
-  function isLoginPage_() { return getDataPage_() === "login"; }
-
-  function isChatStandalone_() {
-    try { return document.body && document.body.getAttribute("data-chat-standalone") === "true"; }
-    catch (e) { return false; }
+  function isLoginPage_() {
+    return getDataPage_() === "login";
   }
 
-  function getPageId_() { return (document.body && document.body.getAttribute("data-page-id")) || ""; }
+  function isChatStandalone_() {
+    try {
+      return document.body && document.body.getAttribute("data-chat-standalone") === "true";
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function getPageId_() {
+    return (document.body && document.body.getAttribute("data-page-id")) || "";
+  }
 
   // ============================================================
-  // Loader util (cache-busting + ordem garantida)
+  // Loader util (cache-busting p/ GitHub Pages)
   // ============================================================
   function withVersion_(src) {
     if (!src || src.includes("?")) return src;
@@ -202,16 +208,9 @@
     return new Promise((resolve) => {
       const s = document.createElement("script");
       s.src = withVersion_(src);
-      s.async = false; // ✅ execução em ordem
-      s.onload = function () {
-        PRONTIO._debug.loaded.push(src);
-        resolve(true);
-      };
-      s.onerror = function () {
-        PRONTIO._debug.failed.push(src);
-        console.error("[PRONTIO][main] Falha ao carregar script:", src);
-        resolve(false);
-      };
+      s.defer = true;
+      s.onload = function () { resolve(true); };
+      s.onerror = function () { resolve(false); };
       document.head.appendChild(s);
     });
   }
@@ -232,7 +231,7 @@
   }
 
   // ============================================================
-  // CSS loader
+  // CSS loader seguro
   // ============================================================
   PRONTIO._loadedCss = PRONTIO._loadedCss || {};
   function loadCssOnce_(href, tag) {
@@ -301,17 +300,6 @@
     } catch (_) {}
 
     await loadOnce_("assets/js/core/auth.js");
-
-    // ✅ Tema: fonte da verdade é core/theme.js
-    await loadOnce_("assets/js/core/theme.js");
-    try {
-      if (PRONTIO.theme && typeof PRONTIO.theme.init === "function") {
-        PRONTIO.theme.init();
-      } else if (PRONTIO.ui && typeof PRONTIO.ui.initTheme === "function") {
-        PRONTIO.ui.initTheme();
-      }
-    } catch (_) {}
-
     await loadOnce_("assets/js/core/app.js");
 
     try {
@@ -320,6 +308,7 @@
       }
     } catch (_) {}
 
+    // ✅ Shell responsivo: JS global
     try {
       await loadOnce_(RESPONSIVE_SHELL.js);
       if (PRONTIO.ui && PRONTIO.ui.responsiveShell && typeof PRONTIO.ui.responsiveShell.init === "function") {
@@ -444,6 +433,51 @@
   PRONTIO.ui.modals.bindTriggers = bindModalTriggers_;
 
   // ============================================================
+  // Tema
+  // ============================================================
+  function initThemeToggle_() {
+    const btn = document.querySelector(".js-toggle-theme");
+    if (!btn) return;
+
+    function apply(theme) {
+      document.body.setAttribute("data-theme", theme);
+      try { localStorage.setItem("prontio_theme", theme); } catch (e) {}
+
+      const sun = document.querySelector(".js-theme-icon-sun");
+      const moon = document.querySelector(".js-theme-icon-moon");
+      if (sun && moon) {
+        if (theme === "dark") {
+          sun.style.display = "none";
+          moon.style.display = "";
+        } else {
+          sun.style.display = "";
+          moon.style.display = "none";
+        }
+      }
+      btn.setAttribute("aria-pressed", theme === "dark" ? "true" : "false");
+    }
+
+    let theme = "light";
+    try {
+      theme = localStorage.getItem("prontio_theme") || (document.body.getAttribute("data-theme") || "light");
+    } catch (e) {
+      theme = document.body.getAttribute("data-theme") || "light";
+    }
+
+    apply(theme);
+
+    if (btn.getAttribute("data-theme-bound") === "1") return;
+    btn.setAttribute("data-theme-bound", "1");
+
+    btn.addEventListener("click", function () {
+      const cur = document.body.getAttribute("data-theme") || "light";
+      apply(cur === "dark" ? "light" : "dark");
+    });
+  }
+
+  PRONTIO.ui.initTheme = initThemeToggle_;
+
+  // ============================================================
   // Chat widget
   // ============================================================
   async function ensureChatWidgetLoaded_() {
@@ -493,7 +527,7 @@
             await PRONTIO.widgets.topbar.init();
           }
 
-          // ✅ Tema já foi inicializado no ensureCoreLoaded_ via core/theme.js
+          initThemeToggle_();
           bindModalTriggers_(document);
           await ensureChatWidgetLoaded_();
         }
@@ -505,8 +539,7 @@
       const entry = PAGE_MANIFEST[pageId];
       if (entry && entry.js && entry.js.length) {
         for (let i = 0; i < entry.js.length; i++) {
-          const ok = await loadOnce_(entry.js[i]);
-          if (!ok) console.error("[PRONTIO][main] Script do manifest falhou:", entry.js[i]);
+          await loadOnce_(entry.js[i]);
         }
       }
 
