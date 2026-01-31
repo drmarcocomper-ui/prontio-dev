@@ -9,8 +9,12 @@
  * - Integrar com loaders (recarregar dia/semana)
  * - Picker de pacientes (open/close/isOpen/clear)
  *
+ * ✅ Como abrir na data atual:
+ * - No init(dom), se o input-data estiver vazio, seta para HOJE.
+ * - Em seguida, se não houver dataSelecionada, sincroniza com o input.
+ *
  * Importante:
- * - Editar (abrir/fechar modal + preencher) e Prontuário pertencem ao editActions.
+ * - Editar e Prontuário pertencem ao editActions.
  */
 
 (function (global) {
@@ -33,8 +37,38 @@
     const KEY_VIEW = "prontio.agenda.modoVisao";
     const KEY_FILTERS = "prontio.agenda.filtros.v2";
 
+    function persistModo_() {
+      try { storage?.setItem(KEY_VIEW, state.modoVisao); } catch (_) {}
+    }
+
+    function persistFiltros_() {
+      try {
+        storage?.setItem(KEY_FILTERS, JSON.stringify({
+          nome: state.filtros?.nome || "",
+          status: state.filtros?.status || ""
+        }));
+      } catch (_) {}
+    }
+
+    function ensureDate_() {
+      if (!state.dom?.inputData) return "";
+      if (!state.dom.inputData.value) {
+        state.dom.inputData.value = FX.formatDateToInput(new Date());
+      }
+      return state.dom.inputData.value;
+    }
+
+    async function refresh_() {
+      if (state.modoVisao === "semana") return loaders.carregarSemana();
+      return loaders.carregarDia();
+    }
+
     function init(dom) {
       state.dom = dom;
+
+      // ✅ 1) garante que abre em HOJE (se vazio)
+      ensureDate_();
+      state.dataSelecionada = state.dom?.inputData?.value || "";
 
       // filtros persistidos
       try {
@@ -56,31 +90,9 @@
         const v = storage?.getItem(KEY_VIEW);
         if (v === "semana" || v === "dia") state.modoVisao = v;
       } catch (_) {}
-    }
 
-    function persistModo_() {
-      try { storage?.setItem(KEY_VIEW, state.modoVisao); } catch (_) {}
-    }
-
-    function persistFiltros_() {
-      try {
-        storage?.setItem(KEY_FILTERS, JSON.stringify({
-          nome: state.filtros?.nome || "",
-          status: state.filtros?.status || ""
-        }));
-      } catch (_) {}
-    }
-
-    function ensureDate_() {
-      if (!state.dom?.inputData?.value) {
-        state.dom.inputData.value = FX.formatDateToInput(new Date());
-      }
-      return state.dom.inputData.value;
-    }
-
-    async function refresh_() {
-      if (state.modoVisao === "semana") return loaders.carregarSemana();
-      return loaders.carregarDia();
+      // ✅ 2) aplica o toggle de visão já no init (sem recarregar aqui)
+      view.setVisao?.(state.modoVisao, state.dom?.btnVisaoDia, state.dom?.btnVisaoSemana);
     }
 
     // -------------------------
@@ -107,14 +119,15 @@
     }
 
     async function onAgora() {
-      // mantém simples por enquanto (foco/scroll pode ser refinado depois)
+      // mantém simples: vai para HOJE e recarrega
       await onHoje();
     }
 
     async function onNav(delta) {
       const v = ensureDate_();
-      const d = FX.parseInputDate(v);
+      if (!v) return;
 
+      const d = FX.parseInputDate(v);
       if (state.modoVisao === "semana") d.setDate(d.getDate() + 7 * delta);
       else d.setDate(d.getDate() + 1 * delta);
 
