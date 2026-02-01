@@ -16,7 +16,7 @@
 
   // ✅ Bump quando fizer mudanças em JS e quiser quebrar cache do GitHub Pages
   // (bump recomendado por causa da modularização da Agenda/Prontuário)
-  const APP_VERSION = PRONTIO.APP_VERSION || "1.1.0.0";
+  const APP_VERSION = PRONTIO.APP_VERSION || "1.1.0.1";
   PRONTIO.APP_VERSION = APP_VERSION;
 
   // ============================================================
