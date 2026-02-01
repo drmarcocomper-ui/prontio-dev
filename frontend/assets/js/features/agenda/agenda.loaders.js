@@ -6,11 +6,13 @@
  * - Carregar agenda do DIA e da SEMANA
  * - Controlar concorrência (race condition)
  * - Converter DTO -> UI
+ * - Resolver nome do paciente via pacientesCache (front)
  * - Delegar renderização para a View
  *
- * Importante:
- * - Não chama API de pacientes (agenda não faz join no backend)
- * - Filtros por nome/status podem ser aplicados em camada superior depois
+ * Correções aplicadas:
+ * ✅ Render inicial SEM precisar criar agendamento
+ * ✅ Enriquecimento de nomeCompleto via pacientesCache
+ * ✅ Garantia de data atual no primeiro load
  */
 
 (function (global) {
@@ -65,19 +67,29 @@
       return { dataStr, hhmm: slots[idx] || null };
     }
 
+    function enrichPacientes_(list) {
+      if (!state.pacientesCache || typeof state.pacientesCache.enrichUiList !== "function") {
+        return list;
+      }
+      return state.pacientesCache.enrichUiList(list);
+    }
+
+    // =========================
+    // Render DIA
+    // =========================
     function renderDia_(dataStr) {
       const { slots } = getSlotsByConfig_();
       const now = getNowSlot_();
       const isHoje = now.dataStr === dataStr;
 
-      // resumo
+      const uiList = enrichPacientes_(state.agendamentosDiaUi || []);
+
       if (view.setResumo && FX.computeResumoDia) {
-        view.setResumo(FX.computeResumoDia(state.agendamentosDiaUi || []));
+        view.setResumo(FX.computeResumoDia(uiList));
       }
 
-      // map por hora
       const map = new Map();
-      (state.agendamentosDiaUi || []).forEach((ag) => {
+      uiList.forEach((ag) => {
         const hora = FX.normalizeHora(ag.hora_inicio);
         if (!hora) return;
         if (!map.has(hora)) map.set(hora, []);
@@ -91,26 +103,32 @@
         isHoje,
         horaFoco: state.horaFocoDia || null,
         callbacks: {
-          onNovo: (hora) => state.controllerActions?.abrirModalNovo && state.controllerActions.abrirModalNovo(hora),
-          onBloquear: (hora) => state.controllerActions?.abrirModalBloqueio && state.controllerActions.abrirModalBloqueio(hora),
-          onAtender: (ag) => state.controllerActions?.abrirProntuario && state.controllerActions.abrirProntuario(ag),
-          onEditar: (ag) => state.controllerActions?.abrirModalEditar && state.controllerActions.abrirModalEditar(ag),
-          onChangeStatus: (idAgenda, novoLabel, cardEl) => state.controllerActions?.mudarStatus && state.controllerActions.mudarStatus(idAgenda, novoLabel, cardEl),
-          onDesbloquear: (idAgenda, cardEl) => state.controllerActions?.desbloquear && state.controllerActions.desbloquear(idAgenda, cardEl)
+          onNovo: (hora) => state.controllerActions?.abrirModalNovo?.(hora),
+          onBloquear: (hora) => state.controllerActions?.abrirModalBloqueio?.(hora),
+          onAtender: (ag) => state.controllerActions?.abrirProntuario?.(ag),
+          onEditar: (ag) => state.controllerActions?.abrirModalEditar?.(ag),
+          onChangeStatus: (idAgenda, novoLabel, cardEl) =>
+            state.controllerActions?.mudarStatus?.(idAgenda, novoLabel, cardEl),
+          onDesbloquear: (idAgenda, cardEl) =>
+            state.controllerActions?.desbloquear?.(idAgenda, cardEl)
         }
       });
 
       state.horaFocoDia = null;
     }
 
+    // =========================
+    // Render SEMANA
+    // =========================
     function renderSemana_(refStr) {
       const per = FX.weekPeriodFrom(refStr);
       const { slots } = getSlotsByConfig_();
       const now = getNowSlot_();
 
-      // byDayHour
+      const uiList = enrichPacientes_(state.agendamentosSemanaUi || []);
+
       const byDayHour = {};
-      (state.agendamentosSemanaUi || []).forEach((ui) => {
+      uiList.forEach((ui) => {
         if (!ui || !ui.data) return;
         const horaNorm = FX.normalizeHora(ui.hora_inicio);
         if (!horaNorm) return;
@@ -129,12 +147,12 @@
           onIrParaDia: (ds, hora) => {
             state.horaFocoDia = hora;
             if (state.dom?.inputData) state.dom.inputData.value = ds;
-            state.controllerActions?.setVisao && state.controllerActions.setVisao("dia");
+            state.controllerActions?.setVisao?.("dia");
           },
           onDblClickNovo: (ds, hora) => {
             if (state.dom?.inputData) state.dom.inputData.value = ds;
-            state.controllerActions?.setVisao && state.controllerActions.setVisao("dia");
-            setTimeout(() => state.controllerActions?.abrirModalNovo && state.controllerActions.abrirModalNovo(hora), 50);
+            state.controllerActions?.setVisao?.("dia");
+            setTimeout(() => state.controllerActions?.abrirModalNovo?.(hora), 50);
           }
         }
       });
@@ -149,7 +167,7 @@
       const dataStr = ensureDate_();
       const mySeq = ++state.reqSeqDia;
 
-      view.showDayLoading && view.showDayLoading();
+      view.showDayLoading?.();
 
       try {
         const data = await api.listar({
@@ -167,16 +185,13 @@
           .filter(Boolean)
           .filter((x) => x.data === dataStr);
 
-        view.hideDayLoading && view.hideDayLoading();
-
-        // ✅ render
         renderDia_(dataStr);
       } catch (err) {
         if (mySeq !== state.reqSeqDia) return;
         console.error(err);
-        view.showDayError && view.showDayError("Erro ao carregar agenda do dia.");
+        view.showDayError?.("Erro ao carregar agenda do dia.");
       } finally {
-        view.hideDayLoading && view.hideDayLoading();
+        view.hideDayLoading?.();
       }
     }
 
@@ -206,13 +221,11 @@
           .map(FX.dtoToUi)
           .filter(Boolean);
 
-        // ✅ render
         renderSemana_(refStr);
       } catch (err) {
         if (mySeq !== state.reqSeqSemana) return;
         console.error(err);
-        // semana: view pode não ter método de erro específico
-        if (view.refs && view.refs.semanaGridEl) {
+        if (view.refs?.semanaGridEl) {
           view.refs.semanaGridEl.innerHTML = "";
           const wrap = (state.dom?.inputData?.ownerDocument || document).createElement("div");
           wrap.className = "agenda-erro";
