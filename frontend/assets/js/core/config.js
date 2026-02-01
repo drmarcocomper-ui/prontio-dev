@@ -33,7 +33,7 @@
   const ENV = detectEnv_();
 
   const API_URLS = {
-    dev: "https://script.google.com/macros/s/AKfycbywstw0vTmHbVfmeHtCxqkLEC4f04Ci_4ihoZcp3tIOMUS978fbqzd2A2xKBNiztxF-Uw/exec",
+    dev: "https://script.google.com/macros/s/AKfycbxV7wHjP7zuDL6GhH-fe9OFxOtCRoGUrOgvyaDaT2OqJWKR_LRcC0nY5XxhZbkwgrZJsw/exec",
     prod: "https://script.google.com/macros/s/AKfycbwGwSrgphYjR374ftYwbMczqnJzWTZvQXyyfcDGhyHsCGfuxbjd7FfhBEkUHoKrKC6AWQ/exec"
   };
 
