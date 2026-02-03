@@ -254,13 +254,17 @@
     b.addEventListener("click", async (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
+      const originalLabel = b.textContent;
       try {
         b.disabled = true;
+        b.textContent = "...";
         await onClick();
       } catch (e) {
-        alert((e && e.message) || "Falha na ação.");
+        console.error("[PRONTIO.atendimento] Erro na ação:", e);
+        msgs.erro((e && e.message) || "Falha na ação. Tente novamente.");
       } finally {
         b.disabled = false;
+        b.textContent = originalLabel;
       }
     });
     return b;
