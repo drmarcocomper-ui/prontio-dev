@@ -238,7 +238,9 @@ function Schema_all_() {
            ============================ */
         confirmadoEm: { type: "date", required: false },          // CONFIRMADO
         chegadaEm: { type: "date", required: false },             // AGUARDANDO
+        chamadoEm: { type: "date", required: false },             // Chamado na fila
         inicioAtendimentoEm: { type: "date", required: false },   // EM_ATENDIMENTO
+        concluidoEm: { type: "date", required: false },           // Compatibilidade
         atendidoEm: { type: "date", required: false },            // ATENDIDO
         faltouEm: { type: "date", required: false },              // FALTOU
         canceladoEm: { type: "date", required: false },           // CANCELADO

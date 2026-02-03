@@ -17,6 +17,7 @@
   MIGRATIONS_SHEETS["Atendimento"] = [
     "idAtendimento",
     "idAgenda",
+    "idProfissional",
     "idPaciente",
     "dataRef",
     "status",

@@ -86,6 +86,7 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
 
     agendaDia.push({
       idAgenda: String(idAgenda),
+      idProfissional: String(e.idProfissional || e.ID_Profissional || ""),
       idPaciente: String(e.idPaciente || e.ID_Paciente || ""),
       inicio: ini,
       fim: fim,
@@ -121,6 +122,7 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
       var dto = _atdBuildNew_(
         {
           idAgenda: ag.idAgenda,
+          idProfissional: ag.idProfissional,
           idPaciente: ag.idPaciente,
           dataRef: dataRef,
           ordem: ordemCalc,
@@ -129,6 +131,7 @@ function Atendimento_Action_SyncHoje_(ctx, payload) {
         },
         {
           idAgenda: ag.idAgenda,
+          idProfissional: ag.idProfissional,
           idPaciente: ag.idPaciente,
           dataRef: dataRef,
           status: ATENDIMENTO_STATUS.AGUARDANDO
@@ -384,6 +387,7 @@ function Atendimento_Action_SyncAPartirDeHoje_(ctx, payload) {
     var dataRef = _atdNormalizeDateRef_(ini);
     agendaInRange.push({
       idAgenda: String(idAgenda),
+      idProfissional: String(e.idProfissional || e.ID_Profissional || ""),
       idPaciente: String(e.idPaciente || e.ID_Paciente || ""),
       inicio: ini,
       fim: fim,
@@ -430,8 +434,8 @@ function Atendimento_Action_SyncAPartirDeHoje_(ctx, payload) {
 
       if (!exists) {
         var dto = _atdBuildNew_(
-          { idAgenda: ag.idAgenda, idPaciente: ag.idPaciente, dataRef: dref2, ordem: ordemCalc, observacoes: "", sala: "" },
-          { idAgenda: ag.idAgenda, idPaciente: ag.idPaciente, dataRef: dref2, status: ATENDIMENTO_STATUS.AGUARDANDO }
+          { idAgenda: ag.idAgenda, idProfissional: ag.idProfissional, idPaciente: ag.idPaciente, dataRef: dref2, ordem: ordemCalc, observacoes: "", sala: "" },
+          { idAgenda: ag.idAgenda, idProfissional: ag.idProfissional, idPaciente: ag.idPaciente, dataRef: dref2, status: ATENDIMENTO_STATUS.AGUARDANDO }
         );
         dto.criadoEm = nowIso;
         dto.atualizadoEm = nowIso;
@@ -605,6 +609,7 @@ function _atdBuildNew_(payload, overrides) {
   var dto = {
     idAtendimento: idAtendimento,
     idAgenda: overrides.idAgenda || (payload.idAgenda ? String(payload.idAgenda) : ""),
+    idProfissional: overrides.idProfissional || (payload.idProfissional ? String(payload.idProfissional) : ""),
     idPaciente: overrides.idPaciente || (payload.idPaciente ? String(payload.idPaciente) : ""),
     dataRef: overrides.dataRef || _atdNormalizeDateRef_(payload.dataRef),
     status: overrides.status || ATENDIMENTO_STATUS.AGUARDANDO,
@@ -648,6 +653,7 @@ function _atdNormalizeRowToDto_(rowObj) {
   return {
     idAtendimento: rowObj.idAtendimento || rowObj.ID_Atendimento || "",
     idAgenda: rowObj.idAgenda || rowObj.ID_Agenda || "",
+    idProfissional: rowObj.idProfissional || rowObj.ID_Profissional || "",
     idPaciente: rowObj.idPaciente || rowObj.ID_Paciente || "",
     dataRef: String(rowObj.dataRef || ""),
     status: rowObj.status || ATENDIMENTO_STATUS.AGUARDANDO,
