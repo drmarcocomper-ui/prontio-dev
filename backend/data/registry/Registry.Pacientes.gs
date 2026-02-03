@@ -61,6 +61,37 @@ function Registry_RegisterPacientes_(map) {
     lockKey: "PACIENTES"
   };
 
+  // ✅ Actions adicionadas (faltavam no Registry)
+  map["Pacientes_Atualizar"] = {
+    action: "Pacientes_Atualizar",
+    handler: _pacientesHandler_("Pacientes_Atualizar"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "PACIENTES"
+  };
+
+  map["Pacientes_ObterPorId"] = {
+    action: "Pacientes_ObterPorId",
+    handler: _pacientesHandler_("Pacientes_ObterPorId"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Pacientes_ListarSelecao"] = {
+    action: "Pacientes_ListarSelecao",
+    handler: _pacientesHandler_("Pacientes_ListarSelecao"),
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
   // aliases canônicos
   map["Pacientes.Listar"] = {
     action: "Pacientes.Listar",
@@ -100,5 +131,36 @@ function Registry_RegisterPacientes_(map) {
     validations: [],
     requiresLock: true,
     lockKey: "PACIENTES"
+  };
+
+  // ✅ Aliases canônicos adicionados
+  map["Pacientes.Atualizar"] = {
+    action: "Pacientes.Atualizar",
+    handler: map["Pacientes_Atualizar"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: true,
+    lockKey: "PACIENTES"
+  };
+
+  map["Pacientes.ObterPorId"] = {
+    action: "Pacientes.ObterPorId",
+    handler: map["Pacientes_ObterPorId"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
+  };
+
+  map["Pacientes.ListarSelecao"] = {
+    action: "Pacientes.ListarSelecao",
+    handler: map["Pacientes_ListarSelecao"].handler,
+    requiresAuth: true,
+    roles: [],
+    validations: [],
+    requiresLock: false,
+    lockKey: null
   };
 }

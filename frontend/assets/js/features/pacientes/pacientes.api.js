@@ -129,9 +129,22 @@
     }
 
     async function atualizar(payload) {
-      // Atualizar não aparece no Registry que você mandou, mas o Api.gs tem fallback legado via PRONTIO_routeAction_.
-      // Então chamamos a action legada diretamente.
-      return await callAction(callApiData, "Pacientes_Atualizar", payload || {});
+      // ✅ Registry agora tem Pacientes.Atualizar
+      return await callWithFallback(callApiData, "Pacientes.Atualizar", "Pacientes_Atualizar", payload || {});
+    }
+
+    async function obterPorId(idPaciente) {
+      const id = String(idPaciente || "").trim();
+      if (!id) {
+        const err = new Error('"idPaciente" é obrigatório.');
+        err.code = "VALIDATION_ERROR";
+        throw err;
+      }
+      return await callWithFallback(callApiData, "Pacientes.ObterPorId", "Pacientes_ObterPorId", { idPaciente: id });
+    }
+
+    async function listarSelecao(payload) {
+      return await callWithFallback(callApiData, "Pacientes.ListarSelecao", "Pacientes_ListarSelecao", payload || {});
     }
 
     async function alterarStatusAtivo(payload) {
@@ -139,7 +152,7 @@
       return await callWithFallback(callApiData, "Pacientes.AlterarStatusAtivo", "Pacientes_AlterarStatusAtivo", payload || {});
     }
 
-    return { buscarSimples, listar, criar, atualizar, alterarStatusAtivo };
+    return { buscarSimples, listar, criar, atualizar, alterarStatusAtivo, obterPorId, listarSelecao };
   }
 
   PRONTIO.features.pacientes.api = { createPacientesApi, normalizePatientObj };
