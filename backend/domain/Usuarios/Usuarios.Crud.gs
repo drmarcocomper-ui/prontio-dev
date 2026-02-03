@@ -46,6 +46,7 @@ function Usuarios_findByLoginForAuth_(identifier) {
   }
 
   var nome = String(_usrPick_(row, ["NomeCompleto", "Nome", "nome", "nomeCompleto"]) || "").trim();
+  var idProfissional = String(_usrPick_(row, ["ID_Profissional", "idProfissional", "idProfissionalRef"]) || "").trim();
 
   return {
     id: id,
@@ -54,6 +55,7 @@ function Usuarios_findByLoginForAuth_(identifier) {
     login: String(_usrPick_(row, ["Login", "login", "emailLogin"]) || "").trim(),
     email: String(_usrPick_(row, ["Email", "E-mail", "email"]) || "").trim(),
     perfil: String(_usrPick_(row, ["Perfil", "perfil", "Role", "role"]) || "").trim(),
+    idProfissional: idProfissional || null,
     ativo: ativo,
     senhaHash: senhaHash
   };

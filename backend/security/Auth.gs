@@ -565,7 +565,8 @@ function Auth_Login(ctx, payload) {
     nomeCompleto: nomeCompleto,
     login: u.login,
     email: u.email,
-    perfil: u.perfil
+    perfil: u.perfil,
+    idProfissional: u.idProfissional || null
   });
 
   try { ctx.user = _authNormalizeUser_(session.user); } catch (_) {}
@@ -622,12 +623,16 @@ function _authNormalizeUser_(user) {
 
   var nomeCompleto = (user.nomeCompleto || user.NomeCompleto || user.nome || user.Nome || "").toString().trim();
 
+  var idProfissional = (user.idProfissional !== undefined ? user.idProfissional : (user.ID_Profissional || user.idProfissionalRef || null));
+  idProfissional = idProfissional ? String(idProfissional).trim() : null;
+
   return {
     id: user.id !== undefined ? user.id : (user.ID_Usuario || user.idUsuario || null),
     nome: user.nome !== undefined ? user.nome : (user.Nome || null),
     nomeCompleto: nomeCompleto || null,
     login: user.login !== undefined ? user.login : (user.Login || null),
     email: user.email !== undefined ? user.email : (user.Email || null),
-    perfil: perfil
+    perfil: perfil,
+    idProfissional: idProfissional
   };
 }
