@@ -218,9 +218,16 @@ function Atendimento_Action_MarcarChegada_(ctx, payload) {
   }
 
   var st = _atdNormalizeStatus_(existing.status);
-  var patch = { status: st, atualizadoEm: nowIso };
+  var patch = { atualizadoEm: nowIso };
 
-  if (!existing.chegadaEm) patch.chegadaEm = nowIso;
+  // Se ainda não chegou, muda status para AGUARDANDO e registra chegada
+  if (!existing.chegadaEm) {
+    patch.chegadaEm = nowIso;
+    // Muda para AGUARDANDO se estava MARCADO ou CONFIRMADO
+    if (st === ATENDIMENTO_STATUS.MARCADO || st === ATENDIMENTO_STATUS.CONFIRMADO) {
+      patch.status = ATENDIMENTO_STATUS.AGUARDANDO;
+    }
+  }
   if (payload.sala !== undefined) patch.sala = String(payload.sala || "");
   if (payload.observacoes !== undefined) patch.observacoes = String(payload.observacoes || "");
   if (payload.ordem !== undefined) patch.ordem = _atdNormalizeNumberOrBlank_(payload.ordem);

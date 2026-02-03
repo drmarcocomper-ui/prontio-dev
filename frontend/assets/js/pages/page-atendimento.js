@@ -504,31 +504,43 @@
 
   async function acaoMarcarChegada_(row) {
     if (!row || !row.idAgenda) return;
-    await callApiData({ action: "Atendimento.MarcarChegada", payload: { idAgenda: row.idAgenda, idPaciente: row.idPaciente || "" } });
+    const raw = row._raw || {};
+    const dataRef = row.data || raw.dataRef || "";
+    await callApiData({ action: "Atendimento.MarcarChegada", payload: { idAgenda: row.idAgenda, idPaciente: row.idPaciente || "", dataRef: dataRef } });
     await carregarListaAtendimento();
   }
 
   async function acaoChamarManual_(row) {
     if (!row || !row.idAgenda) return;
     const s = String(row.status || "").toUpperCase();
-    if (s === "AGUARDANDO") {
-      await callApiData({ action: "Atendimento.MarcarChegada", payload: { idAgenda: row.idAgenda, idPaciente: row.idPaciente || "" } });
+    const raw = row._raw || {};
+    const dataRef = row.data || raw.dataRef || "";
+
+    // Se paciente ainda não chegou (MARCADO ou CONFIRMADO), marca chegada primeiro
+    if (s === "MARCADO" || s === "CONFIRMADO" || (s === "AGUARDANDO" && !raw.chegadaEm)) {
+      await callApiData({ action: "Atendimento.MarcarChegada", payload: { idAgenda: row.idAgenda, idPaciente: row.idPaciente || "", dataRef: dataRef } });
     }
-    await callApiData({ action: "Atendimento.ChamarProximo", payload: {} });
+
+    // Registra chamado
+    await callApiData({ action: "Atendimento.ChamarProximo", payload: { dataRef: dataRef } });
     await carregarListaAtendimento();
   }
 
   async function acaoIniciar_(row) {
     if (!row) return;
-    if (row.idAtendimento) await callApiData({ action: "Atendimento.Iniciar", payload: { idAtendimento: row.idAtendimento } });
-    else if (row.idAgenda) await callApiData({ action: "Atendimento.Iniciar", payload: { idAgenda: row.idAgenda } });
+    const raw = row._raw || {};
+    const dataRef = row.data || raw.dataRef || "";
+    if (row.idAtendimento) await callApiData({ action: "Atendimento.Iniciar", payload: { idAtendimento: row.idAtendimento, dataRef: dataRef } });
+    else if (row.idAgenda) await callApiData({ action: "Atendimento.Iniciar", payload: { idAgenda: row.idAgenda, dataRef: dataRef } });
     await carregarListaAtendimento();
   }
 
   async function acaoConcluir_(row) {
     if (!row) return;
-    if (row.idAtendimento) await callApiData({ action: "Atendimento.Concluir", payload: { idAtendimento: row.idAtendimento } });
-    else if (row.idAgenda) await callApiData({ action: "Atendimento.Concluir", payload: { idAgenda: row.idAgenda } });
+    const raw = row._raw || {};
+    const dataRef = row.data || raw.dataRef || "";
+    if (row.idAtendimento) await callApiData({ action: "Atendimento.Concluir", payload: { idAtendimento: row.idAtendimento, dataRef: dataRef } });
+    else if (row.idAgenda) await callApiData({ action: "Atendimento.Concluir", payload: { idAgenda: row.idAgenda, dataRef: dataRef } });
     await carregarListaAtendimento();
   }
 
@@ -537,8 +549,11 @@
     const ok = confirm("Cancelar este atendimento? (Ação não pode ser desfeita facilmente)");
     if (!ok) return;
 
-    if (row.idAtendimento) await callApiData({ action: "Atendimento.Cancelar", payload: { idAtendimento: row.idAtendimento, motivo: "Cancelado pela fila" } });
-    else if (row.idAgenda) await callApiData({ action: "Atendimento.Cancelar", payload: { idAgenda: row.idAgenda, motivo: "Cancelado pela fila" } });
+    const raw = row._raw || {};
+    const dataRef = row.data || raw.dataRef || "";
+
+    if (row.idAtendimento) await callApiData({ action: "Atendimento.Cancelar", payload: { idAtendimento: row.idAtendimento, dataRef: dataRef, motivo: "Cancelado pela fila" } });
+    else if (row.idAgenda) await callApiData({ action: "Atendimento.Cancelar", payload: { idAgenda: row.idAgenda, dataRef: dataRef, motivo: "Cancelado pela fila" } });
 
     await carregarListaAtendimento();
   }
