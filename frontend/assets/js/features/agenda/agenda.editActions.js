@@ -375,8 +375,34 @@
     }
 
     // =========================================================
-    // STATUS / DESBLOQUEIO / PRONTUÁRIO (mantidos)
+    // STATUS / DESBLOQUEIO / PRONTUÁRIO
     // =========================================================
+
+    // ✅ P1: Helper para mostrar erro (toast ou console)
+    function showError_(message) {
+      const toast = PRONTIO.widgets?.toast;
+      const toastEl = document.getElementById("toast-agenda") || document.getElementById("mensagem");
+      if (toast && toastEl) {
+        toast.show({ target: toastEl, text: message, type: "erro", autoHide: true, autoHideDelay: 5000 });
+      } else {
+        console.error("[AgendaEditActions]", message);
+        // Fallback para alert em caso de erro crítico sem toast disponível
+        alert(message);
+      }
+    }
+
+    // ✅ P1: Helper para mostrar aviso (toast ou console)
+    function showAviso_(message) {
+      const toast = PRONTIO.widgets?.toast;
+      const toastEl = document.getElementById("toast-agenda") || document.getElementById("mensagem");
+      if (toast && toastEl) {
+        toast.show({ target: toastEl, text: message, type: "aviso", autoHide: true, autoHideDelay: 5000 });
+      } else {
+        console.warn("[AgendaEditActions]", message);
+        alert(message);
+      }
+    }
+
     async function mudarStatus(idAgenda, labelUi, cardEl) {
       if (!idAgenda) return;
       if (state.inFlight?.statusById?.has(idAgenda)) return;
@@ -394,15 +420,17 @@
         if (statusCanon === "CANCELADO") await api.cancelar(idAgenda, "Cancelado pela agenda");
         else await api.atualizar(idAgenda, { status: statusCanon });
 
-        // ✅ Invalida cache antes de recarregar
-        loaders.invalidateCacheDia && loaders.invalidateCacheDia();
-        loaders.invalidateCacheSemana && loaders.invalidateCacheSemana();
-
-        if (state.modoVisao === "dia") await loaders.carregarDia();
-        else await loaders.carregarSemana();
+        // ✅ P1: Invalida apenas o cache do modo atual (evita invalidação excessiva)
+        if (state.modoVisao === "dia") {
+          loaders.invalidateCacheDia && loaders.invalidateCacheDia();
+          await loaders.carregarDia();
+        } else {
+          loaders.invalidateCacheSemana && loaders.invalidateCacheSemana();
+          await loaders.carregarSemana();
+        }
       } catch (err) {
         console.error(err);
-        alert("Erro ao mudar status: " + (err.message || String(err)));
+        showError_("Erro ao mudar status: " + (err.message || String(err)));
         cardEl && cardEl.classList.remove("agendamento-atualizando");
       } finally {
         state.inFlight.statusById.delete(idAgenda);
@@ -422,15 +450,17 @@
       try {
         await api.desbloquearHorario(idAgenda, "Bloqueio removido");
 
-        // ✅ Invalida cache antes de recarregar
-        loaders.invalidateCacheDia && loaders.invalidateCacheDia();
-        loaders.invalidateCacheSemana && loaders.invalidateCacheSemana();
-
-        if (state.modoVisao === "dia") await loaders.carregarDia();
-        else await loaders.carregarSemana();
+        // ✅ P1: Invalida apenas o cache do modo atual (evita invalidação excessiva)
+        if (state.modoVisao === "dia") {
+          loaders.invalidateCacheDia && loaders.invalidateCacheDia();
+          await loaders.carregarDia();
+        } else {
+          loaders.invalidateCacheSemana && loaders.invalidateCacheSemana();
+          await loaders.carregarSemana();
+        }
       } catch (err) {
         console.error(err);
-        alert("Erro ao remover bloqueio: " + (err.message || String(err)));
+        showError_("Erro ao remover bloqueio: " + (err.message || String(err)));
         cardEl && cardEl.classList.remove("agendamento-atualizando");
       } finally {
         state.inFlight.desbloquearById.delete(idAgenda);
@@ -442,7 +472,7 @@
       const idPaciente = String(ag?.ID_Paciente || ag?.idPaciente || ag?.id_paciente || "").trim();
 
       if (!ag || !idPaciente) {
-        alert("Este agendamento não está vinculado a um paciente cadastrado.\n\nSelecione um paciente no agendamento para vincular ao prontuário.");
+        showAviso_("Este agendamento não está vinculado a um paciente cadastrado. Selecione um paciente no agendamento para vincular ao prontuário.");
         return;
       }
 
