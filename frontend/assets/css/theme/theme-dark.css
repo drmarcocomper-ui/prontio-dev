@@ -79,6 +79,21 @@ body[data-theme="dark"] {
   --select-icon-color: %239ca3af;
   --switch-knob-color: #e5e7eb;
 
+  /* ==============================
+     ALIASES SEMÂNTICOS (P3 fix)
+     Usados em page-prontuario.css
+  =============================== */
+  --surface-soft: var(--cor-fundo-suave);
+  --surface-soft-hover: #283548;
+  --border-subtle: var(--cor-borda-suave);
+  --primary: var(--cor-primaria);
+  --primary-soft: rgba(59, 130, 246, 0.3);
+  --text-muted: var(--cor-texto-suave);
+  --text-default: var(--cor-texto-principal);
+
+  /* Timeline / bullets */
+  --timeline-bullet-border: var(--cor-fundo-card);
+
   /* Fundo do body no tema escuro */
   background: radial-gradient(circle at top left, #0b1120 0%, #020617 45%, #000 100%);
   color: var(--cor-texto-principal);

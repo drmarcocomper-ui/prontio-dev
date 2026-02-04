@@ -274,8 +274,9 @@ body[data-page-id="prontuario"] #secHistoricoPaciente .evolucao-item::before {
   height: 12px;
   border-radius: 50%;
   background: var(--primary, #2563eb);
-  border: 2px solid #ffffff;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25);
+  /* ✅ P3: Usa variável para compatibilidade com dark theme */
+  border: 2px solid var(--timeline-bullet-border, #ffffff);
+  box-shadow: 0 0 0 2px var(--primary-soft, rgba(37, 99, 235, 0.25));
 }
 
 body[data-page-id="prontuario"] #secHistoricoPaciente .evolucao-item:hover {
@@ -412,9 +413,15 @@ body[data-page-id="prontuario"] .receita-med-titulo {
 body[data-page-id="prontuario"] .receita-med-remover {
   background: none;
   border: none;
-  color: #dc2626;
+  /* ✅ P3: Usa variável semântica para cor de perigo */
+  color: var(--cor-perigo, #dc2626);
   font-size: 0.75rem;
   cursor: pointer;
+  transition: opacity 0.15s ease;
+}
+
+body[data-page-id="prontuario"] .receita-med-remover:hover {
+  opacity: 0.8;
 }
 
 body[data-page-id="prontuario"] .receita-med-grid {
@@ -442,16 +449,18 @@ body[data-page-id="prontuario"] .med-posologias {
 
 body[data-page-id="prontuario"] .med-chip {
   border: 1px solid var(--cor-borda-suave, #e5e7eb);
-  background: rgba(37, 99, 235, 0.06);
+  /* ✅ P3: Usa variáveis para compatibilidade com dark theme */
+  background: var(--cor-primaria-clara, rgba(37, 99, 235, 0.06));
   color: var(--cor-primaria, #2563eb);
   border-radius: 999px;
   padding: 6px 10px;
   font-size: 0.78rem;
   cursor: pointer;
+  transition: background 0.15s ease;
 }
 
 body[data-page-id="prontuario"] .med-chip:hover {
-  background: rgba(37, 99, 235, 0.12);
+  background: var(--primary-soft, rgba(37, 99, 235, 0.12));
 }
 
 /* =========================================
@@ -567,4 +576,61 @@ body[data-page-id="prontuario"] .doc-form-top {
   display: flex;
   justify-content: flex-start;
   margin-bottom: 0.75rem;
+}
+
+/* =========================================
+   ✅ P3: DARK THEME OVERRIDES
+========================================= */
+
+[data-theme="dark"] body[data-page-id="prontuario"] .card-prontuario,
+body[data-theme="dark"][data-page-id="prontuario"] .card-prontuario {
+  background:
+    radial-gradient(circle at top left,
+      rgba(59, 130, 246, 0.08),
+      transparent 60%),
+    var(--cor-fundo-card);
+  box-shadow: var(--shadow-card);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] .btn-acao-principal,
+body[data-theme="dark"][data-page-id="prontuario"] .btn-acao-principal {
+  box-shadow: 0 8px 20px rgba(59, 130, 246, 0.25);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] .btn-acao-principal:hover,
+body[data-theme="dark"][data-page-id="prontuario"] .btn-acao-principal:hover {
+  box-shadow: 0 10px 26px rgba(59, 130, 246, 0.35);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] .btn-acao-clinica:hover,
+body[data-theme="dark"][data-page-id="prontuario"] .btn-acao-clinica:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] #secHistoricoPaciente .evolucao-item,
+body[data-theme="dark"][data-page-id="prontuario"] #secHistoricoPaciente .evolucao-item {
+  background: var(--cor-fundo-card-alt);
+  border-color: var(--cor-borda-suave);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] #secHistoricoPaciente .evolucao-item:hover,
+body[data-theme="dark"][data-page-id="prontuario"] #secHistoricoPaciente .evolucao-item:hover {
+  background: var(--cor-fundo-suave);
+  border-color: var(--primary-soft);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] .receita-med-card,
+body[data-theme="dark"][data-page-id="prontuario"] .receita-med-card {
+  background: var(--cor-fundo-card-alt);
+  border-color: var(--cor-borda-suave);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] .slide-panel-backdrop,
+body[data-theme="dark"][data-page-id="prontuario"] .slide-panel-backdrop {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] .slide-panel,
+body[data-theme="dark"][data-page-id="prontuario"] .slide-panel {
+  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.5);
 }

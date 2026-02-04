@@ -42,6 +42,21 @@ body[data-theme="light"] {
   --topbar-icon-color: #4b5563;
   --topbar-hover-bg: rgba(0, 0, 0, 0.06);
 
+  /* ==============================
+     ALIASES SEMÂNTICOS (P3 fix)
+     Usados em page-prontuario.css
+  =============================== */
+  --surface-soft: #f9fafb;
+  --surface-soft-hover: #f3f4f6;
+  --border-subtle: var(--cor-borda-suave);
+  --primary: var(--cor-primaria);
+  --primary-soft: #bfdbfe;
+  --text-muted: var(--cor-texto-suave);
+  --text-default: var(--cor-texto-principal);
+
+  /* Timeline / bullets */
+  --timeline-bullet-border: #ffffff;
+
   /* Fundo do body no tema claro */
   background: linear-gradient(135deg, #f9fafb 0%, #e5e7eb 40%, #dde5ff 100%);
   color: var(--cor-texto-principal);
