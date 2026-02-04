@@ -75,6 +75,12 @@ body[data-page-id="chat"] #chat-nav-prontuario {
   display: none;
 }
 
+/* ✅ P4: Classe para mostrar nav links (em vez de inline style) */
+body[data-page-id="chat"] #chat-nav-agenda.is-visible,
+body[data-page-id="chat"] #chat-nav-prontuario.is-visible {
+  display: inline-flex;
+}
+
 body[data-page-id="chat"] .app-header__user {
   display: flex;
   align-items: center;
@@ -229,6 +235,11 @@ body[data-page-id="chat"] .chat-room__badge {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+/* ✅ P4: Classe para ocultar badge (em vez de inline style) */
+body[data-page-id="chat"] .chat-room__badge.is-hidden {
+  display: none;
 }
 
 /* =========================================
@@ -510,4 +521,54 @@ body[data-page-id="chat"] .chat-input-area__textarea::placeholder {
   body[data-page-id="chat"] .chat-message {
     max-width: 100%;
   }
+}
+
+/* =========================================
+   ✅ P1: Toast fallback (quando widget-toast não disponível)
+========================================= */
+.chat-fallback-toast {
+  position: fixed;
+  bottom: 1.5rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 9999;
+  padding: 0.75rem 1.25rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.chat-fallback-toast--error {
+  background: var(--cor-perigo, #dc2626);
+  color: #fff;
+}
+
+.chat-fallback-toast--info {
+  background: var(--cor-primaria, #2563eb);
+  color: #fff;
+}
+
+.chat-fallback-toast--success {
+  background: var(--cor-sucesso, #16a34a);
+  color: #fff;
+}
+
+.chat-fallback-toast--fade {
+  opacity: 0;
+}
+
+/* ✅ P3: Dark theme para toast */
+[data-theme="dark"] .chat-fallback-toast--error {
+  background: var(--cor-perigo, #ef4444);
+}
+
+[data-theme="dark"] .chat-fallback-toast--info {
+  background: var(--cor-primaria, #3b82f6);
+}
+
+[data-theme="dark"] .chat-fallback-toast--success {
+  background: var(--cor-sucesso, #22c55e);
 }

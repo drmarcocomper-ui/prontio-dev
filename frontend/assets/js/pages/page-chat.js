@@ -30,6 +30,51 @@
 
   let currentRoomId = "default";
 
+  // ✅ P0: Versão para evitar race condition em troca de sala
+  let roomSwitchVersion = 0;
+
+  // ✅ P0: Lock para evitar envio duplicado de mensagem
+  let isSendingMessage = false;
+
+  // ============================================================
+  // ✅ P2: Helper para extrair mensagem de erro (deduplicação)
+  // ============================================================
+  function extractErrorMessage_(error, fallback) {
+    if (!error) return fallback || "Erro desconhecido.";
+    if (typeof error === "string") return error;
+    if (error.message && typeof error.message === "string") {
+      return error.message;
+    }
+    return fallback || String(error);
+  }
+
+  // ============================================================
+  // ✅ P1: Helper para exibir toast (substitui alert())
+  // ============================================================
+  function showToast_(message, type) {
+    // Usa widget-toast se disponível
+    if (PRONTIO.widgets && typeof PRONTIO.widgets.showToast === "function") {
+      PRONTIO.widgets.showToast(message, type || "error");
+      return;
+    }
+    // Fallback visual inline
+    const existingToast = document.getElementById("chat-fallback-toast");
+    if (existingToast) existingToast.remove();
+
+    const toast = document.createElement("div");
+    toast.id = "chat-fallback-toast";
+    toast.className = "chat-fallback-toast chat-fallback-toast--" + (type || "error");
+    toast.textContent = message;
+    toast.setAttribute("role", "alert");
+
+    document.body.appendChild(toast);
+
+    setTimeout(() => {
+      toast.classList.add("chat-fallback-toast--fade");
+      setTimeout(() => toast.remove(), 300);
+    }, 4000);
+  }
+
   const LOCALSTORAGE_USER_INFO_KEY = "medpronto_user_info";
 
   const CHAT_INTERVAL_ACTIVE = 3000;
@@ -262,19 +307,30 @@
           btn.appendChild(badge);
         }
         badge.textContent = count > 9 ? "9+" : String(count);
-        badge.style.display = "inline-flex";
+        // ✅ P4: Usa classe CSS em vez de inline style
+        badge.classList.remove("is-hidden");
       } else if (badge) {
-        badge.style.display = "none";
+        // ✅ P4: Usa classe CSS em vez de inline style
+        badge.classList.add("is-hidden");
       }
     });
   }
 
-  async function loadMessages(showErrors = false) {
+  async function loadMessages(showErrors = false, expectedVersion = null) {
+    // ✅ P0: Guarda versão para verificar se sala mudou durante a chamada
+    const myVersion = expectedVersion !== null ? expectedVersion : roomSwitchVersion;
+
     try {
       const result = await callApiData({
         action: "chat.listMessages",
         payload: { roomId: currentRoomId }
       });
+
+      // ✅ P0: Verifica se sala mudou durante a requisição
+      if (myVersion !== roomSwitchVersion) {
+        console.info("[PRONTIO.chat] Sala mudou durante loadMessages, ignorando resultado stale.");
+        return;
+      }
 
       const messages = (result && result.messages) || [];
       renderMessages(messages);
@@ -283,16 +339,19 @@
       await updateUnreadSummary();
     } catch (error) {
       if (showErrors) {
-        global.alert("Erro ao carregar mensagens: " + (error && error.message ? error.message : String(error)));
+        // ✅ P1: Usa toast em vez de alert()
+        showToast_("Erro ao carregar mensagens: " + extractErrorMessage_(error));
       }
     }
   }
 
   async function refreshMessagesIncremental(showErrors = false) {
     const lastTs = lastTimestampByRoom[currentRoomId];
+    // ✅ P0: Guarda versão para verificar se sala mudou
+    const myVersion = roomSwitchVersion;
 
     if (!lastTs) {
-      return loadMessages(showErrors);
+      return loadMessages(showErrors, myVersion);
     }
 
     try {
@@ -304,6 +363,12 @@
         }
       });
 
+      // ✅ P0: Verifica se sala mudou durante a requisição
+      if (myVersion !== roomSwitchVersion) {
+        console.info("[PRONTIO.chat] Sala mudou durante refresh, ignorando resultado stale.");
+        return;
+      }
+
       const newMessages = (result && result.messages) || [];
       appendMessages(newMessages);
 
@@ -311,7 +376,8 @@
       await updateUnreadSummary();
     } catch (error) {
       if (showErrors) {
-        global.alert("Erro ao atualizar mensagens: " + (error && error.message ? error.message : String(error)));
+        // ✅ P1: Usa toast em vez de alert()
+        showToast_("Erro ao atualizar mensagens: " + extractErrorMessage_(error));
       }
     }
   }
@@ -319,6 +385,13 @@
   async function sendMessage(text) {
     const trimmed = text.trim();
     if (!trimmed) return;
+
+    // ✅ P0: Lock para evitar envio duplicado (duplo clique)
+    if (isSendingMessage) {
+      console.info("[PRONTIO.chat] Envio já em andamento, ignorando.");
+      return;
+    }
+    isSendingMessage = true;
 
     try {
       const result = await callApiData({
@@ -341,7 +414,11 @@
         chatInput.focus();
       }
     } catch (error) {
-      global.alert("Erro ao enviar mensagem: " + (error && error.message ? error.message : String(error)));
+      // ✅ P1: Usa toast em vez de alert()
+      showToast_("Erro ao enviar mensagem: " + extractErrorMessage_(error));
+    } finally {
+      // ✅ P0: Libera lock independente de sucesso/erro
+      isSendingMessage = false;
     }
   }
 
@@ -422,7 +499,14 @@
   }
 
   async function chooseUserInteractive() {
-    const users = await fetchUsersFromBackend();
+    // ✅ P0: Wrap em try-catch para tratar erros de fetchUsersFromBackend
+    let users = [];
+    try {
+      users = await fetchUsersFromBackend();
+    } catch (error) {
+      console.warn("[PRONTIO.chat] Erro ao buscar usuários:", extractErrorMessage_(error));
+      // Fallback para usuário da sessão
+    }
 
     if (!users || users.length === 0) {
       // ✅ Usa usuário da sessão em vez de prompt
@@ -454,6 +538,8 @@
       if (!isNaN(n) && n >= 1 && n <= users.length) {
         chosenIndex = n - 1;
       } else {
+        // ✅ P1: Usa toast em vez de alert() - mas aqui é fluxo de prompt
+        // Mantém alert pois está em loop de prompt (precisa bloquear)
         global.alert("Opção inválida, tente novamente.");
       }
     }
@@ -477,16 +563,25 @@
   }
 
   async function changeUser() {
-    const user = await chooseUserInteractive();
-    if (user) {
-      saveUserToLocalStorage(user);
-      await loadMessages(true);
-      await updateUnreadSummary();
+    // ✅ P0: Wrap em try-catch para tratar erros
+    try {
+      const user = await chooseUserInteractive();
+      if (user) {
+        saveUserToLocalStorage(user);
+        await loadMessages(true);
+        await updateUnreadSummary();
+      }
+    } catch (error) {
+      console.error("[PRONTIO.chat] Erro ao trocar usuário:", extractErrorMessage_(error));
+      showToast_("Erro ao trocar usuário: " + extractErrorMessage_(error));
     }
   }
 
   function setCurrentRoom(roomId, label, description) {
     currentRoomId = roomId || "default";
+    // ✅ P0: Incrementa versão para invalidar requisições em andamento
+    roomSwitchVersion++;
+    const myVersion = roomSwitchVersion;
 
     const buttons = getRoomButtons();
     buttons.forEach((btn) => {
@@ -498,7 +593,8 @@
     if (roomTitleEl) roomTitleEl.textContent = label || "Chat principal";
     if (roomSubtitleEl) roomSubtitleEl.textContent = description || "Canal interno de comunicação.";
 
-    loadMessages(true);
+    // ✅ P0: Passa versão para verificar se sala não mudou durante chamada
+    loadMessages(true, myVersion);
   }
 
   function setupRoomSwitching() {
@@ -563,7 +659,8 @@
       if (horario) url.searchParams.set("horario", horario);
 
       navAgendaLink.href = url.toString();
-      navAgendaLink.style.display = "inline-flex";
+      // ✅ P4: Usa classe CSS em vez de inline style
+      navAgendaLink.classList.add("is-visible");
     }
 
     if (pacienteId && navProntuarioLink) {
@@ -576,7 +673,8 @@
       if (horario) url.searchParams.set("horario", horario);
 
       navProntuarioLink.href = url.toString();
-      navProntuarioLink.style.display = "inline-flex";
+      // ✅ P4: Usa classe CSS em vez de inline style
+      navProntuarioLink.classList.add("is-visible");
     }
   }
 
@@ -677,7 +775,8 @@
       else updateNextPatientPanel(patient, { isCalled: false });
     } catch (error) {
       if (showErrors) {
-        global.alert("Erro ao carregar próximo paciente: " + (error && error.message ? error.message : String(error)));
+        // ✅ P1: Usa toast em vez de alert()
+        showToast_("Erro ao carregar próximo paciente: " + extractErrorMessage_(error));
       }
       setNextPatientStatusPill("error", "Erro");
     }
@@ -698,7 +797,8 @@
 
       if (!hasPatient || !patient) {
         updateNextPatientPanel(null);
-        global.alert("Não há pacientes na fila agora.");
+        // ✅ P1: Usa toast em vez de alert() - info, não erro
+        showToast_("Não há pacientes na fila agora.", "info");
         return;
       }
 
@@ -712,7 +812,8 @@
       const msg = `Próximo paciente chamado: ${nome} (${dataBr} às ${horario}).`;
       await sendSystemMessageToRoom("default", msg);
     } catch (error) {
-      global.alert("Erro ao chamar próximo paciente: " + (error && error.message ? error.message : String(error)));
+      // ✅ P1: Usa toast em vez de alert()
+      showToast_("Erro ao chamar próximo paciente: " + extractErrorMessage_(error));
       setNextPatientStatusPill("error", "Erro");
     }
   }
@@ -857,7 +958,8 @@
   PRONTIO.pages.chat.init = function () {
     initChatPage().catch((err) => {
       console.error("[PRONTIO.chat] Erro ao iniciar o chat:", err);
-      global.alert("Erro ao iniciar o chat. Verifique a conexão com a API.");
+      // ✅ P1: Usa toast em vez de alert()
+      showToast_("Erro ao iniciar o chat. Verifique a conexão com a API.");
     });
   };
 
