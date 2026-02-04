@@ -65,6 +65,7 @@
     } catch (_) {}
 
     await loader.loadOnce("assets/js/core/auth.js");
+    await loader.loadOnce("assets/js/core/theme.js");
     await loader.loadOnce("assets/js/core/app.js");
 
     try {

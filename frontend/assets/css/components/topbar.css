@@ -10,6 +10,8 @@ PRONTIO - TOPBAR (FINAL PROFISSIONAL)
   background: var(--cor-fundo-card);
   border-bottom: 1px solid var(--cor-borda-suave);
   padding: var(--sp-3) var(--sp-4);
+  min-height: 64px;
+  box-sizing: border-box;
   display: flex;
   justify-content: space-between;
   align-items: center;
