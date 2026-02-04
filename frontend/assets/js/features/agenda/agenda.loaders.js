@@ -216,9 +216,9 @@
       const now = getNowInfo();
       const isHoje = now.dataStr === ymd;
 
-      // Renderiza
-      if (view.renderDaySlots) {
-        view.renderDaySlots({
+      // Renderiza em tabela (novo layout)
+      if (view.renderDayTable) {
+        view.renderDayTable({
           slots,
           map,
           now,
@@ -279,6 +279,12 @@
         onDesbloquear: (idAgenda, cardEl) => {
           if (state.controllerActions?.desbloquear) {
             state.controllerActions.desbloquear(idAgenda, cardEl);
+          }
+        },
+        onCancelar: (ag) => {
+          // Cancela o agendamento mudando o status para "Cancelado"
+          if (state.controllerActions?.mudarStatus) {
+            state.controllerActions.mudarStatus(ag.ID_Agenda, "Cancelado", null);
           }
         }
       };

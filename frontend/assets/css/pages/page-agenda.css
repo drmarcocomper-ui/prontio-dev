@@ -193,7 +193,7 @@
 }
 
 /* =========================================================
-   VISÃO DIA
+   VISÃO DIA (TABELA)
    ========================================================= */
 
 .agenda-lista-horarios {
@@ -202,8 +202,199 @@
   border: 1px solid var(--cor-borda-suave);
   max-height: calc(100vh - 270px);
   overflow-y: auto;
+  overflow-x: auto;
   background: var(--cor-fundo-card-alt);
 }
+
+/* =========================================================
+   TABELA DA AGENDA
+   ========================================================= */
+
+.agenda-table-wrapper {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.agenda-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.agenda-table__header-row {
+  background: var(--cor-fundo-card);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+
+.agenda-table__header {
+  padding: 0.65rem 0.5rem;
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.78rem;
+  color: var(--cor-texto-principal);
+  border-bottom: 2px solid var(--cor-borda-suave);
+  white-space: nowrap;
+}
+
+.agenda-table__row {
+  border-bottom: 1px solid var(--cor-borda-suave);
+  transition: background-color 0.1s ease;
+}
+
+.agenda-table__row:hover {
+  background: rgba(14, 165, 233, 0.04);
+}
+
+.agenda-table__row--now {
+  background: rgba(14, 165, 233, 0.08);
+  outline: 2px solid rgba(14, 165, 233, 0.2);
+  outline-offset: -2px;
+}
+
+.agenda-table__row--empty {
+  cursor: pointer;
+  color: var(--cor-texto-suave);
+}
+
+.agenda-table__row--empty:hover {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+.agenda-table__row--bloqueio {
+  background: var(--cor-fundo-card-alt);
+  color: var(--cor-texto-suave);
+}
+
+.agenda-table__cell {
+  padding: 0.5rem;
+  vertical-align: middle;
+}
+
+.agenda-table__cell--horario {
+  font-weight: 600;
+  white-space: nowrap;
+  width: 100px;
+  color: var(--cor-texto-principal);
+}
+
+.agenda-table__cell--paciente {
+  font-weight: 500;
+  min-width: 150px;
+  max-width: 200px;
+}
+
+.agenda-table__cell--tipo {
+  min-width: 80px;
+  max-width: 120px;
+}
+
+.agenda-table__cell--status {
+  min-width: 130px;
+}
+
+.agenda-table__cell--telefone {
+  white-space: nowrap;
+  min-width: 120px;
+}
+
+.agenda-table__cell--motivo {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.agenda-table__cell--acoes {
+  width: 100px;
+  text-align: center;
+}
+
+.agenda-table__empty-label {
+  font-style: italic;
+  color: var(--cor-texto-suave);
+}
+
+.agenda-table__bloqueio-label {
+  font-weight: 600;
+  color: #6b7280;
+}
+
+/* Status select inline */
+.agenda-table__status-select {
+  font-size: 0.75rem;
+  border-radius: 999px;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--cor-borda-suave);
+  background: var(--cor-fundo-card);
+  color: var(--cor-texto-principal);
+  cursor: pointer;
+  min-width: 110px;
+}
+
+.agenda-table__status-select:hover {
+  border-color: rgba(14, 165, 233, 0.4);
+}
+
+.agenda-table__status-select:focus {
+  outline: 2px solid rgba(14, 165, 233, 0.3);
+  outline-offset: 1px;
+}
+
+/* Botões de ação */
+.agenda-table__actions {
+  display: flex;
+  gap: 0.35rem;
+  justify-content: center;
+  align-items: center;
+}
+
+.agenda-table__action-btn {
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: 6px;
+  background: var(--cor-fundo-card);
+  color: var(--cor-texto-principal);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  transition: background-color 0.1s, border-color 0.1s;
+}
+
+.agenda-table__action-btn:hover {
+  background: var(--cor-fundo-card-alt);
+  border-color: rgba(14, 165, 233, 0.4);
+}
+
+.agenda-table__action-btn--editar:hover {
+  color: #3b82f6;
+}
+
+.agenda-table__action-btn--atender:hover {
+  color: #10b981;
+}
+
+.agenda-table__action-btn--cancelar:hover {
+  color: #ef4444;
+}
+
+.agenda-table__action-btn--remover:hover {
+  color: #f59e0b;
+}
+
+/* Cores de status na linha (borda esquerda) */
+.agenda-table__row.status-agendado { border-left: 3px solid #64748b; }
+.agenda-table__row.status-confirmado { border-left: 3px solid #16a34a; }
+.agenda-table__row.status-aguardando { border-left: 3px solid #f59e0b; }
+.agenda-table__row.status-em-atendimento { border-left: 3px solid #0ea5e9; }
+.agenda-table__row.status-falta { border-left: 3px solid #b91c1c; }
+.agenda-table__row.status-cancelado { border-left: 3px solid #ea580c; }
+.agenda-table__row.status-remarcado { border-left: 3px solid #8b5cf6; }
+.agenda-table__row.status-concluido { border-left: 3px solid #059669; }
 
 .agenda-slot {
   display: grid;
@@ -545,6 +736,32 @@
 
   .agenda-slot {
     grid-template-columns: 60px minmax(0, 1fr);
+  }
+
+  /* Tabela responsiva */
+  .agenda-table {
+    font-size: 0.78rem;
+  }
+
+  .agenda-table__header,
+  .agenda-table__cell {
+    padding: 0.4rem 0.35rem;
+  }
+
+  .agenda-table__cell--telefone,
+  .agenda-table__cell--motivo {
+    display: none;
+  }
+
+  .agenda-table__header:nth-child(5),
+  .agenda-table__header:nth-child(6) {
+    display: none;
+  }
+
+  .agenda-table__action-btn {
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
   }
 }
 

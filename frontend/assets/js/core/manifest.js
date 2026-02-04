@@ -23,11 +23,6 @@
       css: ["assets/css/pages/page-login.css"]
     },
 
-    atendimento: {
-      js: ["assets/js/pages/page-atendimento.js"],
-      css: ["assets/css/pages/page-atendimento.css"]
-    },
-
     // =========================
     // AGENDA (modular)
     // =========================

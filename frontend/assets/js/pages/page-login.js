@@ -11,7 +11,7 @@
   PRONTIO.pages = PRONTIO.pages || {};
   PRONTIO.pages.login = PRONTIO.pages.login || {};
 
-  const DEFAULT_HOME = "atendimento.html";
+  const DEFAULT_HOME = "agenda.html";
 
   const UX_KEYS = {
     LAST_IDENTIFIER: "prontio.login.lastIdentifier",

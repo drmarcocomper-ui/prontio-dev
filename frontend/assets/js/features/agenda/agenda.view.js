@@ -167,7 +167,295 @@
       if (resumoEmAtendimentoEl) resumoEmAtendimentoEl.textContent = String(r.em_atendimento ?? 0);
     }
 
-    // ====== Render: cards ======
+    // ====== Render: Table Row (para visualização em tabela) ======
+    function createTableRowAgendamento(slot, ag, callbacks) {
+      const cb = callbacks || {};
+      const tr = doc.createElement("tr");
+      tr.className = "agenda-table__row";
+      tr.classList.add(F.getStatusClass(ag.status));
+      tr.dataset.idAgenda = ag.ID_Agenda || "";
+
+      // Horário
+      const tdHorario = doc.createElement("td");
+      tdHorario.className = "agenda-table__cell agenda-table__cell--horario";
+      const horaFim = ag.hora_fim || "";
+      tdHorario.textContent = slot + (horaFim ? " - " + horaFim : "");
+      tr.appendChild(tdHorario);
+
+      // Paciente
+      const tdPaciente = doc.createElement("td");
+      tdPaciente.className = "agenda-table__cell agenda-table__cell--paciente";
+      tdPaciente.textContent = getNomeExibicao(ag);
+      tr.appendChild(tdPaciente);
+
+      // Tipo
+      const tdTipo = doc.createElement("td");
+      tdTipo.className = "agenda-table__cell agenda-table__cell--tipo";
+      tdTipo.textContent = ag.tipo || "";
+      tr.appendChild(tdTipo);
+
+      // Status (dropdown)
+      const tdStatus = doc.createElement("td");
+      tdStatus.className = "agenda-table__cell agenda-table__cell--status";
+
+      const statusSelect = doc.createElement("select");
+      statusSelect.className = "agenda-table__status-select";
+      statusSelect.setAttribute("aria-label", "Alterar status do agendamento");
+
+      (F.STATUS_OPTIONS_UI || []).forEach((opt) => {
+        const o = doc.createElement("option");
+        o.value = opt;
+        o.textContent = opt;
+        statusSelect.appendChild(o);
+      });
+
+      statusSelect.value = F.normalizeStatusLabel(ag.status);
+
+      statusSelect.addEventListener("change", () => {
+        if (typeof cb.onChangeStatus === "function") {
+          cb.onChangeStatus(ag.ID_Agenda, statusSelect.value, tr);
+        }
+      });
+
+      tdStatus.appendChild(statusSelect);
+      tr.appendChild(tdStatus);
+
+      // Telefone
+      const tdTelefone = doc.createElement("td");
+      tdTelefone.className = "agenda-table__cell agenda-table__cell--telefone";
+      tdTelefone.textContent = ag.telefone_paciente || ag.telefone || "";
+      tr.appendChild(tdTelefone);
+
+      // Motivo
+      const tdMotivo = doc.createElement("td");
+      tdMotivo.className = "agenda-table__cell agenda-table__cell--motivo";
+      tdMotivo.textContent = ag.motivo || "";
+      tr.appendChild(tdMotivo);
+
+      // Ações
+      const tdAcoes = doc.createElement("td");
+      tdAcoes.className = "agenda-table__cell agenda-table__cell--acoes";
+
+      const acoesWrap = doc.createElement("div");
+      acoesWrap.className = "agenda-table__actions";
+
+      const btnEditar = doc.createElement("button");
+      btnEditar.type = "button";
+      btnEditar.className = "agenda-table__action-btn agenda-table__action-btn--editar";
+      btnEditar.title = "Editar agendamento";
+      btnEditar.innerHTML = '<span aria-hidden="true">&#9998;</span>';
+      btnEditar.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof cb.onEditar === "function") cb.onEditar(ag);
+      });
+
+      const btnAtender = doc.createElement("button");
+      btnAtender.type = "button";
+      btnAtender.className = "agenda-table__action-btn agenda-table__action-btn--atender";
+      btnAtender.title = "Abrir prontuário";
+      btnAtender.innerHTML = '<span aria-hidden="true">&#128203;</span>';
+      btnAtender.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof cb.onAtender === "function") cb.onAtender(ag);
+      });
+
+      const btnCancelar = doc.createElement("button");
+      btnCancelar.type = "button";
+      btnCancelar.className = "agenda-table__action-btn agenda-table__action-btn--cancelar";
+      btnCancelar.title = "Cancelar agendamento";
+      btnCancelar.innerHTML = '<span aria-hidden="true">&#10006;</span>';
+      btnCancelar.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof cb.onCancelar === "function") cb.onCancelar(ag);
+      });
+
+      acoesWrap.appendChild(btnEditar);
+      acoesWrap.appendChild(btnAtender);
+      acoesWrap.appendChild(btnCancelar);
+      tdAcoes.appendChild(acoesWrap);
+      tr.appendChild(tdAcoes);
+
+      return tr;
+    }
+
+    function createTableRowBloqueio(slot, ag, callbacks) {
+      const cb = callbacks || {};
+      const tr = doc.createElement("tr");
+      tr.className = "agenda-table__row agenda-table__row--bloqueio";
+      tr.dataset.idAgenda = ag.ID_Agenda || "";
+
+      // Horário
+      const tdHorario = doc.createElement("td");
+      tdHorario.className = "agenda-table__cell agenda-table__cell--horario";
+      tdHorario.textContent = (ag.hora_inicio || slot) + " - " + (ag.hora_fim || "");
+      tr.appendChild(tdHorario);
+
+      // Paciente (mostra "Horário bloqueado")
+      const tdPaciente = doc.createElement("td");
+      tdPaciente.className = "agenda-table__cell agenda-table__cell--paciente";
+      tdPaciente.innerHTML = '<span class="agenda-table__bloqueio-label">Horário bloqueado</span>';
+      tr.appendChild(tdPaciente);
+
+      // Tipo, Status, Telefone, Motivo (vazios)
+      for (let i = 0; i < 4; i++) {
+        const td = doc.createElement("td");
+        td.className = "agenda-table__cell";
+        tr.appendChild(td);
+      }
+
+      // Ações
+      const tdAcoes = doc.createElement("td");
+      tdAcoes.className = "agenda-table__cell agenda-table__cell--acoes";
+
+      const acoesWrap = doc.createElement("div");
+      acoesWrap.className = "agenda-table__actions";
+
+      const btnRemover = doc.createElement("button");
+      btnRemover.type = "button";
+      btnRemover.className = "agenda-table__action-btn agenda-table__action-btn--remover";
+      btnRemover.title = "Remover bloqueio";
+      btnRemover.innerHTML = '<span aria-hidden="true">&#128275;</span>';
+      btnRemover.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (typeof cb.onDesbloquear === "function") cb.onDesbloquear(ag.ID_Agenda, tr);
+      });
+
+      acoesWrap.appendChild(btnRemover);
+      tdAcoes.appendChild(acoesWrap);
+      tr.appendChild(tdAcoes);
+
+      return tr;
+    }
+
+    function createTableRowEmpty(slot, callbacks) {
+      const cb = callbacks || {};
+      const tr = doc.createElement("tr");
+      tr.className = "agenda-table__row agenda-table__row--empty";
+      tr.dataset.hora = slot;
+
+      // Horário
+      const tdHorario = doc.createElement("td");
+      tdHorario.className = "agenda-table__cell agenda-table__cell--horario";
+      tdHorario.textContent = slot;
+      tr.appendChild(tdHorario);
+
+      // Paciente (+ Horário livre)
+      const tdPaciente = doc.createElement("td");
+      tdPaciente.className = "agenda-table__cell agenda-table__cell--paciente";
+      tdPaciente.innerHTML = '<span class="agenda-table__empty-label">+ Horário livre</span>';
+      tr.appendChild(tdPaciente);
+
+      // Tipo, Status, Telefone, Motivo, Ações (vazios)
+      for (let i = 0; i < 5; i++) {
+        const td = doc.createElement("td");
+        td.className = "agenda-table__cell";
+        tr.appendChild(td);
+      }
+
+      // Clique na linha abre modal de novo agendamento
+      tr.addEventListener("click", () => {
+        if (typeof cb.onNovo === "function") cb.onNovo(slot);
+      });
+
+      tr.addEventListener("dblclick", () => {
+        if (typeof cb.onNovo === "function") cb.onNovo(slot);
+      });
+
+      return tr;
+    }
+
+    // ====== Render: Day Table ======
+    function renderDayTable(params) {
+      const p = params || {};
+      const slots = Array.isArray(p.slots) ? p.slots : [];
+      const map = p.map || new Map();
+      const now = p.now || null;
+      const isHoje = !!p.isHoje;
+      const horaFoco = p.horaFoco || null;
+      const cb = p.callbacks || {};
+
+      if (!listaHorariosEl) return;
+      listaHorariosEl.innerHTML = "";
+
+      if (!slots.length) {
+        listaHorariosEl.innerHTML = '<div class="agenda-vazia">Nenhum horário para exibir.</div>';
+        return;
+      }
+
+      // Cria wrapper e tabela
+      const tableWrapper = doc.createElement("div");
+      tableWrapper.className = "agenda-table-wrapper";
+
+      const table = doc.createElement("table");
+      table.className = "agenda-table";
+
+      // Thead
+      const thead = doc.createElement("thead");
+      const headerRow = doc.createElement("tr");
+      headerRow.className = "agenda-table__header-row";
+
+      const headers = ["Horário", "Paciente", "Tipo", "Status", "Telefone", "Motivo", "Ações"];
+      headers.forEach((h) => {
+        const th = doc.createElement("th");
+        th.className = "agenda-table__header";
+        th.textContent = h;
+        headerRow.appendChild(th);
+      });
+
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      // Tbody
+      const tbody = doc.createElement("tbody");
+      let rowToFocus = null;
+
+      slots.forEach((hora) => {
+        const ags = map.get(hora) || [];
+
+        if (!ags.length) {
+          // Slot vazio
+          const tr = createTableRowEmpty(hora, cb);
+          if (isHoje && now && now.hhmm && hora === now.hhmm) {
+            tr.classList.add("agenda-table__row--now");
+          }
+          tbody.appendChild(tr);
+
+          if (horaFoco && hora === horaFoco && !rowToFocus) rowToFocus = tr;
+        } else {
+          // Slots com agendamentos
+          ags.forEach((ag, idx) => {
+            let tr;
+            if (ag.bloqueio) {
+              tr = createTableRowBloqueio(hora, ag, cb);
+            } else {
+              tr = createTableRowAgendamento(hora, ag, cb);
+            }
+
+            if (isHoje && now && now.hhmm && hora === now.hhmm) {
+              tr.classList.add("agenda-table__row--now");
+            }
+
+            tbody.appendChild(tr);
+
+            if (horaFoco && hora === horaFoco && idx === 0 && !rowToFocus) rowToFocus = tr;
+          });
+        }
+      });
+
+      table.appendChild(tbody);
+      tableWrapper.appendChild(table);
+      listaHorariosEl.appendChild(tableWrapper);
+
+      // Scroll para linha em foco
+      if (rowToFocus) {
+        rowToFocus.scrollIntoView({ block: "center", behavior: "smooth" });
+      } else if (isHoje && now && now.hhmm) {
+        const nowRow = tbody.querySelector(`.agenda-table__row--now`);
+        if (nowRow) nowRow.scrollIntoView({ block: "center", behavior: "smooth" });
+      }
+    }
+
+    // ====== Render: cards (mantido para compatibilidade, mas não usado na visão dia) ======
     function createCardAgendamento(ag, callbacks) {
       const cb = callbacks || {};
       const card = doc.createElement("div");
@@ -292,7 +580,7 @@
       return card;
     }
 
-    // ====== Render: Dia ======
+    // ====== Render: Dia (cards - mantido para compatibilidade) ======
     function renderDaySlots(params) {
       const p = params || {};
       const slots = Array.isArray(p.slots) ? p.slots : [];
@@ -516,6 +804,7 @@
       setResumo,
 
       renderDaySlots,
+      renderDayTable,
       renderWeekGrid,
 
       setVisao,
