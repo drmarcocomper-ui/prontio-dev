@@ -20,8 +20,60 @@
   data-context="Chat"
 >
   <div class="app-shell">
-    <!-- ✅ Sidebar compartilhada (partial) -->
-    <div data-include-sidebar></div>
+    <!-- SIDEBAR (inline para carregamento instantâneo) -->
+    <aside id="sidebar" class="sidebar" data-component="sidebar">
+      <div class="sidebar-header">
+        <button type="button" class="icon-button js-toggle-compact" aria-label="Alternar modo compacto" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+            <path d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2z" fill="currentColor" />
+          </svg>
+        </button>
+        <div class="app-brand">
+          <div class="app-logo">PRONTIO</div>
+          <div class="app-version" id="appVersion">v—</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="Navegação principal">
+        <a href="atendimento.html" class="nav-link" data-page-id="atendimento">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 0-1 1h-5v-6H10v6H5a1 1 0 0 0-1-1v-9.5z" fill="currentColor"/></svg></span>
+          <span class="label">Atendimento</span>
+        </a>
+        <a href="agenda.html" class="nav-link" data-page-id="agenda">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M7 2a1 1 0 0 0-1 1v1H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 0 0-2 0v1H9V3A1 1 0 0 0 8 2zM5 9h14v9H5z" fill="currentColor"/></svg></span>
+          <span class="label">Agenda</span>
+        </a>
+        <a href="pacientes.html" class="nav-link" data-page-id="pacientes">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z" fill="currentColor"/></svg></span>
+          <span class="label">Pacientes</span>
+        </a>
+        <a href="prontuario.html" class="nav-link" data-page-id="prontuario">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M7 3a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5L14.5 3zM14 4.5 18.5 9H14z" fill="currentColor"/></svg></span>
+          <span class="label">Prontuário</span>
+        </a>
+        <a href="exames.html" class="nav-link" data-page-id="exames">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm1 4h8v2H8V6zm0 4h8v2H8v-2zm0 4h6v2H8v-2z" fill="currentColor"/></svg></span>
+          <span class="label">Exames</span>
+        </a>
+        <a href="laudo.html" class="nav-link" data-page-id="laudo">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2z" fill="currentColor"/></svg></span>
+          <span class="label">Laudos</span>
+        </a>
+        <a href="usuarios.html" class="nav-link" data-page-id="usuarios">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z" fill="currentColor"/></svg></span>
+          <span class="label">Usuários</span>
+        </a>
+        <a href="configuracoes.html" class="nav-link" data-page-id="configuracoes">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5zm7.43-2.53l-1.83-.92a5.6 5.6 0 0 0 0-2.1l1.83-.92a.5.5 0 0 0 .24-.6 9 9 0 0 0-2-3.46.5.5 0 0 0-.64-.1l-1.82.94a5.57 5.57 0 0 0-1.82-1.05V2.92a.5.5 0 0 0-.4-.49 9.15 9.15 0 0 0-4 0 .5.5 0 0 0-.4.49v1.84a5.57 5.57 0 0 0-1.82 1.05l-1.82-.94a.5.5 0 0 0-.64.1 9 9 0 0 0-2 3.46.5.5 0 0 0 .24.6l1.83.92a5.6 5.6 0 0 0 0 2.1l-1.83.92a.5.5 0 0 0-.24.6 9 9 0 0 0 2 3.46.5.5 0 0 0 .64.1l1.82-.94a5.57 5.57 0 0 0 1.82 1.05v1.84a.5.5 0 0 0 .4.49 9.15 9.15 0 0 0 4 0 .5.5 0 0 0 .4-.49v-1.84a5.57 5.57 0 0 0 1.82-1.05l1.82.94a.5.5 0 0 0 .64-.1 9 9 0 0 0 2-3.46.5.5 0 0 0-.24-.6z" fill="currentColor"/></svg></span>
+          <span class="label">Configurações</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <button type="button" class="nav-link nav-link-action" data-nav-action="logout">
+          <span class="label">Sair</span>
+        </button>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" data-sidebar-backdrop></div>
 
     <main class="main-area">
       <!-- ⚠️ Chat tem header próprio; main.js não montará topbar quando data-chat-standalone="true" -->

@@ -21,13 +21,102 @@
   data-has-prontuario="true"
 >
   <div class="app-shell">
-    <!-- ✅ Sidebar compartilhada (partial) -->
-    <div data-include-sidebar></div>
+    <!-- SIDEBAR (inline para carregamento instantâneo) -->
+    <aside id="sidebar" class="sidebar" data-component="sidebar">
+      <div class="sidebar-header">
+        <button type="button" class="icon-button js-toggle-compact" aria-label="Alternar modo compacto" aria-pressed="false">
+          <svg viewBox="0 0 24 24" aria-hidden="true" class="icon-svg">
+            <path d="M4 5h16v2H4V5zm0 6h10v2H4v-2zm0 6h16v2H4v-2z" fill="currentColor" />
+          </svg>
+        </button>
+        <div class="app-brand">
+          <div class="app-logo">PRONTIO</div>
+          <div class="app-version" id="appVersion">v—</div>
+        </div>
+      </div>
+      <nav class="sidebar-nav" id="sidebarNav" aria-label="Navegação principal">
+        <a href="atendimento.html" class="nav-link" data-page-id="atendimento">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 0-1 1h-5v-6H10v6H5a1 1 0 0 0-1-1v-9.5z" fill="currentColor"/></svg></span>
+          <span class="label">Atendimento</span>
+        </a>
+        <a href="agenda.html" class="nav-link" data-page-id="agenda">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M7 2a1 1 0 0 0-1 1v1H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1V3a1 1 0 0 0-2 0v1H9V3A1 1 0 0 0 8 2zM5 9h14v9H5z" fill="currentColor"/></svg></span>
+          <span class="label">Agenda</span>
+        </a>
+        <a href="pacientes.html" class="nav-link" data-page-id="pacientes">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z" fill="currentColor"/></svg></span>
+          <span class="label">Pacientes</span>
+        </a>
+        <a href="prontuario.html" class="nav-link" data-page-id="prontuario">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M7 3a2 2 0 0 0-2 2v14a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8.5L14.5 3zM14 4.5 18.5 9H14z" fill="currentColor"/></svg></span>
+          <span class="label">Prontuário</span>
+        </a>
+        <a href="exames.html" class="nav-link active" data-page-id="exames">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M7 2h10a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm1 4h8v2H8V6zm0 4h8v2H8v-2zm0 4h6v2H8v-2z" fill="currentColor"/></svg></span>
+          <span class="label">Exames</span>
+        </a>
+        <a href="laudo.html" class="nav-link" data-page-id="laudo">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M6 2h9l5 5v15a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2zm8 1.5V8h4.5L14 3.5zM8 11h8v2H8v-2zm0 4h8v2H8v-2z" fill="currentColor"/></svg></span>
+          <span class="label">Laudos</span>
+        </a>
+        <a href="usuarios.html" class="nav-link" data-page-id="usuarios">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-4 0-7 2-7 4.5V20a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-1.5C19 16 16 14 12 14z" fill="currentColor"/></svg></span>
+          <span class="label">Usuários</span>
+        </a>
+        <a href="configuracoes.html" class="nav-link" data-page-id="configuracoes">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5zm7.43-2.53l-1.83-.92a5.6 5.6 0 0 0 0-2.1l1.83-.92a.5.5 0 0 0 .24-.6 9 9 0 0 0-2-3.46.5.5 0 0 0-.64-.1l-1.82.94a5.57 5.57 0 0 0-1.82-1.05V2.92a.5.5 0 0 0-.4-.49 9.15 9.15 0 0 0-4 0 .5.5 0 0 0-.4.49v1.84a5.57 5.57 0 0 0-1.82 1.05l-1.82-.94a.5.5 0 0 0-.64.1 9 9 0 0 0-2 3.46.5.5 0 0 0 .24.6l1.83.92a5.6 5.6 0 0 0 0 2.1l-1.83.92a.5.5 0 0 0-.24.6 9 9 0 0 0 2 3.46.5.5 0 0 0 .64.1l1.82-.94a5.57 5.57 0 0 0 1.82 1.05v1.84a.5.5 0 0 0 .4.49 9.15 9.15 0 0 0 4 0 .5.5 0 0 0 .4-.49v-1.84a5.57 5.57 0 0 0 1.82-1.05l1.82.94a.5.5 0 0 0 .64-.1 9 9 0 0 0 2-3.46.5.5 0 0 0-.24-.6z" fill="currentColor"/></svg></span>
+          <span class="label">Configurações</span>
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <button type="button" class="nav-link nav-link-action" data-nav-action="logout">
+          <span class="label">Sair</span>
+        </button>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" data-sidebar-backdrop></div>
 
     <!-- ÁREA PRINCIPAL -->
     <main class="main-area">
-      <!-- ✅ Topbar padronizada via widget -->
-      <div id="topbarMount" data-partial="topbar"></div>
+      <!-- TOPBAR (inline para carregamento instantâneo) -->
+      <div id="topbarMount" data-partial="topbar" data-mounted="1">
+        <div class="topbar" role="banner">
+          <div class="topbar-col-left">
+            <div class="topbar-left-header">
+              <button id="topbar-sidebar-toggle" class="topbar-menu-button js-toggle-sidebar" type="button" data-sidebar-toggle="1" aria-label="Abrir menu" title="Menu">
+                <span aria-hidden="true">☰</span>
+              </button>
+              <div class="topbar-title">
+                <div class="topbar-breadcrumb" id="topbar-meta-context">Exames</div>
+                <div class="topbar-title-main">
+                  <h1 id="topbar-title-text">Exames</h1>
+                </div>
+                <p class="topbar-subtitle" id="topbar-subtitle">Solicitação de exames (SADT / particular)</p>
+              </div>
+            </div>
+          </div>
+          <div class="topbar-col-right">
+            <div class="topbar-actions">
+              <div class="topbar-extra">
+                <div class="topbar-user" aria-label="Usuário logado">
+                  <div class="topbar-user__avatar" aria-hidden="true">👤</div>
+                  <div class="topbar-user__info">
+                    <div class="topbar-user__name" id="topbar-user-name">—</div>
+                    <div class="topbar-user__role" id="topbar-user-role">—</div>
+                  </div>
+                </div>
+                <button id="btn-theme-toggle" class="topbar__icon-btn js-toggle-theme" type="button" aria-label="Alternar tema" title="Tema">
+                  <span class="js-theme-icon-sun" aria-hidden="true">☀️</span>
+                  <span class="js-theme-icon-moon" aria-hidden="true" style="display:none;">🌙</span>
+                </button>
+              </div>
+              <div class="topbar-meta">
+                <span class="topbar-meta-item"><span id="topbar-meta-date"></span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- CONTEÚDO -->
       <section class="content">
