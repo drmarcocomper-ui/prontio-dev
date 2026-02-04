@@ -204,6 +204,25 @@ body[data-page-id="prontuario"] .btn-acao-subtitulo {
    FORMULÁRIO DE EVOLUÇÃO
 ========================================= */
 
+body[data-page-id="prontuario"] .evolucao-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+body[data-page-id="prontuario"] .evolucao-label-row label {
+  margin: 0;
+}
+
+body[data-page-id="prontuario"] #btnInserirAnamnese {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+
 body[data-page-id="prontuario"] #formEvolucao textarea {
   resize: vertical;
   min-height: 150px;
@@ -791,6 +810,94 @@ body[data-page-id="prontuario"] .anamnese-dados-lista dd ul {
 
 body[data-page-id="prontuario"] .anamnese-dados-lista dd ul li {
   margin-bottom: 0.25rem;
+}
+
+/* =========================================
+   MODAL SELECIONAR ANAMNESE (para evolução)
+========================================= */
+
+body[data-page-id="prontuario"] #modalSelecionarAnamnese.modal-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  justify-content: center;
+  align-items: center;
+}
+
+body[data-page-id="prontuario"] #modalSelecionarAnamnese .modal--md {
+  max-width: 500px;
+  width: 90%;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+body[data-page-id="prontuario"] #modalSelecionarAnamnese .modal-body {
+  overflow-y: auto;
+  flex: 1;
+}
+
+body[data-page-id="prontuario"] .anamnese-select-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+body[data-page-id="prontuario"] .anamnese-select-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.75rem;
+  background: var(--cor-fundo-card-alt, #f9fafb);
+  border: 1px solid var(--cor-borda-suave, #e5e7eb);
+  border-radius: var(--radius-md, 10px);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+body[data-page-id="prontuario"] .anamnese-select-item:hover {
+  border-color: var(--cor-primaria-clara, #bfdbfe);
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.08);
+}
+
+body[data-page-id="prontuario"] .anamnese-select-item__info {
+  flex: 1;
+  min-width: 0;
+}
+
+body[data-page-id="prontuario"] .anamnese-select-item__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+body[data-page-id="prontuario"] .anamnese-select-item__data {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--cor-texto-suave, #6b7280);
+}
+
+body[data-page-id="prontuario"] .anamnese-select-item__resumo {
+  color: var(--cor-texto-principal, #111827);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Dark theme */
+[data-theme="dark"] body[data-page-id="prontuario"] #modalSelecionarAnamnese.modal-backdrop,
+body[data-theme="dark"][data-page-id="prontuario"] #modalSelecionarAnamnese.modal-backdrop {
+  background: rgba(0, 0, 0, 0.75);
+}
+
+[data-theme="dark"] body[data-page-id="prontuario"] .anamnese-select-item,
+body[data-theme="dark"][data-page-id="prontuario"] .anamnese-select-item {
+  background: var(--cor-fundo-card-alt);
+  border-color: var(--cor-borda-suave);
 }
 /* =========================================
    ✅ PAINEL LATERAL (DOCUMENTOS) — igual Receita

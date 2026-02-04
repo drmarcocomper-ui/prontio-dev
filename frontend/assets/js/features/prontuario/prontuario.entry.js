@@ -89,6 +89,11 @@
     // Evolução salvar
     qs("#formEvolucao")?.addEventListener("submit", (evv) => evo.salvarEvolucao(ctx, evv));
 
+    // Botão inserir anamnese na evolução
+    if (evo.setupInserirAnamneseBtn_) {
+      evo.setupInserirAnamneseBtn_(ctx);
+    }
+
     // Receita (painel)
     qs("#btnAdicionarMedicamento")?.addEventListener("click", () => rx.criarMedicamentoCard_());
     qs("#formReceitaProntuario")?.addEventListener("submit", (evv) => rx.onSubmitReceita_(evv, ctx));

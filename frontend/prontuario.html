@@ -288,7 +288,12 @@
           <div class="card-body">
             <form id="formEvolucao" class="form-vertical" aria-label="Formulário de evolução">
               <div class="form-row">
-                <label for="textoEvolucao">Registro clínico</label>
+                <div class="evolucao-label-row">
+                  <label for="textoEvolucao">Registro clínico</label>
+                  <button type="button" id="btnInserirAnamnese" class="btn btn-outline btn-sm">
+                    <span aria-hidden="true">📋</span> Inserir Anamnese
+                  </button>
+                </div>
                 <textarea
                   id="textoEvolucao"
                   rows="7"
@@ -299,6 +304,23 @@
                 <button type="submit" class="btn btn-primary">Salvar evolução</button>
               </div>
             </form>
+
+            <!-- Modal para selecionar anamnese -->
+            <div id="modalSelecionarAnamnese" class="modal-backdrop" role="dialog" aria-modal="true" aria-hidden="true" style="display:none;">
+              <div class="modal modal--md">
+                <div class="modal-header">
+                  <h2 class="modal-title">Selecionar Anamnese</h2>
+                  <button type="button" class="modal-close" aria-label="Fechar" data-close-modal-anamnese>X</button>
+                </div>
+                <div class="modal-body">
+                  <p id="modalAnamneseVazio" class="texto-suave">Carregando anamneses...</p>
+                  <div id="modalAnamneseLista" class="anamnese-select-lista"></div>
+                </div>
+                <div class="modal-footer">
+                  <button type="button" class="btn btn-secondary" data-close-modal-anamnese>Cancelar</button>
+                </div>
+              </div>
+            </div>
             <div id="mensagemEvolucao" class="mensagem is-hidden" role="status" aria-live="polite"></div>
           </div>
         </section>

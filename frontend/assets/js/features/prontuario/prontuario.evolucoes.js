@@ -3,9 +3,12 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.prontuario = PRONTIO.features.prontuario || {};
 
-  const { qs, qsa, parseDataHora, setBtnMais_, escapeHtml_, sortByDateDesc_, setMensagem_, formatDataHoraCompleta_ } = PRONTIO.features.prontuario.utils;
+  const { qs, qsa, parseDataHora, setBtnMais_, escapeHtml_, sortByDateDesc_, setMensagem_, formatDataHoraCompleta_, showToast_ } = PRONTIO.features.prontuario.utils;
   const { callApiDataTry_ } = PRONTIO.features.prontuario.api;
   const { carregarResumoPaciente_ } = PRONTIO.features.prontuario.paciente;
+
+  // Cache de anamneses para o modal
+  let anamnesesCache = [];
 
   let idEvolucaoEmEdicao = null;
   let historicoCompletoCarregado = false;
@@ -225,6 +228,230 @@
     }
   }
 
+  // ============================================================
+  // INSERIR ANAMNESE NA EVOLUCAO
+  // ============================================================
+
+  function abrirModalSelecionarAnamnese_(ctx) {
+    const modal = qs("#modalSelecionarAnamnese");
+    if (!modal) {
+      showToast_("Modal de anamnese nao encontrado.", "error");
+      return;
+    }
+
+    modal.style.display = "flex";
+    modal.setAttribute("aria-hidden", "false");
+
+    carregarAnamnesesParaModal_(ctx);
+
+    // Eventos de fechar
+    const closeButtons = modal.querySelectorAll("[data-close-modal-anamnese]");
+    closeButtons.forEach((btn) => {
+      btn.onclick = () => fecharModalSelecionarAnamnese_();
+    });
+
+    // Clique no backdrop fecha
+    modal.onclick = (ev) => {
+      if (ev.target === modal) fecharModalSelecionarAnamnese_();
+    };
+  }
+
+  function fecharModalSelecionarAnamnese_() {
+    const modal = qs("#modalSelecionarAnamnese");
+    if (modal) {
+      modal.style.display = "none";
+      modal.setAttribute("aria-hidden", "true");
+    }
+  }
+
+  async function carregarAnamnesesParaModal_(ctx) {
+    const lista = qs("#modalAnamneseLista");
+    const vazio = qs("#modalAnamneseVazio");
+
+    if (!lista) return;
+
+    lista.innerHTML = "";
+    if (vazio) {
+      vazio.textContent = "Carregando anamneses...";
+      vazio.style.display = "block";
+    }
+
+    const idPaciente = ctx.idPaciente || ctx.ID_Paciente || "";
+    if (!idPaciente) {
+      if (vazio) vazio.textContent = "Nenhum paciente selecionado.";
+      return;
+    }
+
+    try {
+      const data = await callApiDataTry_(
+        ["Anamnese.ListarPorPaciente"],
+        { idPaciente: idPaciente }
+      );
+
+      anamnesesCache = data && data.anamneses ? data.anamneses : [];
+
+      if (!anamnesesCache.length) {
+        if (vazio) vazio.textContent = "Nenhuma anamnese registrada para este paciente.";
+        return;
+      }
+
+      if (vazio) vazio.style.display = "none";
+
+      anamnesesCache.forEach((anamnese) => {
+        const item = document.createElement("div");
+        item.className = "anamnese-select-item";
+
+        const dataFmt = formatDataHoraCompleta_(anamnese.dataPreenchimento);
+        const templateNome = anamnese.nomeTemplate || "Anamnese";
+
+        let resumo = "";
+        if (anamnese.dados && anamnese.dados.queixaPrincipal) {
+          resumo = String(anamnese.dados.queixaPrincipal).substring(0, 80);
+          if (anamnese.dados.queixaPrincipal.length > 80) resumo += "...";
+        }
+
+        item.innerHTML = `
+          <div class="anamnese-select-item__info">
+            <div class="anamnese-select-item__header">
+              <span class="anamnese-select-item__data">${escapeHtml_(dataFmt)}</span>
+              <span class="badge">${escapeHtml_(templateNome)}</span>
+            </div>
+            ${resumo ? `<div class="anamnese-select-item__resumo texto-menor">${escapeHtml_(resumo)}</div>` : ""}
+          </div>
+          <button type="button" class="btn btn-primary btn-sm">Inserir</button>
+        `;
+
+        const btnInserir = item.querySelector("button");
+        btnInserir.addEventListener("click", () => {
+          inserirAnamneseNaEvolucao_(anamnese);
+          fecharModalSelecionarAnamnese_();
+        });
+
+        lista.appendChild(item);
+      });
+
+    } catch (err) {
+      console.error("[PRONTIO] Erro ao carregar anamneses:", err);
+      if (vazio) vazio.textContent = "Erro ao carregar anamneses.";
+    }
+  }
+
+  function inserirAnamneseNaEvolucao_(anamnese) {
+    const textarea = qs("#textoEvolucao");
+    if (!textarea) return;
+
+    const textoFormatado = formatarAnamneseParaEvolucao_(anamnese);
+
+    // Se já houver texto, adiciona no final com separador
+    if (textarea.value.trim()) {
+      textarea.value = textarea.value.trim() + "\n\n---\n\n" + textoFormatado;
+    } else {
+      textarea.value = textoFormatado;
+    }
+
+    textarea.focus();
+    showToast_("Anamnese inserida na evolucao.", "success");
+  }
+
+  function formatarAnamneseParaEvolucao_(anamnese) {
+    const dados = anamnese.dados || {};
+    const linhas = [];
+
+    const dataFmt = formatDataHoraCompleta_(anamnese.dataPreenchimento);
+    linhas.push(`ANAMNESE (${anamnese.nomeTemplate || "Geral"} - ${dataFmt})`);
+    linhas.push("");
+
+    // Queixa Principal
+    if (dados.queixaPrincipal) {
+      linhas.push("QUEIXA PRINCIPAL:");
+      linhas.push(dados.queixaPrincipal);
+      linhas.push("");
+    }
+
+    // Historia da Doenca Atual
+    if (dados.inicio || dados.evolucao || dados.fatoresAgravantes) {
+      linhas.push("HISTORIA DA DOENCA ATUAL:");
+      if (dados.inicio) linhas.push("- Inicio: " + dados.inicio);
+      if (dados.evolucao) linhas.push("- Evolucao: " + dados.evolucao);
+      if (dados.fatoresAgravantes) linhas.push("- Fatores agravantes/atenuantes: " + dados.fatoresAgravantes);
+      linhas.push("");
+    }
+
+    // Antecedentes
+    if (dados.pessoais || dados.pessoaisOutros || dados.familiares) {
+      linhas.push("ANTECEDENTES:");
+      if (dados.pessoais && Array.isArray(dados.pessoais) && dados.pessoais.length) {
+        linhas.push("- Pessoais: " + dados.pessoais.join(", "));
+      }
+      if (dados.pessoaisOutros) linhas.push("- Outros: " + dados.pessoaisOutros);
+      if (dados.familiares) linhas.push("- Familiares: " + dados.familiares);
+      linhas.push("");
+    }
+
+    // Medicamentos
+    if (dados.medicamentos && Array.isArray(dados.medicamentos) && dados.medicamentos.length) {
+      linhas.push("MEDICAMENTOS EM USO:");
+      dados.medicamentos.forEach((med) => {
+        const partes = [];
+        if (med.nome) partes.push(med.nome);
+        if (med.dose) partes.push(med.dose);
+        if (med.frequencia) partes.push(med.frequencia);
+        if (partes.length) linhas.push("- " + partes.join(" - "));
+      });
+      linhas.push("");
+    }
+
+    // Alergias
+    if (dados.temAlergia || dados.alergias) {
+      linhas.push("ALERGIAS:");
+      if (dados.temAlergia) linhas.push("- Possui alergias: " + dados.temAlergia);
+      if (dados.alergias) linhas.push("- " + dados.alergias);
+      linhas.push("");
+    }
+
+    // Habitos
+    if (dados.tabagismo || dados.etilismo || dados.atividadeFisica) {
+      linhas.push("HABITOS DE VIDA:");
+      if (dados.tabagismo) linhas.push("- Tabagismo: " + dados.tabagismo);
+      if (dados.etilismo) linhas.push("- Etilismo: " + dados.etilismo);
+      if (dados.atividadeFisica) linhas.push("- Atividade fisica: " + dados.atividadeFisica);
+      linhas.push("");
+    }
+
+    // Exame Fisico
+    if (dados.pa || dados.fc || dados.temperatura || dados.peso || dados.altura || dados.observacoes) {
+      linhas.push("EXAME FISICO:");
+      const sinais = [];
+      if (dados.pa) sinais.push("PA: " + dados.pa);
+      if (dados.fc) sinais.push("FC: " + dados.fc);
+      if (dados.temperatura) sinais.push("Temp: " + dados.temperatura);
+      if (dados.peso) sinais.push("Peso: " + dados.peso + "kg");
+      if (dados.altura) sinais.push("Altura: " + dados.altura + "cm");
+      if (sinais.length) linhas.push("- " + sinais.join(" | "));
+      if (dados.observacoes) linhas.push("- Obs: " + dados.observacoes);
+      linhas.push("");
+    }
+
+    return linhas.join("\n").trim();
+  }
+
+  function setupInserirAnamneseBtn_(ctx) {
+    const btn = qs("#btnInserirAnamnese");
+    if (btn) {
+      btn.addEventListener("click", () => abrirModalSelecionarAnamnese_(ctx));
+    }
+
+    // ESC fecha o modal
+    document.addEventListener("keydown", (ev) => {
+      if (ev.key === "Escape") {
+        const modal = qs("#modalSelecionarAnamnese");
+        if (modal && modal.style.display !== "none") {
+          fecharModalSelecionarAnamnese_();
+        }
+      }
+    });
+  }
+
   PRONTIO.features.prontuario.evolucoes = {
     abrirNovaEvolucao_,
     salvarEvolucao,
@@ -232,5 +459,6 @@
     setBtnMaisRef: (btn) => (evoPaging.btnMais = btn),
     getEvoPaging: () => evoPaging,
     setHistoricoCarregado: (v) => (historicoCompletoCarregado = !!v),
+    setupInserirAnamneseBtn_,
   };
 })(window, document);
