@@ -575,7 +575,11 @@
 
       setMensagemDocumentos_({ tipo: "sucesso", texto: "Documento gerado." });
     } catch (e) {
-      setMensagemDocumentos_({ tipo: "erro", texto: "Erro ao gerar documento." });
+      // ✅ P1: Mensagem de erro específica com tipo de documento e detalhes
+      const tipoLabel = docTipoLabel_(t);
+      const detalhe = e && e.message ? ` (${e.message})` : "";
+      console.error(`[PRONTIO] Erro ao gerar ${tipoLabel}:`, e);
+      setMensagemDocumentos_({ tipo: "erro", texto: `Erro ao gerar ${tipoLabel}.${detalhe}` });
     }
   }
 

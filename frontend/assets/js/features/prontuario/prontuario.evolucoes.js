@@ -41,7 +41,8 @@
       .slice()
       .sort((a, b) => {
         const da = parseDataHora(a.dataHoraRegistro || a.dataHora || a.data || a.criadoEm) || new Date(0);
-        const db = parseDataHora(b.dataHoraRegistro || b.dataHora || a.data || b.criadoEm) || new Date(0);
+        // ✅ P1: Fix bug - was using a.data instead of b.data
+        const db = parseDataHora(b.dataHoraRegistro || b.dataHora || b.data || b.criadoEm) || new Date(0);
         return db - da;
       });
   }
@@ -198,8 +199,11 @@
 
       historicoCompletoCarregado = true;
     } catch (e) {
+      // ✅ P1: Mensagem de erro com detalhes
+      const detalhe = e && e.message ? ` (${e.message})` : "";
+      console.error("[PRONTIO] Erro ao carregar evoluções:", e);
       vazio.classList.remove("is-hidden");
-      vazio.textContent = "Erro ao carregar evoluções.";
+      vazio.textContent = `Erro ao carregar evoluções.${detalhe}`;
       evoPaging.cursor = null;
       evoPaging.hasMore = false;
     } finally {
@@ -239,7 +243,10 @@
         carregarEvolucoesPaginadas_(ctx, { append: false, limit: currentLimit });
       }
     } catch (e) {
-      setMensagemEvolucao({ tipo: "erro", texto: "Erro ao salvar evolução." });
+      // ✅ P1: Mensagem de erro com detalhes
+      const detalhe = e && e.message ? ` (${e.message})` : "";
+      console.error("[PRONTIO] Erro ao salvar evolução:", e);
+      setMensagemEvolucao({ tipo: "erro", texto: `Erro ao salvar evolução.${detalhe}` });
     }
   }
 

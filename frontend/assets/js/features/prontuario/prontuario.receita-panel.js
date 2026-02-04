@@ -191,6 +191,10 @@
     if (fullBlock) fullBlock.appendChild(wrap);
   }
 
+  // ✅ P1: Flag para evitar múltiplos avisos de erro em sequência
+  let lastAutocompleteErrorTime = 0;
+  const AUTOCOMPLETE_ERROR_DEBOUNCE_MS = 5000;
+
   async function buscarSugestoesMedicamento_(q) {
     try {
       const data = await callApiDataTry_(
@@ -210,6 +214,23 @@
         .filter((x) => x.nome);
     } catch (err) {
       console.warn("[PRONTIO] Autocomplete Medicamentos falhou:", err);
+
+      // ✅ P1: Mostra feedback ao usuário (com debounce para evitar spam)
+      const now = Date.now();
+      if (now - lastAutocompleteErrorTime > AUTOCOMPLETE_ERROR_DEBOUNCE_MS) {
+        lastAutocompleteErrorTime = now;
+        // Mostra mensagem discreta no slot de sugestões em vez de alert
+        const container = qs("#receitaItensContainer");
+        if (container) {
+          const slots = container.querySelectorAll(".receita-item-sugestoes");
+          slots.forEach((slot) => {
+            if (slot) {
+              slot.innerHTML = `<div class="texto-menor texto-suave" style="padding:8px;color:var(--cor-perigo,#b91c1c);">Erro ao buscar medicamentos. Tente novamente.</div>`;
+            }
+          });
+        }
+      }
+
       return [];
     }
   }
