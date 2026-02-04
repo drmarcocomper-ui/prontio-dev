@@ -441,20 +441,20 @@
     // STATUS / DESBLOQUEIO / PRONTUÁRIO
     // =========================================================
 
-    // ✅ P1: Helper para mostrar erro (toast ou console)
+    // ✅ P0/P1: Helper para mostrar erro (toast ou fallback visual)
     function showError_(message) {
       const toast = PRONTIO.widgets?.toast;
       const toastEl = document.getElementById("toast-agenda") || document.getElementById("mensagem");
       if (toast && toastEl) {
         toast.show({ target: toastEl, text: message, type: "erro", autoHide: true, autoHideDelay: 5000 });
       } else {
+        // ✅ P0: Fallback visual sem alert() - cria elemento temporário
         console.error("[AgendaEditActions]", message);
-        // Fallback para alert em caso de erro crítico sem toast disponível
-        alert(message);
+        showFallbackMessage_(message, "erro");
       }
     }
 
-    // ✅ P1: Helper para mostrar aviso (toast ou console)
+    // ✅ P0/P1: Helper para mostrar aviso (toast ou fallback visual)
     function showAviso_(message) {
       const toast = PRONTIO.widgets?.toast;
       const toastEl = document.getElementById("toast-agenda") || document.getElementById("mensagem");
@@ -462,8 +462,29 @@
         toast.show({ target: toastEl, text: message, type: "aviso", autoHide: true, autoHideDelay: 5000 });
       } else {
         console.warn("[AgendaEditActions]", message);
-        alert(message);
+        showFallbackMessage_(message, "aviso");
       }
+    }
+
+    // ✅ P0: Fallback visual quando toast não está disponível (evita alert())
+    function showFallbackMessage_(message, type) {
+      const existingMsg = document.getElementById("agenda-fallback-msg");
+      if (existingMsg) existingMsg.remove();
+
+      const msgEl = document.createElement("div");
+      msgEl.id = "agenda-fallback-msg";
+      msgEl.className = "agenda-fallback-msg agenda-fallback-msg--" + type;
+      msgEl.textContent = message;
+      msgEl.style.cssText = "position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:9999;padding:12px 24px;border-radius:8px;font-size:14px;max-width:90%;box-shadow:0 4px 12px rgba(0,0,0,0.15);";
+      msgEl.style.background = type === "erro" ? "#fef2f2" : "#fffbeb";
+      msgEl.style.color = type === "erro" ? "#dc2626" : "#d97706";
+      msgEl.style.border = "1px solid " + (type === "erro" ? "#fecaca" : "#fde68a");
+
+      document.body.appendChild(msgEl);
+
+      setTimeout(function () {
+        if (msgEl.parentNode) msgEl.remove();
+      }, 5000);
     }
 
     async function mudarStatus(idAgenda, labelUi, cardEl) {

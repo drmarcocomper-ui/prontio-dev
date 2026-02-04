@@ -121,7 +121,9 @@
     }
 
     async function executeFetch_() {
+      // ✅ P0: Lock imediato para evitar race condition
       if (isFetching || pendingIds.size === 0) return;
+      isFetching = true; // Lock antes de qualquer operação async
 
       // Pega até MAX_IDS_PER_REQUEST IDs
       const idsToFetch = Array.from(pendingIds).slice(0, MAX_IDS_PER_REQUEST);
@@ -135,12 +137,13 @@
       if (!pacientesApi || typeof pacientesApi.buscarPorIds !== "function") {
         // Fallback: busca individual via buscarSimples (menos eficiente)
         if (pacientesApi && typeof pacientesApi.buscarSimples === "function") {
+          isFetching = false; // ✅ P0: Libera lock antes do fallback (fetchIndividual_ gerencia seu próprio lock)
           await fetchIndividual_(pacientesApi, idsToFetch);
+        } else {
+          isFetching = false; // ✅ P0: Libera lock se não há API disponível
         }
         return;
       }
-
-      isFetching = true;
       try {
         // ✅ Adiciona timeout de 10 segundos
         const result = await withTimeout_(

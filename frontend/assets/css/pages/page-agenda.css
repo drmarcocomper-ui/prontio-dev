@@ -164,13 +164,14 @@
   font-weight: 600;
 }
 
-.resumo-confirmados { color: #16a34a; }
-.resumo-aguardando { color: #f59e0b; }
-.resumo-faltas { color: #b91c1c; }
-.resumo-cancelados { color: #ea580c; }
-.resumo-remarcados { color: #8b5cf6; }
-.resumo-concluidos { color: #059669; }
-.resumo-em-atendimento { color: #0ea5e9; }
+/* ✅ P3: Cores de status usando variáveis CSS */
+.resumo-confirmados { color: var(--cor-status-confirmado, #16a34a); }
+.resumo-aguardando { color: var(--cor-status-aguardando, #f59e0b); }
+.resumo-faltas { color: var(--cor-status-falta, #b91c1c); }
+.resumo-cancelados { color: var(--cor-status-cancelado, #ea580c); }
+.resumo-remarcados { color: var(--cor-status-remarcado, #8b5cf6); }
+.resumo-concluidos { color: var(--cor-status-concluido, #059669); }
+.resumo-em-atendimento { color: var(--cor-status-em-atendimento, #0ea5e9); }
 
 .agenda-hints {
   display: flex;
@@ -312,13 +313,14 @@
   transition: background-color 0.1s ease;
 }
 
+/* ✅ P3: Hover e destaque do horário atual usando variáveis */
 .agenda-table__row:hover {
-  background: rgba(14, 165, 233, 0.04);
+  background: var(--cor-hover-linha, rgba(14, 165, 233, 0.04));
 }
 
 .agenda-table__row--now {
-  background: rgba(14, 165, 233, 0.08);
-  outline: 2px solid rgba(14, 165, 233, 0.2);
+  background: var(--cor-destaque-agora, rgba(14, 165, 233, 0.08));
+  outline: 2px solid var(--cor-destaque-agora-borda, rgba(14, 165, 233, 0.2));
   outline-offset: -2px;
 }
 
@@ -326,22 +328,23 @@
    LINHA VAZIA - Clicável para novo agendamento
    ========================================================= */
 
+/* ✅ P3: Linha vazia com padrão visual usando variáveis */
 .agenda-table__row--empty {
   cursor: pointer;
   color: var(--cor-texto-suave);
-  background: repeating-linear-gradient(
+  background: var(--cor-fundo-linha-vazia, repeating-linear-gradient(
     -45deg,
     transparent,
     transparent 10px,
     rgba(16, 185, 129, 0.03) 10px,
     rgba(16, 185, 129, 0.03) 20px
-  );
+  ));
   border-left: 3px solid transparent;
   transition: all 0.2s ease;
 }
 
 .agenda-table__row--empty:hover {
-  background: rgba(16, 185, 129, 0.1);
+  background: var(--cor-hover-linha-vazia, rgba(16, 185, 129, 0.1));
   border-left-color: var(--cor-sucesso, #10b981);
 }
 
@@ -351,7 +354,7 @@
 }
 
 .agenda-table__row--empty:active {
-  background: rgba(16, 185, 129, 0.15);
+  background: var(--cor-active-linha-vazia, rgba(16, 185, 129, 0.15));
 }
 
 /* Conteúdo da célula vazia */
@@ -468,11 +471,11 @@
 }
 
 .agenda-table__status-select:hover {
-  border-color: rgba(14, 165, 233, 0.4);
+  border-color: var(--cor-primaria-clara, rgba(14, 165, 233, 0.4));
 }
 
 .agenda-table__status-select:focus {
-  outline: 2px solid rgba(14, 165, 233, 0.3);
+  outline: 2px solid var(--cor-primaria-clara, rgba(14, 165, 233, 0.3));
   outline-offset: 1px;
 }
 
@@ -501,34 +504,35 @@
 
 .agenda-table__action-btn:hover {
   background: var(--cor-fundo-card-alt);
-  border-color: rgba(14, 165, 233, 0.4);
+  border-color: var(--cor-primaria-clara, rgba(14, 165, 233, 0.4));
 }
 
+/* ✅ P3: Cores de ação usando variáveis CSS */
 .agenda-table__action-btn--editar:hover {
-  color: #3b82f6;
+  color: var(--cor-primaria, #3b82f6);
 }
 
 .agenda-table__action-btn--atender:hover {
-  color: #10b981;
+  color: var(--cor-sucesso, #10b981);
 }
 
 .agenda-table__action-btn--cancelar:hover {
-  color: #ef4444;
+  color: var(--cor-perigo, #ef4444);
 }
 
 .agenda-table__action-btn--remover:hover {
-  color: #f59e0b;
+  color: var(--cor-aviso, #f59e0b);
 }
 
-/* Cores de status na linha (borda esquerda) */
-.agenda-table__row.status-agendado { border-left: 3px solid #64748b; }
-.agenda-table__row.status-confirmado { border-left: 3px solid #16a34a; }
-.agenda-table__row.status-aguardando { border-left: 3px solid #f59e0b; }
-.agenda-table__row.status-em-atendimento { border-left: 3px solid #0ea5e9; }
-.agenda-table__row.status-falta { border-left: 3px solid #b91c1c; }
-.agenda-table__row.status-cancelado { border-left: 3px solid #ea580c; }
-.agenda-table__row.status-remarcado { border-left: 3px solid #8b5cf6; }
-.agenda-table__row.status-concluido { border-left: 3px solid #059669; }
+/* ✅ P3: Cores de status na linha (borda esquerda) usando variáveis */
+.agenda-table__row.status-agendado { border-left: 3px solid var(--cor-status-agendado, #64748b); }
+.agenda-table__row.status-confirmado { border-left: 3px solid var(--cor-status-confirmado, #16a34a); }
+.agenda-table__row.status-aguardando { border-left: 3px solid var(--cor-status-aguardando, #f59e0b); }
+.agenda-table__row.status-em-atendimento { border-left: 3px solid var(--cor-status-em-atendimento, #0ea5e9); }
+.agenda-table__row.status-falta { border-left: 3px solid var(--cor-status-falta, #b91c1c); }
+.agenda-table__row.status-cancelado { border-left: 3px solid var(--cor-status-cancelado, #ea580c); }
+.agenda-table__row.status-remarcado { border-left: 3px solid var(--cor-status-remarcado, #8b5cf6); }
+.agenda-table__row.status-concluido { border-left: 3px solid var(--cor-status-concluido, #059669); }
 
 .agenda-slot {
   display: grid;
@@ -593,8 +597,8 @@
   background: var(--cor-fundo-card);
   border-radius: var(--radius-md);
   padding: 0.35rem 0.45rem;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
-  border-left: 3px solid #94a3b8;
+  box-shadow: var(--shadow-card, 0 1px 2px rgba(0, 0, 0, 0.08));
+  border-left: 3px solid var(--cor-status-agendado, #94a3b8);
   margin-bottom: 0.25rem;
   transition: background-color 0.15s ease, box-shadow 0.15s ease;
 }
@@ -605,7 +609,7 @@
 
 .bloqueio-card {
   background: var(--cor-fundo-card-alt);
-  border-left-color: #6b7280;
+  border-left-color: var(--cor-texto-suave, #6b7280);
 }
 
 .bloqueio-label {
@@ -674,14 +678,15 @@
    Alinhado com canônicos: MARCADO, CONFIRMADO, AGUARDANDO, EM_ATENDIMENTO, ATENDIDO, FALTOU, CANCELADO, REMARCADO
    ========================================================= */
 
-.status-agendado { border-left-color: #64748b; }
-.status-confirmado { border-left-color: #16a34a; }
-.status-aguardando { border-left-color: #f59e0b; }
-.status-em-atendimento { border-left-color: #0ea5e9; }
-.status-falta { border-left-color: #b91c1c; }
-.status-cancelado { border-left-color: #ea580c; }
-.status-remarcado { border-left-color: #8b5cf6; }
-.status-concluido { border-left-color: #059669; }
+/* ✅ P3: Cores de status para cards usando variáveis */
+.status-agendado { border-left-color: var(--cor-status-agendado, #64748b); }
+.status-confirmado { border-left-color: var(--cor-status-confirmado, #16a34a); }
+.status-aguardando { border-left-color: var(--cor-status-aguardando, #f59e0b); }
+.status-em-atendimento { border-left-color: var(--cor-status-em-atendimento, #0ea5e9); }
+.status-falta { border-left-color: var(--cor-status-falta, #b91c1c); }
+.status-cancelado { border-left-color: var(--cor-status-cancelado, #ea580c); }
+.status-remarcado { border-left-color: var(--cor-status-remarcado, #8b5cf6); }
+.status-concluido { border-left-color: var(--cor-status-concluido, #059669); }
 
 /* =========================================================
    VISÃO SEMANAL EM GRID (com sticky)
@@ -929,7 +934,7 @@
 }
 
 .form-message.info {
-  color: #0ea5e9;
+  color: var(--cor-info, #0ea5e9);
 }
 
 .form-message.erro {
@@ -964,7 +969,7 @@
   background: var(--cor-fundo-card);
   border: 1px solid var(--cor-borda-suave);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-dropdown, 0 10px 24px rgba(0, 0, 0, 0.12));
   max-height: 260px;
   overflow: auto;
   padding: 0.25rem;

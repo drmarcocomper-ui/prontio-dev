@@ -221,7 +221,15 @@
     // -------------------------
     function openPacientePicker(mode) {
       if (!state.pacientesPicker) {
-        alert("Seletor de pacientes não disponível.");
+        // ✅ P0: Usa toast ou fallback visual ao invés de alert()
+        const toast = PRONTIO.widgets?.toast;
+        const toastEl = document.getElementById("toast-agenda") || document.getElementById("mensagem");
+        const msg = "Seletor de pacientes não disponível. Digite o nome e selecione da lista.";
+        if (toast && toastEl) {
+          toast.show({ target: toastEl, text: msg, type: "aviso", autoHide: true, autoHideDelay: 4000 });
+        } else {
+          console.warn("[AgendaUiActions]", msg);
+        }
         return;
       }
       state.pacientesPicker.open({ mode: mode === "editar" ? "editar" : "novo" });

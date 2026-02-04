@@ -52,7 +52,9 @@
       }
 
       return cached.items;
-    } catch (_) {
+    } catch (err) {
+      // ✅ P1: Log do erro para diagnóstico (não mais silencioso)
+      console.warn("[AgendaLoaders] Erro ao ler cache:", tipo, data, err?.message || err);
       return null;
     }
   }
@@ -118,7 +120,10 @@
       if (toRemove.length > 0) {
         console.log("[AgendaLoaders] Removidas", toRemove.length, "entradas antigas do cache.");
       }
-    } catch (_) {}
+    } catch (err) {
+      // ✅ P1: Log do erro para diagnóstico
+      console.warn("[AgendaLoaders] Erro ao limpar cache antigo:", err?.message || err);
+    }
   }
 
   // ✅ Invalidar cache de uma data específica (chamado após mutações)
