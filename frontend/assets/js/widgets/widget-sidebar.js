@@ -11,6 +11,7 @@
 //  - Botão de menu (topbar) abre/fecha o drawer.
 //  - Botão .js-toggle-compact também atua como toggle do drawer em mobile.
 //  - Clicar no backdrop ou em um link do menu fecha o drawer.
+//  - ✅ Swipe gestures para abrir/fechar
 //
 // Em todas as larguras:
 //  - Destaca o link ativo com base em data-page-id do <body>.
@@ -19,33 +20,30 @@
 // Observação:
 //  - Tema claro/escuro é responsabilidade da TOPBAR (não desta sidebar).
 //
-// ✅ Atualização (profissional):
-//  - Event delegation para toggle do drawer via:
-//      [data-sidebar-toggle] OU .js-toggle-sidebar
-//    (independe da ordem de montagem da topbar).
-//
-// ✅ Extra (sem quebrar):
-//  - Preenche #appVersion com PRONTIO.APP_VERSION (exposto pelo main.js)
-//
-// ✅ Ajuste (logout):
-//  - NÃO executa mais logout aqui (evita duplicação com core/auth.js).
-//  - Apenas fecha o drawer no mobile ao clicar em "Sair".
-//
-// ✅ Melhorias:
+// ✅ Funcionalidades:
+//  - Event delegation para toggle do drawer
 //  - Tooltips no modo compacto (data-tooltip)
-//  - Keyboard navigation (setas)
+//  - Keyboard navigation (setas, Home, End, Escape)
 //  - Accessibility (aria-label dinâmico)
+//  - Swipe gestures (mobile)
+//  - Submenu colapsável
+//  - Badges de notificação (API)
 // =====================================
 
 (function (global, document) {
-  const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
+  var PRONTIO = (global.PRONTIO = global.PRONTIO || {});
   PRONTIO.widgets = PRONTIO.widgets || {};
   PRONTIO.ui = PRONTIO.ui || {};
 
-  const STORAGE_KEY_COMPACT = "prontio.sidebar.compact";
-  const MOBILE_MEDIA = "(max-width: 900px)";
-  const DOC_FLAG_DELEGATION_BOUND = "prontioSidebarDelegationBound";
-  const DOC_FLAG_KEYBOARD_BOUND = "prontioSidebarKeyboardBound";
+  var STORAGE_KEY_COMPACT = "prontio.sidebar.compact";
+  var MOBILE_MEDIA = "(max-width: 900px)";
+  var DOC_FLAG_DELEGATION_BOUND = "prontioSidebarDelegationBound";
+  var DOC_FLAG_KEYBOARD_BOUND = "prontioSidebarKeyboardBound";
+  var DOC_FLAG_SWIPE_BOUND = "prontioSidebarSwipeBound";
+
+  // Swipe config
+  var SWIPE_THRESHOLD = 50;
+  var SWIPE_EDGE_ZONE = 30;
 
   function getSidebarElement() {
     return document.getElementById("sidebar");
@@ -58,7 +56,7 @@
   /* -------- helpers de estado compacto (desktop) -------- */
 
   function setCompact(isCompactFlag) {
-    const body = document.body;
+    var body = document.body;
     if (!body) return;
 
     if (isCompactFlag) {
@@ -72,9 +70,15 @@
   }
 
   function isCompact() {
-    const body = document.body;
+    var body = document.body;
     if (!body) return false;
     return body.classList.contains("sidebar-compact");
+  }
+
+  function isDrawerOpen() {
+    var body = document.body;
+    if (!body) return false;
+    return body.classList.contains("sidebar-open");
   }
 
   function syncToggleButtonAria(btn, isCompactFlag) {
@@ -86,7 +90,7 @@
   function loadCompactFromStorage() {
     try {
       if (!global.localStorage) return false;
-      const stored = global.localStorage.getItem(STORAGE_KEY_COMPACT);
+      var stored = global.localStorage.getItem(STORAGE_KEY_COMPACT);
       return stored === "1";
     } catch (e) {
       return false;
@@ -105,23 +109,103 @@
   /* -------- helpers de drawer (mobile) -------- */
 
   function openDrawer() {
-    const body = document.body;
+    var body = document.body;
     if (!body) return;
     body.classList.add("sidebar-open");
+
+    // Announce to screen readers
+    var sidebar = getSidebarElement();
+    if (sidebar) {
+      sidebar.setAttribute("aria-hidden", "false");
+    }
   }
 
   function closeDrawer() {
-    const body = document.body;
+    var body = document.body;
     if (!body) return;
     body.classList.remove("sidebar-open");
+
+    var sidebar = getSidebarElement();
+    if (sidebar && isMobile_()) {
+      sidebar.setAttribute("aria-hidden", "true");
+    }
   }
 
   function toggleDrawer() {
-    const body = document.body;
+    var body = document.body;
     if (!body) return;
-    const open = body.classList.contains("sidebar-open");
+    var open = body.classList.contains("sidebar-open");
     if (open) closeDrawer();
     else openDrawer();
+  }
+
+  /* -------- swipe gestures (mobile) -------- */
+
+  function setupSwipeGestures_() {
+    if (!document || !document.documentElement) return;
+
+    // Idempotência
+    if (document.documentElement.dataset[DOC_FLAG_SWIPE_BOUND] === "1") return;
+    document.documentElement.dataset[DOC_FLAG_SWIPE_BOUND] = "1";
+
+    var touchStartX = 0;
+    var touchStartY = 0;
+    var touchEndX = 0;
+    var touchEndY = 0;
+    var isSwiping = false;
+
+    document.addEventListener("touchstart", function (ev) {
+      if (!isMobile_()) return;
+
+      var touch = ev.touches[0];
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      isSwiping = false;
+
+      // Só permite swipe da borda esquerda para abrir
+      // ou de qualquer lugar para fechar se o drawer está aberto
+      var isFromEdge = touchStartX <= SWIPE_EDGE_ZONE;
+      var drawerOpen = isDrawerOpen();
+
+      if (isFromEdge || drawerOpen) {
+        isSwiping = true;
+      }
+    }, { passive: true });
+
+    document.addEventListener("touchmove", function (ev) {
+      if (!isSwiping || !isMobile_()) return;
+
+      var touch = ev.touches[0];
+      touchEndX = touch.clientX;
+      touchEndY = touch.clientY;
+    }, { passive: true });
+
+    document.addEventListener("touchend", function () {
+      if (!isSwiping || !isMobile_()) return;
+
+      var deltaX = touchEndX - touchStartX;
+      var deltaY = touchEndY - touchStartY;
+
+      // Só considera swipe horizontal (deltaX > deltaY)
+      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > SWIPE_THRESHOLD) {
+        var drawerOpen = isDrawerOpen();
+
+        if (deltaX > 0 && !drawerOpen) {
+          // Swipe right: abrir drawer
+          openDrawer();
+        } else if (deltaX < 0 && drawerOpen) {
+          // Swipe left: fechar drawer
+          closeDrawer();
+        }
+      }
+
+      // Reset
+      touchStartX = 0;
+      touchStartY = 0;
+      touchEndX = 0;
+      touchEndY = 0;
+      isSwiping = false;
+    }, { passive: true });
   }
 
   /* -------- destacar link ativo -------- */
@@ -129,13 +213,13 @@
   function highlightActiveNavLink(sidebar) {
     if (!sidebar || !document.body) return;
 
-    const pageId = document.body.dataset.pageId || "";
+    var pageId = document.body.dataset.pageId || "";
     if (!pageId) return;
 
-    const links = sidebar.querySelectorAll(".nav-link[data-page-id]");
+    var links = sidebar.querySelectorAll(".nav-link[data-page-id]");
     links.forEach(function (link) {
-      const linkPageId = link.getAttribute("data-page-id") || "";
-      const isActiveLink = linkPageId === pageId;
+      var linkPageId = link.getAttribute("data-page-id") || "";
+      var isActiveLink = linkPageId === pageId;
 
       if (isActiveLink) {
         link.classList.add("active");
@@ -143,6 +227,16 @@
         link.setAttribute("data-active", "true");
         if (!link.hasAttribute("aria-current")) {
           link.setAttribute("aria-current", "page");
+        }
+
+        // Se está em submenu, expandir o submenu pai
+        var submenu = link.closest(".sidebar-submenu");
+        if (submenu) {
+          submenu.classList.add("is-open");
+          var parent = submenu.previousElementSibling;
+          if (parent && parent.classList.contains("nav-link-parent")) {
+            parent.setAttribute("aria-expanded", "true");
+          }
         }
       } else {
         link.classList.remove("active");
@@ -160,10 +254,10 @@
   function updateProntuarioVisibility(sidebar) {
     if (!sidebar || !document.body) return;
 
-    const link = sidebar.querySelector("[data-nav-section='prontuario']");
+    var link = sidebar.querySelector("[data-nav-section='prontuario']");
     if (!link) return;
 
-    const hasProntuario =
+    var hasProntuario =
       document.body.dataset && document.body.dataset.hasProntuario === "true";
 
     link.style.display = hasProntuario ? "" : "none";
@@ -175,9 +269,7 @@
     if (!sidebar) return;
 
     // Ação "Sair"
-    // ✅ O logout/confirm/redirect fica centralizado em core/auth.js (bindLogoutButtons).
-    // ✅ Aqui só fechamos o drawer em mobile para UX (sem competir com o auth.js).
-    const logoutBtn = sidebar.querySelector("[data-nav-action='logout']");
+    var logoutBtn = sidebar.querySelector("[data-nav-action='logout']");
     if (logoutBtn) {
       if (logoutBtn.getAttribute("data-sidebar-logout-bound") === "1") return;
       logoutBtn.setAttribute("data-sidebar-logout-bound", "1");
@@ -186,6 +278,44 @@
         if (isMobile_()) closeDrawer();
       });
     }
+  }
+
+  /* -------- submenu colapsável -------- */
+
+  function setupSubmenus_(sidebar) {
+    if (!sidebar) return;
+
+    var parentLinks = sidebar.querySelectorAll(".nav-link-parent");
+
+    parentLinks.forEach(function (parent) {
+      if (parent.getAttribute("data-submenu-bound") === "1") return;
+      parent.setAttribute("data-submenu-bound", "1");
+
+      // Estado inicial
+      if (!parent.hasAttribute("aria-expanded")) {
+        parent.setAttribute("aria-expanded", "false");
+      }
+
+      parent.addEventListener("click", function (ev) {
+        ev.preventDefault();
+
+        // Em modo compacto, não permite expandir submenu
+        if (isCompact() && !isMobile_()) return;
+
+        var expanded = parent.getAttribute("aria-expanded") === "true";
+        var submenu = parent.nextElementSibling;
+
+        if (submenu && submenu.classList.contains("sidebar-submenu")) {
+          if (expanded) {
+            submenu.classList.remove("is-open");
+            parent.setAttribute("aria-expanded", "false");
+          } else {
+            submenu.classList.add("is-open");
+            parent.setAttribute("aria-expanded", "true");
+          }
+        }
+      });
+    });
   }
 
   /* -------- event delegation: toggle sidebar (topbar) -------- */
@@ -198,9 +328,9 @@
     document.documentElement.dataset[DOC_FLAG_DELEGATION_BOUND] = "1";
 
     document.addEventListener("click", function (ev) {
-      const target = ev.target;
+      var target = ev.target;
 
-      const trigger =
+      var trigger =
         target && target.closest
           ? target.closest("[data-sidebar-toggle], .js-toggle-sidebar")
           : null;
@@ -220,7 +350,7 @@
   function setupSoonLinks(sidebar) {
     if (!sidebar) return;
 
-    const soonLinks = sidebar.querySelectorAll(
+    var soonLinks = sidebar.querySelectorAll(
       ".nav-link[data-soon='true'], .nav-link[aria-disabled='true']"
     );
 
@@ -237,11 +367,11 @@
   function applyAppVersion_(sidebar) {
     if (!sidebar) return;
 
-    const el = sidebar.querySelector("#appVersion");
+    var el = sidebar.querySelector("#appVersion");
     if (!el) return;
 
     try {
-      const v = (global.PRONTIO && global.PRONTIO.APP_VERSION) ? String(global.PRONTIO.APP_VERSION) : "";
+      var v = (global.PRONTIO && global.PRONTIO.APP_VERSION) ? String(global.PRONTIO.APP_VERSION) : "";
       if (v) el.textContent = "v" + v;
     } catch (_) {}
   }
@@ -251,7 +381,7 @@
   function applyCurrentYear_(sidebar) {
     if (!sidebar) return;
 
-    const el = sidebar.querySelector("#anoAtualSidebar");
+    var el = sidebar.querySelector("#anoAtualSidebar");
     if (!el) return;
 
     try {
@@ -383,12 +513,95 @@
             handled = true;
           }
           break;
+
+        case "ArrowRight":
+        case "Right":
+          // Expandir submenu
+          if (target.classList.contains("nav-link-parent")) {
+            var submenu = target.nextElementSibling;
+            if (submenu && submenu.classList.contains("sidebar-submenu")) {
+              submenu.classList.add("is-open");
+              target.setAttribute("aria-expanded", "true");
+              var firstChild = submenu.querySelector(".nav-link");
+              if (firstChild) firstChild.focus();
+              handled = true;
+            }
+          }
+          break;
+
+        case "ArrowLeft":
+        case "Left":
+          // Colapsar submenu ou voltar ao pai
+          var parentSubmenu = target.closest(".sidebar-submenu");
+          if (parentSubmenu) {
+            var parentLink = parentSubmenu.previousElementSibling;
+            if (parentLink && parentLink.classList.contains("nav-link-parent")) {
+              parentSubmenu.classList.remove("is-open");
+              parentLink.setAttribute("aria-expanded", "false");
+              parentLink.focus();
+              handled = true;
+            }
+          }
+          break;
       }
 
       if (handled) {
         ev.preventDefault();
         ev.stopPropagation();
       }
+    });
+  }
+
+  /* -------- API de badges de notificação -------- */
+
+  function setBadge(pageId, count, options) {
+    var sidebar = getSidebarElement();
+    if (!sidebar) return;
+
+    options = options || {};
+    var pulse = options.pulse || false;
+
+    var link = sidebar.querySelector(".nav-link[data-page-id='" + pageId + "']");
+    if (!link) return;
+
+    var badge = link.querySelector(".nav-notification-badge");
+
+    if (count <= 0) {
+      // Remover badge
+      if (badge) badge.remove();
+      return;
+    }
+
+    if (!badge) {
+      // Criar badge
+      badge = document.createElement("span");
+      badge.className = "nav-notification-badge";
+      link.appendChild(badge);
+    }
+
+    // Atualizar valor
+    badge.textContent = count > 99 ? "99+" : String(count);
+    badge.setAttribute("data-count", String(count));
+
+    // Pulse animation
+    if (pulse) {
+      badge.setAttribute("data-pulse", "true");
+    } else {
+      badge.removeAttribute("data-pulse");
+    }
+  }
+
+  function clearBadge(pageId) {
+    setBadge(pageId, 0);
+  }
+
+  function clearAllBadges() {
+    var sidebar = getSidebarElement();
+    if (!sidebar) return;
+
+    var badges = sidebar.querySelectorAll(".nav-notification-badge");
+    badges.forEach(function (badge) {
+      badge.remove();
     });
   }
 
@@ -412,6 +625,9 @@
     // ✅ Delegation do toggle do menu é global e não depende do DOM pronto
     bindGlobalSidebarToggleDelegation_();
 
+    // ✅ Swipe gestures (mobile)
+    setupSwipeGestures_();
+
     // Idempotência: não duplicar listeners se init for chamado novamente
     if (sidebar.dataset && sidebar.dataset.sidebarInited === "true") {
       highlightActiveNavLink(sidebar);
@@ -425,6 +641,11 @@
 
     // Estado inicial global: drawer fechado
     body.classList.remove("sidebar-open");
+
+    // Em mobile, sidebar começa como aria-hidden
+    if (isMobile_()) {
+      sidebar.setAttribute("aria-hidden", "true");
+    }
 
     // Estado compacto padrão: restaurado do storage
     var initialCompact = loadCompactFromStorage();
@@ -460,7 +681,7 @@
     }
 
     // Ao clicar em qualquer item de menu, fecha o drawer em mobile
-    var navLinks = sidebar.querySelectorAll(".nav-link");
+    var navLinks = sidebar.querySelectorAll(".nav-link:not(.nav-link-parent)");
     navLinks.forEach(function (link) {
       link.addEventListener("click", function () {
         if (!isMobile_()) return;
@@ -492,16 +713,30 @@
 
     // ✅ keyboard navigation
     setupKeyboardNavigation_(sidebar);
+
+    // ✅ submenus colapsáveis
+    setupSubmenus_(sidebar);
   }
 
+  // API pública
   PRONTIO.widgets.sidebar = {
-    init: initSidebar
+    init: initSidebar,
+    setBadge: setBadge,
+    clearBadge: clearBadge,
+    clearAllBadges: clearAllBadges,
+    openDrawer: openDrawer,
+    closeDrawer: closeDrawer,
+    toggleDrawer: toggleDrawer,
+    setCompact: setCompact,
+    isCompact: isCompact
   };
 
   // Retrocompat
   try {
     PRONTIO.ui.sidebar = PRONTIO.ui.sidebar || {};
     PRONTIO.ui.sidebar.init = initSidebar;
+    PRONTIO.ui.sidebar.setBadge = setBadge;
+    PRONTIO.ui.sidebar.clearBadge = clearBadge;
     global.initSidebar = global.initSidebar || initSidebar;
   } catch (e) {}
 })(window, document);

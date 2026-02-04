@@ -9,7 +9,35 @@
    - ✅ Tooltips no modo compacto
    - ✅ Animações suaves
    - ✅ Keyboard navigation
+   - ✅ Hover animado nos ícones
+   - ✅ Badges de notificação
+   - ✅ Submenu colapsável
+   - ✅ Reduced motion support
+   - ✅ Skip navigation link
 ===================================== */
+
+/* =====================================
+   SKIP NAVIGATION (acessibilidade)
+===================================== */
+.skip-nav {
+  position: absolute;
+  top: -100%;
+  left: 0;
+  z-index: 10000;
+  padding: 12px 24px;
+  background: var(--cor-primaria);
+  color: #fff;
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 var(--radius-md) 0;
+  transition: top 0.2s ease;
+}
+
+.skip-nav:focus {
+  top: 0;
+  outline: 2px solid var(--cor-primaria);
+  outline-offset: 2px;
+}
 
 /* SIDEBAR CONTAINER */
 .sidebar {
@@ -26,6 +54,7 @@
   top: 0;
   z-index: 20;
   transition: width 0.25s ease;
+  touch-action: pan-y;
 }
 
 /* SIDEBAR COMPACTA */
@@ -42,10 +71,40 @@ body.sidebar-compact .sidebar {
   border-bottom: 1px solid var(--cor-borda-suave);
 }
 
+/* Botão toggle com indicador visual do modo */
+.sidebar-header .js-toggle-compact {
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.sidebar-header .js-toggle-compact:hover {
+  transform: scale(1.1);
+}
+
+.sidebar-header .js-toggle-compact:active {
+  transform: scale(0.95);
+}
+
+/* Ícone muda em modo compacto */
+body.sidebar-compact .sidebar-header .js-toggle-compact .icon-svg {
+  transform: rotate(180deg);
+}
+
+.sidebar-header .js-toggle-compact .icon-svg {
+  transition: transform 0.25s ease;
+}
+
 .app-logo {
   font-size: 18px;
   font-weight: 700;
   color: var(--cor-primaria);
+  transition: opacity 0.2s ease;
+}
+
+body.sidebar-compact .app-logo {
+  opacity: 0;
+  width: 0;
+  overflow: hidden;
 }
 
 .app-version {
@@ -63,6 +122,9 @@ body.sidebar-compact .sidebar {
   flex-direction: column;
   gap: var(--sp-1);
   padding: 0 var(--sp-2);
+  overflow-y: auto;
+  overflow-x: hidden;
+  flex: 1;
 }
 
 /* LINKS */
@@ -101,6 +163,7 @@ body.sidebar-compact .sidebar {
   justify-content: center;
   background: transparent !important;
   flex-shrink: 0;
+  transition: transform 0.15s ease;
 }
 
 .sidebar .icon-svg {
@@ -108,6 +171,22 @@ body.sidebar-compact .sidebar {
   height: var(--icon-size-md) !important;
   flex-shrink: 0;
   color: var(--cor-texto-secundario);
+  transition: transform 0.15s ease, color 0.15s ease;
+}
+
+/* =====================================
+   HOVER ANIMADO NOS ÍCONES
+===================================== */
+.sidebar-nav .nav-link:hover .icon,
+.sidebar-group .nav-link-sub:hover .icon,
+.sidebar-group .nav-link-action:hover .icon {
+  transform: scale(1.15);
+}
+
+.sidebar-nav .nav-link:hover .icon-svg,
+.sidebar-group .nav-link-sub:hover .icon-svg,
+.sidebar-group .nav-link-action:hover .icon-svg {
+  color: var(--cor-primaria);
 }
 
 /* Hover */
@@ -143,6 +222,54 @@ body.sidebar-compact .sidebar {
 }
 
 /* =====================================
+   BADGES DE NOTIFICAÇÃO
+===================================== */
+.nav-notification-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+  border-radius: 999px;
+  background: var(--cor-erro, #e53935);
+  color: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+/* Modo compacto: badge no canto do ícone */
+body.sidebar-compact .nav-notification-badge {
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 9px;
+  line-height: 16px;
+}
+
+/* Badge vazio = não mostrar */
+.nav-notification-badge:empty,
+.nav-notification-badge[data-count="0"] {
+  display: none;
+}
+
+/* Animação de pulse para chamar atenção */
+@keyframes badge-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+}
+
+.nav-notification-badge[data-pulse="true"] {
+  animation: badge-pulse 1.5s ease-in-out infinite;
+}
+
+/* =====================================
    BADGE "EM BREVE"
 ===================================== */
 .nav-badge {
@@ -174,6 +301,69 @@ body.sidebar-compact .sidebar {
 .sidebar-nav .nav-link[data-soon="true"]:hover {
   background: transparent;
   color: var(--cor-texto-principal);
+}
+
+/* =====================================
+   SUBMENU COLAPSÁVEL
+===================================== */
+.sidebar-submenu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  overflow: hidden;
+  max-height: 0;
+  opacity: 0;
+  transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.2s ease;
+}
+
+.sidebar-submenu.is-open {
+  max-height: 500px;
+  opacity: 1;
+  padding-top: var(--sp-1);
+}
+
+/* Link pai do submenu */
+.nav-link-parent {
+  position: relative;
+}
+
+.nav-link-parent::after {
+  content: "";
+  width: 0;
+  height: 0;
+  border-left: 4px solid transparent;
+  border-right: 4px solid transparent;
+  border-top: 5px solid var(--cor-texto-suave);
+  margin-left: auto;
+  transition: transform 0.2s ease;
+}
+
+.nav-link-parent[aria-expanded="true"]::after {
+  transform: rotate(180deg);
+}
+
+/* Itens do submenu */
+.sidebar-submenu .nav-link {
+  padding-left: 44px;
+  font-size: 13px;
+}
+
+.sidebar-submenu .nav-link::before {
+  content: "";
+  position: absolute;
+  left: 24px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cor-borda-suave);
+  transform: translateY(-50%);
+  transition: background 0.15s ease;
+}
+
+.sidebar-submenu .nav-link:hover::before,
+.sidebar-submenu .nav-link.active::before {
+  background: var(--cor-primaria);
 }
 
 /* =====================================
@@ -286,6 +476,20 @@ body.sidebar-compact .sidebar {
   body.sidebar-open .sidebar-backdrop {
     display: block;
   }
+
+  /* Mobile: sidebar sempre expandida quando aberta */
+  body.sidebar-open.sidebar-compact .sidebar {
+    width: 240px;
+  }
+
+  body.sidebar-open.sidebar-compact .sidebar-nav .label,
+  body.sidebar-open.sidebar-compact .sidebar-group .nav-label,
+  body.sidebar-open.sidebar-compact .app-version,
+  body.sidebar-open.sidebar-compact .app-logo {
+    opacity: 1;
+    max-width: none;
+    width: auto;
+  }
 }
 
 /* =====================================
@@ -332,6 +536,17 @@ body.sidebar-compact .sidebar-nav .nav-link {
 body.sidebar-compact .sidebar-group .nav-link-sub {
   justify-content: center;
   padding-left: 12px;
+}
+
+/* Submenu oculto em modo compacto */
+body.sidebar-compact .sidebar-submenu {
+  max-height: 0 !important;
+  opacity: 0 !important;
+  padding: 0 !important;
+}
+
+body.sidebar-compact .nav-link-parent::after {
+  display: none;
 }
 
 /* =====================================
@@ -401,4 +616,31 @@ body.sidebar-compact .sidebar-nav .nav-link:not([data-tooltip])::before,
 body.sidebar-compact .sidebar-group .nav-link-sub:not([data-tooltip])::after,
 body.sidebar-compact .sidebar-group .nav-link-sub:not([data-tooltip])::before {
   display: none;
+}
+
+/* =====================================
+   REDUCED MOTION
+   ✅ Respeita preferência do usuário
+===================================== */
+@media (prefers-reduced-motion: reduce) {
+  .sidebar,
+  .sidebar *,
+  .sidebar-backdrop {
+    transition: none !important;
+    animation: none !important;
+  }
+
+  .sidebar-header .js-toggle-compact:hover {
+    transform: none;
+  }
+
+  .sidebar-nav .nav-link:hover .icon,
+  .sidebar-group .nav-link-sub:hover .icon,
+  .sidebar-group .nav-link-action:hover .icon {
+    transform: none;
+  }
+
+  .nav-notification-badge[data-pulse="true"] {
+    animation: none;
+  }
 }

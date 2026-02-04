@@ -16,6 +16,9 @@
   data-tag="Atendimento"
   data-context="Atendimentos"
 >
+  <!-- Skip navigation (acessibilidade) -->
+  <a href="#main-content" class="skip-nav">Pular para o conteúdo</a>
+
   <div class="app-shell">
     <!-- SIDEBAR (inline para carregamento instantâneo) -->
     <aside id="sidebar" class="sidebar" data-component="sidebar">
@@ -95,7 +98,7 @@
     </aside>
     <div class="sidebar-backdrop" data-sidebar-backdrop></div>
 
-    <main class="main-area">
+    <main id="main-content" class="main-area">
       <!-- TOPBAR (inline para carregamento instantâneo) -->
       <div id="topbarMount" data-partial="topbar" data-mounted="1">
         <div class="topbar" role="banner">
