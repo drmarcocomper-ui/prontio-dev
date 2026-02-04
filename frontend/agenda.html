@@ -101,11 +101,17 @@
           <div class="topbar-col-right">
             <div class="topbar-actions">
               <div class="topbar-extra">
-                <div class="topbar-user" aria-label="Usuário logado">
-                  <div class="topbar-user__avatar" aria-hidden="true">👤</div>
+                <div class="topbar-user" aria-label="Usuário logado" aria-haspopup="true" aria-expanded="false">
+                  <div class="topbar-user__avatar" id="topbar-user-avatar" aria-hidden="true">?</div>
                   <div class="topbar-user__info">
                     <div class="topbar-user__name" id="topbar-user-name">—</div>
                     <div class="topbar-user__role" id="topbar-user-role">—</div>
+                  </div>
+                  <div id="topbar-user-dropdown" class="topbar-user-dropdown" aria-hidden="true" style="display:none;">
+                    <a href="configuracoes.html" class="topbar-user-dropdown__item" data-user-action="config">Configuracoes</a>
+                    <a href="alterar-senha.html" class="topbar-user-dropdown__item" data-user-action="change-password">Alterar senha</a>
+                    <hr class="topbar-user-dropdown__divider" />
+                    <button type="button" class="topbar-user-dropdown__item topbar-user-dropdown__item--danger" data-user-action="logout">Sair</button>
                   </div>
                 </div>
                 <button id="btn-theme-toggle" class="topbar__icon-btn js-toggle-theme" type="button" aria-label="Alternar tema" title="Tema">

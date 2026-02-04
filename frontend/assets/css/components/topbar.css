@@ -193,6 +193,59 @@ PRONTIO - TOPBAR (FINAL PROFISSIONAL)
 }
 
 /* ============================
+   DROPDOWN DO USUÁRIO
+   ============================ */
+.topbar-user {
+  position: relative;
+  cursor: pointer;
+}
+
+.topbar-user-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: var(--cor-fundo-card);
+  border: 1px solid var(--cor-borda-suave);
+  border-radius: var(--radius-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  z-index: 100;
+  padding: 6px 0;
+}
+
+.topbar-user-dropdown__item {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  font-size: 13px;
+  color: var(--cor-texto-principal);
+  text-decoration: none;
+  background: none;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.topbar-user-dropdown__item:hover {
+  background: var(--cor-fundo-card-alt);
+}
+
+.topbar-user-dropdown__item--danger {
+  color: var(--cor-erro, #DC2626);
+}
+
+.topbar-user-dropdown__item--danger:hover {
+  background: rgba(220, 38, 38, 0.08);
+}
+
+.topbar-user-dropdown__divider {
+  margin: 6px 0;
+  border: none;
+  border-top: 1px solid var(--cor-borda-suave);
+}
+
+/* ============================
    RESPONSIVO (MOBILE)
    ============================ */
 @media (max-width: 900px) {
