@@ -1,8 +1,48 @@
 // frontend/assets/js/pages/page-pacientes.js
 // ✅ Padronização (2026): usar nomeCompleto e remover nome_paciente
+// ✅ Cache local stale-while-revalidate para carregamento instantâneo
 
 (function (global, document) {
   const PRONTIO = (global.PRONTIO = global.PRONTIO || {});
+
+  // ========================================
+  // Cache Local (stale-while-revalidate)
+  // ========================================
+  const CACHE_KEY = "prontio.pacientes.cache";
+  const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutos
+
+  function getPacientesFromCache() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      if (!raw) return null;
+
+      const cached = JSON.parse(raw);
+      if (!cached || !cached.timestamp || !Array.isArray(cached.items)) return null;
+
+      // Verifica se cache ainda é válido
+      const age = Date.now() - cached.timestamp;
+      if (age > CACHE_MAX_AGE_MS) {
+        localStorage.removeItem(CACHE_KEY);
+        return null;
+      }
+
+      return cached.items;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function savePacientesToCache(items) {
+    try {
+      const cached = {
+        timestamp: Date.now(),
+        items: items || []
+      };
+      localStorage.setItem(CACHE_KEY, JSON.stringify(cached));
+    } catch (_) {
+      // localStorage cheio ou indisponível
+    }
+  }
 
   // ✅ Passo: usar PacientesApi (features) como fachada
   const pacientesApi =
@@ -797,8 +837,21 @@
       payload.pageSize = pageSizeAtual;
     }
 
-    setLoading_(true);
+    // ✅ PASSO 1: Mostrar dados do cache instantaneamente (se sem filtros)
+    const usandoFiltros = termo || somenteAtivos || usarPaginacao;
+    const cachedItems = !usandoFiltros ? getPacientesFromCache() : null;
 
+    if (cachedItems && cachedItems.length > 0) {
+      // Renderiza cache imediatamente
+      pacientesCache = cachedItems;
+      aplicarFiltrosETabela();
+      mostrarMensagem("Carregando dados atualizados...", "info");
+      // Não bloqueia UI - mostra indicador sutil
+    } else {
+      setLoading_(true);
+    }
+
+    // ✅ PASSO 2: Buscar dados frescos da API
     let data;
     try {
       if (pacientesApi && typeof pacientesApi.listar === "function") {
@@ -809,12 +862,26 @@
     } catch (err) {
       const msg = (err && err.message) || "Erro ao carregar pacientes.";
       console.error("PRONTIO: erro em carregarPacientes:", err);
-      mostrarMensagem(msg, "erro");
+
+      // Se tinha cache, não mostra erro (dados antigos ainda visíveis)
+      if (!cachedItems) {
+        mostrarMensagem(msg, "erro");
+      } else {
+        mostrarMensagem("Usando dados em cache (falha ao atualizar).", "info");
+      }
       setLoading_(false);
       return;
     }
 
-    pacientesCache = (data && (data.pacientes || data.lista || data.items)) || [];
+    const freshItems = (data && (data.pacientes || data.lista || data.items)) || [];
+
+    // ✅ PASSO 3: Salvar no cache (apenas se sem filtros)
+    if (!usandoFiltros && freshItems.length > 0) {
+      savePacientesToCache(freshItems);
+    }
+
+    // ✅ PASSO 4: Renderizar dados frescos
+    pacientesCache = freshItems;
     aplicarFiltrosETabela();
 
     if (usarPaginacao) atualizarUiPaginacao_(data && data.paging ? data.paging : null);
