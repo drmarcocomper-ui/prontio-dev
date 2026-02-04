@@ -59,6 +59,13 @@
     var body = document.body;
     if (!body) return;
 
+    // No desktop, sidebar sempre expandida (sem modo compacto)
+    if (!isMobile_()) {
+      body.classList.remove("sidebar-compact");
+      updateAriaLabels_();
+      return;
+    }
+
     if (isCompactFlag) {
       body.classList.add("sidebar-compact");
     } else {

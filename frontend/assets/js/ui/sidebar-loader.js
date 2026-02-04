@@ -27,10 +27,27 @@
     return !!document.getElementById("sidebar");
   }
 
+  function initSidebarWidget_() {
+    try {
+      if (
+        PRONTIO.widgets &&
+        PRONTIO.widgets.sidebar &&
+        typeof PRONTIO.widgets.sidebar.init === "function"
+      ) {
+        PRONTIO.widgets.sidebar.init();
+      } else if (typeof global.initSidebar === "function") {
+        global.initSidebar();
+      }
+    } catch (e) {
+      console.warn("[PRONTIO.sidebar-loader] Erro ao inicializar sidebar:", e);
+    }
+  }
+
   function loadSidebarPartial() {
-    // ✅ Sidebar já existe no DOM
+    // ✅ Sidebar já existe no DOM (inline) - só precisa inicializar
     if (sidebarAlreadyMounted_()) {
       PRONTIO.ui.sidebarLoader._loaded = true;
+      initSidebarWidget_();
       return Promise.resolve(true);
     }
 

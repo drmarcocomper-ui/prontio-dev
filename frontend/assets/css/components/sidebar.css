@@ -71,27 +71,36 @@ body.sidebar-compact .sidebar {
   border-bottom: 1px solid var(--cor-borda-suave);
 }
 
-/* Botão toggle com indicador visual do modo */
+/* Botão toggle - OCULTO no desktop, visível apenas no mobile */
 .sidebar-header .js-toggle-compact {
-  position: relative;
-  transition: transform 0.2s ease;
+  display: none;
 }
 
-.sidebar-header .js-toggle-compact:hover {
-  transform: scale(1.1);
+@media (max-width: 900px) {
+  .sidebar-header .js-toggle-compact {
+    display: inline-flex;
+    position: relative;
+    transition: transform 0.2s ease;
+  }
+
+  .sidebar-header .js-toggle-compact:hover {
+    transform: scale(1.1);
+  }
+
+  .sidebar-header .js-toggle-compact:active {
+    transform: scale(0.95);
+  }
 }
 
-.sidebar-header .js-toggle-compact:active {
-  transform: scale(0.95);
-}
+/* Ícone muda em modo compacto (mobile apenas) */
+@media (max-width: 900px) {
+  body.sidebar-compact .sidebar-header .js-toggle-compact .icon-svg {
+    transform: rotate(180deg);
+  }
 
-/* Ícone muda em modo compacto */
-body.sidebar-compact .sidebar-header .js-toggle-compact .icon-svg {
-  transform: rotate(180deg);
-}
-
-.sidebar-header .js-toggle-compact .icon-svg {
-  transition: transform 0.25s ease;
+  .sidebar-header .js-toggle-compact .icon-svg {
+    transition: transform 0.25s ease;
+  }
 }
 
 .app-logo {
