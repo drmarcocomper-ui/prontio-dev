@@ -236,6 +236,7 @@ function _Registry_build_() {
   _Registry_callRegisterIfExists_("Registry_RegisterPacientes_", map);
   _Registry_callRegisterIfExists_("Registry_RegisterReceitaMedicamentos_", map);
   _Registry_callRegisterIfExists_("Registry_RegisterEvolucao_", map);
+  _Registry_callRegisterIfExists_("Registry_RegisterAnamnese_", map);
 
   return map;
 }

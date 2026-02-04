@@ -17,6 +17,7 @@
   const docs = PRONTIO.features.prontuario.documentos;
   const evo = PRONTIO.features.prontuario.evolucoes;
   const rx = PRONTIO.features.prontuario.receitas;
+  const anamnese = PRONTIO.features.prontuario.anamnese;
 
   function abrirExames_(ctx) {
     try {
@@ -67,12 +68,20 @@
     // Painéis
     rx.setupReceitaPanelEvents_();
     docs.setupDocumentosPanelEvents_(ctx);
+    if (anamnese && anamnese.setupAnamnesePanelEvents_) {
+      anamnese.setupAnamnesePanelEvents_(ctx);
+    }
 
     // Ações clínicas
     qs("#btnAcaoNovaEvolucao")?.addEventListener("click", evo.abrirNovaEvolucao_);
     qs("#btnAcaoReceita")?.addEventListener("click", () => rx.abrirReceitaNoPainel_(ctx));
     qs("#btnAcaoExames")?.addEventListener("click", () => abrirExames_(ctx));
     qs("#btnAcaoDocumentos")?.addEventListener("click", () => docs.abrirDocumentosPanel_());
+    qs("#btnAcaoAnamnese")?.addEventListener("click", () => {
+      if (anamnese && anamnese.abrirAnamnesePanel_) {
+        anamnese.abrirAnamnesePanel_(ctx);
+      }
+    });
 
     // WhatsApp do paciente
     qs("#btnWhatsAppPaciente")?.addEventListener("click", () => abrirWhatsApp_(ctx));
@@ -111,22 +120,26 @@
     btn10?.addEventListener("click", () => rx.carregarReceitasPaginadas_(ctx, { append: false, limit: 10 }));
     recPaging.btnMais?.addEventListener("click", () => rx.carregarReceitasPaginadas_(ctx, { append: true }));
 
-    // ✅ ESC + TrapFocus para painel aberto (Receita / Documentos)
+    // ✅ ESC + TrapFocus para painel aberto (Receita / Documentos / Anamnese)
     document.addEventListener("keydown", (ev) => {
       const r = rx.getPanelRefs();
       const d = docs.getPanelRefs();
+      const a = anamnese && anamnese.getPanelRefs ? anamnese.getPanelRefs() : {};
 
       const receitaOpen = r.panel && r.panel.style.display !== "none";
       const docsOpen = d.panel && d.panel.style.display !== "none";
-      if (!receitaOpen && !docsOpen) return;
+      const anamneseOpen = a.panel && a.panel.style.display !== "none";
+      if (!receitaOpen && !docsOpen && !anamneseOpen) return;
 
       if (ev.key === "Escape") {
         ev.preventDefault();
-        if (docsOpen) docs.fecharDocumentosPanel_();
+        if (anamneseOpen && anamnese.fecharAnamnesePanel_) anamnese.fecharAnamnesePanel_();
+        else if (docsOpen) docs.fecharDocumentosPanel_();
         else if (receitaOpen) rx.fecharReceitaPanel_();
         return;
       }
 
+      if (anamneseOpen) trapFocusInPanel_(a.aside, ev);
       if (docsOpen) trapFocusInPanel_(d.aside, ev);
       if (receitaOpen) trapFocusInPanel_(r.aside, ev);
     });

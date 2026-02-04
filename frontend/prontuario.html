@@ -265,6 +265,14 @@
               <span class="btn-acao-subtitulo">Atestado, comparecimento, laudo, encaminhamento</span>
             </span>
           </button>
+
+          <button type="button" id="btnAcaoAnamnese" class="btn btn-acao-clinica">
+            <span class="btn-acao-icone" aria-hidden="true">📋</span>
+            <span class="btn-acao-texto">
+              <span class="btn-acao-titulo">Anamnese</span>
+              <span class="btn-acao-subtitulo">Anamnese estruturada do paciente</span>
+            </span>
+          </button>
         </section>
 
         <!-- NOVA EVOLUÇÃO -->
@@ -384,6 +392,50 @@
             <button type="submit" class="btn btn-primary" data-acao-receita="final">Salvar e imprimir</button>
           </div>
         </form>
+      </div>
+    </aside>
+  </div>
+
+  <!-- PAINEL DESLIZANTE: ANAMNESE -->
+  <div id="anamnesePanel" class="slide-panel-backdrop" aria-hidden="true" inert style="display:none;">
+    <aside class="slide-panel" role="dialog" aria-modal="true">
+      <header class="slide-panel-header">
+        <h2 id="anamnesePanelTitulo">Anamnese Estruturada</h2>
+        <button type="button" class="slide-panel-close" aria-label="Fechar" data-close-anamnese>X</button>
+      </header>
+
+      <div class="slide-panel-body">
+        <!-- Seletor de template -->
+        <div id="anamnese-template-selector" class="anamnese-section">
+          <label for="selectAnamneseTemplate" class="texto-menor texto-suave">Selecione o modelo:</label>
+          <select id="selectAnamneseTemplate" class="form-select">
+            <option value="">Carregando...</option>
+          </select>
+        </div>
+
+        <!-- Formulario dinamico -->
+        <form id="formAnamnese" class="anamnese-form">
+          <div id="anamnese-campos">
+            <p class="texto-suave">Selecione um modelo para iniciar.</p>
+          </div>
+
+          <div class="form-actions anamnese-form-actions">
+            <button type="button" class="btn btn-secondary" data-close-anamnese>Cancelar</button>
+            <button type="submit" class="btn btn-primary">Salvar Anamnese</button>
+          </div>
+        </form>
+
+        <!-- Historico -->
+        <div id="anamnese-historico" class="anamnese-section anamnese-historico-section">
+          <h4>Historico de Anamneses</h4>
+          <p id="anamnese-historico-vazio" class="msg-menor" role="status" aria-live="polite">
+            Carregando historico...
+          </p>
+          <div id="anamnese-lista" class="anamnese-lista"></div>
+          <button type="button" id="btnMaisAnamneses" class="btn btn-outline btn-sm" style="display:none;">
+            Carregar mais
+          </button>
+        </div>
       </div>
     </aside>
   </div>

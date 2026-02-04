@@ -103,6 +103,7 @@
         "assets/js/features/prontuario/prontuario.paciente.js",
         "assets/js/features/prontuario/prontuario.receita-panel.js",
         "assets/js/features/prontuario/prontuario.documentos-panel.js",
+        "assets/js/features/prontuario/prontuario.anamnese-panel.js",
         "assets/js/features/prontuario/prontuario.evolucoes.js",
         "assets/js/features/prontuario/prontuario.entry.js"
       ],
