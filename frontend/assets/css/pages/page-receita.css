@@ -1,5 +1,6 @@
 /* ===========================================
    PRONTIO - CSS específico da página Receita
+   ✅ P3: Usa variáveis CSS para dark theme
 =========================================== */
 
 /* Dados do paciente no topo da página */
@@ -12,11 +13,11 @@
 
 .info-paciente-label {
   font-weight: bold;
-  color: #555;
+  color: var(--cor-texto-secundario, #555);
 }
 
 .info-paciente-valor {
-  color: #111;
+  color: var(--cor-texto-principal, #111);
 }
 
 /* Formulário da nova receita */
@@ -31,7 +32,7 @@
   font-size: 13px;
   margin-bottom: 4px;
   display: block;
-  color: #444;
+  color: var(--cor-texto-secundario, #444);
 }
 
 .campo-controle textarea,
@@ -40,12 +41,16 @@
   padding: 6px 8px;
   font-size: 14px;
   box-sizing: border-box;
+  background: var(--cor-fundo-card, #ffffff);
+  color: var(--cor-texto-principal, #111);
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
+  border-radius: 6px;
 }
 
 /* Texto de ajuda abaixo dos campos */
 .campo-ajuda {
   font-size: 11px;
-  color: #777;
+  color: var(--cor-texto-suave, #777);
   margin-top: 2px;
 }
 
@@ -66,26 +71,27 @@
   border-collapse: collapse;
   width: 100%;
   min-width: 700px;
-  background: #ffffff;
+  background: var(--cor-fundo-card, #ffffff);
   border-radius: 6px;
   overflow: hidden;
 }
 
 .tabela-receitas th,
 .tabela-receitas td {
-  border: 1px solid #dde3ea;
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
   padding: 6px 8px;
   text-align: left;
   vertical-align: top;
   font-size: 13px;
+  color: var(--cor-texto-principal, #111);
 }
 
 .tabela-receitas thead {
-  background: #f1f4f8;
+  background: var(--cor-fundo-card-alt, #f1f4f8);
 }
 
 .tabela-receitas tbody tr:nth-child(even) {
-  background: #fafbfc;
+  background: var(--cor-fundo-card-alt, #fafbfc);
 }
 
 .col-data-receita {
@@ -114,18 +120,19 @@
 /* Preview de texto nas receitas antigas */
 .texto-medicamentos-preview {
   white-space: pre-wrap;
+  color: var(--cor-texto-principal, #111);
 }
 
 .texto-obs-preview {
   white-space: pre-wrap;
   font-size: 12px;
-  color: #444;
+  color: var(--cor-texto-secundario, #444);
 }
 
 /* Bloco de sugestões de medicamentos (tabela antiga, se usada em outra tela) */
 .medicamentos-card {
   margin-top: 10px;
-  border-top: 1px solid #dde3ea;
+  border-top: 1px solid var(--cor-borda-suave, #dde3ea);
   padding-top: 12px;
 }
 
@@ -138,9 +145,9 @@
 .tabela-medicamentos-wrapper {
   max-height: 220px;
   overflow-y: auto;
-  border: 1px solid #dde3ea;
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
   border-radius: 6px;
-  background: #fafafa;
+  background: var(--cor-fundo-card-alt, #fafafa);
 }
 
 .tabela-medicamentos {
@@ -151,14 +158,15 @@
 
 .tabela-medicamentos th,
 .tabela-medicamentos td {
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--cor-borda-suave, #e0e0e0);
   padding: 4px 6px;
   text-align: left;
   vertical-align: top;
+  color: var(--cor-texto-principal, #111);
 }
 
 .tabela-medicamentos thead {
-  background: #e9f2ff;
+  background: var(--cor-primaria-clara, #e9f2ff);
   position: sticky;
   top: 0;
   z-index: 1;
@@ -207,10 +215,10 @@
 /* Cada "cartão" de medicamento */
 .receita-item-bloco {
   border-radius: 10px;
-  border: 1px solid rgba(148, 163, 184, 0.45);
-  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid var(--cor-borda-suave, #e5e7eb);
+  background: var(--cor-fundo-card, #ffffff);
   padding: 10px 12px 8px;
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.6);
+  box-shadow: var(--shadow-card, 0 4px 14px rgba(15, 23, 42, 0.08));
 }
 
 /* Cabeçalho do item: título + botão remover */
@@ -291,9 +299,9 @@
   margin: 0;
   padding: 4px;
   border-radius: 6px;
-  background: rgba(15, 23, 42, 0.96);
-  border: 1px solid rgba(148, 163, 184, 0.6);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.8);
+  background: var(--cor-fundo-card, #ffffff);
+  border: 1px solid var(--cor-borda-suave, #e5e7eb);
+  box-shadow: var(--shadow-card, 0 8px 24px rgba(15, 23, 42, 0.15));
 }
 
 /* Cada sugestão individual */
@@ -310,7 +318,7 @@
   padding: 4px 8px;
   font-size: 11px;
   border-radius: 4px;
-  color: #e5e7eb;
+  color: var(--cor-texto-principal, #111);
   background: transparent;
   border: none;
 }
@@ -319,20 +327,20 @@
 .receita-sugestao-item .btn strong {
   font-size: 12px;
   font-weight: 600;
-  color: #f9fafb;
+  color: var(--cor-texto-principal, #111);
 }
 
 /* Detalhes (posologia, via, quantidade) */
 .receita-sugestao-item .btn span.texto-menor {
   display: inline-block;
   margin-left: 4px;
-  color: #9ca3af;
+  color: var(--cor-texto-suave, #6b7280);
 }
 
 /* Hover / foco da sugestão */
 .receita-sugestao-item .btn:hover,
 .receita-sugestao-item .btn:focus-visible {
-  background: rgba(59, 130, 246, 0.18);
+  background: var(--cor-primaria-clara, rgba(59, 130, 246, 0.1));
   outline: none;
 }
 
@@ -341,4 +349,83 @@
   .receita-item-sugestoes {
     max-height: 120px;
   }
+}
+
+/* =========================================
+   ✅ P1: MENSAGENS DE FEEDBACK
+========================================= */
+
+#mensagemReceita {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 0.875rem;
+  margin-top: 0.75rem;
+  transition: opacity 0.2s ease;
+}
+
+#mensagemReceita.is-hidden {
+  display: none;
+}
+
+#mensagemReceita.msg-erro {
+  background: var(--cor-perigo-bg, rgba(239, 68, 68, 0.1));
+  color: var(--cor-perigo, #dc2626);
+  border: 1px solid var(--cor-perigo, #dc2626);
+}
+
+#mensagemReceita.msg-sucesso {
+  background: var(--cor-sucesso-bg, rgba(34, 197, 94, 0.1));
+  color: var(--cor-sucesso, #16a34a);
+  border: 1px solid var(--cor-sucesso, #16a34a);
+}
+
+#mensagemReceita.msg-loading {
+  background: var(--cor-primaria-clara, rgba(59, 130, 246, 0.1));
+  color: var(--cor-primaria, #2563eb);
+  border: 1px solid var(--cor-primaria, #2563eb);
+}
+
+/* =========================================
+   ✅ P3: DARK THEME OVERRIDES
+========================================= */
+
+[data-theme="dark"] .receita-item-bloco,
+body[data-theme="dark"] .receita-item-bloco {
+  background: var(--cor-fundo-card-alt);
+  border-color: var(--cor-borda-suave);
+  box-shadow: var(--shadow-card);
+}
+
+[data-theme="dark"] .receita-sugestoes-lista,
+body[data-theme="dark"] .receita-sugestoes-lista {
+  background: var(--cor-fundo-card-alt);
+  border-color: var(--cor-borda-suave);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .tabela-receitas,
+body[data-theme="dark"] .tabela-receitas {
+  background: var(--cor-fundo-card);
+}
+
+[data-theme="dark"] .tabela-medicamentos-wrapper,
+body[data-theme="dark"] .tabela-medicamentos-wrapper {
+  background: var(--cor-fundo-card-alt);
+  border-color: var(--cor-borda-suave);
+}
+
+[data-theme="dark"] .campo-controle textarea,
+[data-theme="dark"] .campo-controle input,
+body[data-theme="dark"] .campo-controle textarea,
+body[data-theme="dark"] .campo-controle input {
+  background: var(--cor-fundo-card-alt);
+  border-color: var(--cor-borda-suave);
+  color: var(--cor-texto-principal);
+}
+
+[data-theme="dark"] .receita-sugestao-item .btn:hover,
+[data-theme="dark"] .receita-sugestao-item .btn:focus-visible,
+body[data-theme="dark"] .receita-sugestao-item .btn:hover,
+body[data-theme="dark"] .receita-sugestao-item .btn:focus-visible {
+  background: rgba(59, 130, 246, 0.2);
 }

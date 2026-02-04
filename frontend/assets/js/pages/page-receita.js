@@ -50,8 +50,8 @@
   let catalogo = [];
   let catalogoCarregado = false;
 
-  // debounce por input
-  let debounceTimer = null;
+  // ✅ P0: Map de timers por input para evitar race condition
+  const debounceTimers = new Map();
 
   // estado para teclado
   let activeListEl = null;
@@ -141,21 +141,51 @@
   // Catálogo (aba Medicamentos via API)
   // ============================================================
 
+  // ✅ P0: try-catch + P1: feedback visual
   async function carregarCatalogo_() {
     if (catalogoCarregado) return catalogo;
 
-    const data = await callApiData({
-      action: "Medicamentos.ListarAtivos",
-      payload: { q: "", limit: 800 }
-    });
+    try {
+      const data = await callApiData({
+        action: "Medicamentos.ListarAtivos",
+        payload: { q: "", limit: 800 }
+      });
 
-    const lista =
-      (data && (data.medicamentos || data.remedios || data.lista || data.items)) ||
-      (Array.isArray(data) ? data : []);
+      const lista =
+        (data && (data.medicamentos || data.remedios || data.lista || data.items)) ||
+        (Array.isArray(data) ? data : []);
 
-    catalogo = Array.isArray(lista) ? lista : [];
-    catalogoCarregado = true;
-    return catalogo;
+      catalogo = Array.isArray(lista) ? lista : [];
+      catalogoCarregado = true;
+      return catalogo;
+    } catch (e) {
+      console.error("[PRONTIO] Erro ao carregar catálogo de medicamentos:", e);
+      // Não bloqueia - usuário pode digitar manualmente
+      return [];
+    }
+  }
+
+  // ✅ P1: Função para exibir mensagens de feedback
+  function setMensagem_(obj) {
+    let el = qs("#mensagemReceita");
+
+    // Cria o elemento se não existir
+    if (!el) {
+      const form = qs("#formReceita") || qs("#formReceitaProntuario");
+      if (!form) return;
+
+      el = document.createElement("div");
+      el.id = "mensagemReceita";
+      el.className = "is-hidden";
+      form.parentNode.insertBefore(el, form.nextSibling);
+    }
+
+    el.classList.remove("is-hidden", "msg-erro", "msg-sucesso", "msg-loading");
+    el.textContent = (obj && obj.texto) || "";
+    if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
+    if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
+    if (obj && obj.tipo === "loading") el.classList.add("msg-loading");
+    if (!obj || !obj.texto) el.classList.add("is-hidden");
   }
 
   // ============================================================
@@ -184,6 +214,13 @@
   }
 
   function removerItem(id) {
+    // ✅ P0: Limpa timer do item removido
+    const timer = debounceTimers.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      debounceTimers.delete(id);
+    }
+
     itens = itens.filter((i) => i.id !== id);
     garantirItem();
     renderItens();
@@ -311,10 +348,16 @@
         atualizarItem(item.id, "remedio", e.target.value);
         atualizarItem(item.id, "idRemedio", "");
 
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
+        // ✅ P0: Usa timer específico por item para evitar race condition
+        const existingTimer = debounceTimers.get(item.id);
+        if (existingTimer) clearTimeout(existingTimer);
+
+        const timer = setTimeout(() => {
+          debounceTimers.delete(item.id);
           mostrarSugestoes_(e.target.value, sug, item, inp);
         }, 120);
+
+        debounceTimers.set(item.id, timer);
       });
 
       inp.addEventListener("keydown", (e) => {
@@ -366,12 +409,16 @@
       }));
   }
 
+  // ✅ P0: try-catch completo + P1: feedback visual
   async function onSubmit_(ev) {
     ev.preventDefault();
 
     const ctxPaciente = getContextoPaciente_();
     const idPaciente = ctxPaciente.idPaciente;
-    if (!idPaciente) return alert("Paciente não identificado.");
+    if (!idPaciente) {
+      setMensagem_({ tipo: "erro", texto: "Paciente não identificado." });
+      return;
+    }
 
     const payload = {
       idPaciente,
@@ -381,14 +428,27 @@
       itens: itensParaPayload_()
     };
 
-    if (!payload.itens.length) return alert("Informe ao menos um medicamento.");
+    if (!payload.itens.length) {
+      setMensagem_({ tipo: "erro", texto: "Informe ao menos um medicamento." });
+      return;
+    }
 
     const acao =
       ev.submitter?.dataset?.acaoReceita === "rascunho"
         ? "Receita.SalvarRascunho"
         : "Receita.SalvarFinal";
 
-    const resp = await callApiData({ action: acao, payload });
+    setMensagem_({ tipo: "loading", texto: "Salvando receita..." });
+
+    let resp;
+    try {
+      resp = await callApiData({ action: acao, payload });
+    } catch (e) {
+      const detalhe = e && e.message ? ` (${e.message})` : "";
+      console.error("[PRONTIO] Erro ao salvar receita:", e);
+      setMensagem_({ tipo: "erro", texto: `Erro ao salvar receita.${detalhe}` });
+      return;
+    }
 
     const idReceita =
       resp?.idReceita ||
@@ -398,13 +458,27 @@
       "";
 
     if (acao === "Receita.SalvarFinal" && idReceita) {
-      const pdf = await callApiData({ action: "Receita.GerarPdf", payload: { idReceita } });
-      const win = global.open("", "_blank");
-      if (!win) return alert("Pop-up bloqueado. Libere para imprimir a receita.");
-      win.document.open();
-      win.document.write(pdf?.html || "");
-      win.document.close();
+      try {
+        const pdf = await callApiData({ action: "Receita.GerarPdf", payload: { idReceita } });
+        const win = global.open("", "_blank");
+        if (!win) {
+          setMensagem_({ tipo: "erro", texto: "Pop-up bloqueado. Libere para imprimir a receita." });
+          return;
+        }
+        win.document.open();
+        win.document.write(pdf?.html || "");
+        win.document.close();
+      } catch (pdfErr) {
+        console.warn("[PRONTIO] Erro ao gerar PDF:", pdfErr);
+        setMensagem_({ tipo: "erro", texto: "Receita salva, mas ocorreu um erro ao gerar o PDF." });
+        // Continua para limpar o formulário mesmo assim
+      }
     }
+
+    setMensagem_({
+      tipo: "sucesso",
+      texto: acao === "Receita.SalvarRascunho" ? "Rascunho salvo." : "Receita salva com sucesso."
+    });
 
     itens = [novoItem()];
     renderItens();
