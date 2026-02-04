@@ -208,8 +208,12 @@
    SEÇÕES COLAPSÁVEIS (Filtros e Resumo)
    ========================================================= */
 
+.agenda-collapsible:first-of-type {
+  margin-top: 1.25rem;
+}
+
 .agenda-collapsible {
-  margin-top: 1rem;
+  margin-top: 0.5rem;
   margin-bottom: 0;
 }
 
