@@ -34,9 +34,21 @@ body[data-page-id="pacientes"] #mensagem {
   font-size: 13px;
   padding: 8px 10px;
   border-radius: 4px;
-  background: #f1f5f9;
-  border-left: 4px solid #90caf9;
-  color: #333;
+  background: var(--cor-fundo-card-alt, #f1f5f9);
+  border-left: 4px solid var(--cor-primaria, #2563eb);
+  color: var(--cor-texto-principal, #333);
+}
+
+body[data-page-id="pacientes"] #mensagem.msg-erro {
+  background: var(--cor-perigo-bg, rgba(239, 68, 68, 0.1));
+  border-left-color: var(--cor-perigo, #dc2626);
+  color: var(--cor-perigo, #dc2626);
+}
+
+body[data-page-id="pacientes"] #mensagem.msg-sucesso {
+  background: var(--cor-sucesso-bg, rgba(34, 197, 94, 0.1));
+  border-left-color: var(--cor-sucesso, #16a34a);
+  color: var(--cor-sucesso, #16a34a);
 }
 
 /* FORMULÁRIO */
@@ -64,17 +76,19 @@ body[data-page-id="pacientes"] #mensagem {
   width: 100%;
   padding: 6px 8px;
   font-size: 14px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--cor-borda-suave, #ccc);
   border-radius: 4px;
   box-sizing: border-box;
+  background: var(--cor-fundo-card, #fff);
+  color: var(--cor-texto-principal, #333);
 }
 
 .campo input:focus,
 .campo textarea:focus,
 .campo select:focus {
   outline: none;
-  border-color: #0066cc;
-  box-shadow: 0 0 0 1px rgba(0, 102, 204, 0.2);
+  border-color: var(--cor-primaria, #0066cc);
+  box-shadow: 0 0 0 1px var(--cor-primaria-clara, rgba(0, 102, 204, 0.2));
 }
 
 .campo-full {
@@ -89,15 +103,15 @@ body[data-page-id="pacientes"] #mensagem {
 
 .form-dica {
   font-size: 12px;
-  color: #666;
+  color: var(--cor-texto-secundario, #666);
   margin-top: 4px;
 }
 
 /* SEÇÕES COLAPSÁVEIS DO FORMULÁRIO */
 .form-section {
-  border: 1px solid #d0d7e2;
+  border: 1px solid var(--cor-borda-suave, #d0d7e2);
   border-radius: 8px;
-  background: #fafbfc;
+  background: var(--cor-fundo-card-alt, #fafbfc);
   overflow: hidden;
 }
 
@@ -107,23 +121,23 @@ body[data-page-id="pacientes"] #mensagem {
   align-items: center;
   gap: 0.5rem;
   padding: 0.75rem 1rem;
-  background: #f2f5f9;
+  background: var(--cor-fundo-card-alt, #f2f5f9);
   border: none;
   cursor: pointer;
   text-align: left;
   font-size: 14px;
   font-weight: 600;
-  color: #333;
+  color: var(--cor-texto-principal, #333);
   transition: background 0.15s ease;
 }
 
 .form-section__toggle:hover {
-  background: #e8ecf2;
+  background: var(--cor-fundo-hover, #e8ecf2);
 }
 
 .form-section__icon {
   font-size: 10px;
-  color: #666;
+  color: var(--cor-texto-secundario, #666);
   transition: transform 0.2s ease;
 }
 
@@ -134,7 +148,7 @@ body[data-page-id="pacientes"] #mensagem {
 .form-section__content {
   display: none;
   padding: 1rem;
-  background: #fff;
+  background: var(--cor-fundo-card, #fff);
 }
 
 .form-section.is-open .form-section__content {
@@ -226,8 +240,8 @@ body[data-page-id="pacientes"] #mensagem {
   align-items: center;
   justify-content: space-between;
   padding: 8px 10px;
-  border: 1px solid #d0d7e2;
-  background: #f9fafb;
+  border: 1px solid var(--cor-borda-suave, #d0d7e2);
+  background: var(--cor-fundo-card-alt, #f9fafb);
   border-radius: 8px;
 }
 
@@ -253,7 +267,7 @@ body[data-page-id="pacientes"] #mensagem {
 
 .paginacao-info {
   font-size: 13px;
-  color: #333;
+  color: var(--cor-texto-principal, #333);
   padding: 0 6px;
 }
 
@@ -262,8 +276,8 @@ body[data-page-id="pacientes"] #mensagem {
   margin-top: 8px;
   padding: 10px;
   border-radius: 8px;
-  background: #f9fafb;
-  border: 1px solid #d0d7e2;
+  background: var(--cor-fundo-card-alt, #f9fafb);
+  border: 1px solid var(--cor-borda-suave, #d0d7e2);
 }
 
 .painel-colunas-header {
@@ -285,7 +299,7 @@ body[data-page-id="pacientes"] #mensagem {
 .painel-colunas-info {
   margin: 6px 0 8px;
   font-size: 12px;
-  color: #666;
+  color: var(--cor-texto-secundario, #666);
 }
 
 .painel-colunas-grid {
@@ -338,37 +352,39 @@ body[data-page-id="pacientes"] .tabela {
 
 body[data-page-id="pacientes"] .tabela th,
 body[data-page-id="pacientes"] .tabela td {
-  border: 1px solid #ccc;
+  border: 1px solid var(--cor-borda-suave, #ccc);
   padding: 6px 8px;
   text-align: left;
   white-space: nowrap;
+  color: var(--cor-texto-principal, #333);
 }
 
 body[data-page-id="pacientes"] .tabela thead {
-  background: #f2f5f9;
+  background: var(--cor-fundo-card-alt, #f2f5f9);
 }
 
 body[data-page-id="pacientes"] .tabela tbody tr {
   cursor: pointer;
+  background: var(--cor-fundo-card, #fff);
 }
 
 body[data-page-id="pacientes"] .tabela tbody tr:hover {
-  background: #eef6ff;
+  background: var(--cor-primaria-clara, #eef6ff);
 }
 
 body[data-page-id="pacientes"] tr.linha-selecionada {
-  background: #cde7ff !important;
+  background: var(--cor-primaria-clara, #cde7ff) !important;
 }
 
 body[data-page-id="pacientes"] tr.linha-inativa {
-  background: #eee;
-  color: #777;
+  background: var(--cor-fundo-card-alt, #eee);
+  color: var(--cor-texto-secundario, #777);
 }
 
 .ajuda-tabela {
   margin-top: 10px;
   font-size: 12px;
-  color: #666;
+  color: var(--cor-texto-secundario, #666);
 }
 
 /* BOTÕES – animação de hover apenas na página de Pacientes */
@@ -448,13 +464,13 @@ body[data-page-id="pacientes"] .btn:not(:disabled):hover {
 }
 
 .paciente-detalhes__status--ativo {
-  background: rgba(22, 163, 74, 0.1);
-  color: #16a34a;
+  background: var(--cor-sucesso-bg, rgba(22, 163, 74, 0.1));
+  color: var(--cor-sucesso, #16a34a);
 }
 
 .paciente-detalhes__status--inativo {
-  background: rgba(220, 38, 38, 0.1);
-  color: #dc2626;
+  background: var(--cor-perigo-bg, rgba(220, 38, 38, 0.1));
+  color: var(--cor-perigo, #dc2626);
 }
 
 /* Botão pequeno no header do modal */
@@ -471,6 +487,65 @@ body[data-page-id="pacientes"] .btn:not(:disabled):hover {
 
 [data-theme="dark"] .paciente-detalhes__section-title {
   border-color: #334155;
+}
+
+/* ✅ P3: Dark mode overrides adicionais */
+[data-theme="dark"] .campo input,
+[data-theme="dark"] .campo textarea,
+[data-theme="dark"] .campo select {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  border-color: var(--cor-borda-suave, #334155);
+  color: var(--cor-texto-principal, #e2e8f0);
+}
+
+[data-theme="dark"] .linha-paginacao,
+[data-theme="dark"] .painel-colunas {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  border-color: var(--cor-borda-suave, #334155);
+}
+
+[data-theme="dark"] body[data-page-id="pacientes"] .tabela {
+  background: var(--cor-fundo-card, #0f172a);
+}
+
+[data-theme="dark"] body[data-page-id="pacientes"] .tabela th,
+[data-theme="dark"] body[data-page-id="pacientes"] .tabela td {
+  border-color: var(--cor-borda-suave, #334155);
+  color: var(--cor-texto-principal, #e2e8f0);
+}
+
+[data-theme="dark"] body[data-page-id="pacientes"] .tabela thead {
+  background: var(--cor-fundo-card-alt, #1e293b);
+}
+
+[data-theme="dark"] body[data-page-id="pacientes"] .tabela tbody tr {
+  background: var(--cor-fundo-card, #0f172a);
+}
+
+[data-theme="dark"] body[data-page-id="pacientes"] .tabela tbody tr:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
+[data-theme="dark"] body[data-page-id="pacientes"] tr.linha-selecionada {
+  background: rgba(59, 130, 246, 0.25) !important;
+}
+
+[data-theme="dark"] body[data-page-id="pacientes"] tr.linha-inativa {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  color: var(--cor-texto-secundario, #64748b);
+}
+
+[data-theme="dark"] .bloco-ordenacao select,
+[data-theme="dark"] .paginacao-controles select {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  border-color: var(--cor-borda-suave, #334155);
+  color: var(--cor-texto-principal, #e2e8f0);
+}
+
+[data-theme="dark"] .bloco-filtro input[type="text"] {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  border-color: var(--cor-borda-suave, #334155);
+  color: var(--cor-texto-principal, #e2e8f0);
 }
 
 /* RESPONSIVO */
