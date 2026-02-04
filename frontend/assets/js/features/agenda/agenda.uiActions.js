@@ -24,11 +24,12 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.agenda = PRONTIO.features.agenda || {};
 
-  const FX = PRONTIO.features.agenda.formatters;
+  // ✅ Getter para resolver em runtime (não no parse)
+  const FX = () => PRONTIO.features.agenda.formatters || {};
 
   function createAgendaUiActions({ state, view, loaders }) {
     if (!state || !view || !loaders) {
-      console.error("[AgendaUiActions] Dependências ausentes.");
+      console.error("[AgendaUiActions] Dependências ausentes.", { state: !!state, view: !!view, loaders: !!loaders });
       return {};
     }
 
@@ -53,7 +54,7 @@
     function ensureDate_() {
       if (!state.dom?.inputData) return "";
       if (!state.dom.inputData.value) {
-        state.dom.inputData.value = FX.formatDateToInput(new Date());
+        state.dom.inputData.value = FX().formatDateToInput(new Date());
       }
       return state.dom.inputData.value;
     }
@@ -113,7 +114,7 @@
 
     async function onHoje() {
       if (!state.dom?.inputData) return;
-      state.dom.inputData.value = FX.formatDateToInput(new Date());
+      state.dom.inputData.value = FX().formatDateToInput(new Date());
       state.dataSelecionada = state.dom.inputData.value;
       await refresh_();
     }
@@ -127,11 +128,11 @@
       const v = ensureDate_();
       if (!v) return;
 
-      const d = FX.parseInputDate(v);
+      const d = FX().parseInputDate(v);
       if (state.modoVisao === "semana") d.setDate(d.getDate() + 7 * delta);
       else d.setDate(d.getDate() + 1 * delta);
 
-      state.dom.inputData.value = FX.formatDateToInput(d);
+      state.dom.inputData.value = FX().formatDateToInput(d);
       state.dataSelecionada = state.dom.inputData.value;
       await refresh_();
     }

@@ -19,26 +19,27 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.agenda = PRONTIO.features.agenda || {};
 
-  const createAgendaApi = PRONTIO.features.agenda.api?.createAgendaApi;
-  const createAgendaView = PRONTIO.features.agenda.view?.createAgendaView;
-  const createAgendaState = PRONTIO.features.agenda.state?.createAgendaState;
-
-  // módulos especializados
-  const createAgendaLoaders = PRONTIO.features.agenda.loaders?.createAgendaLoaders;
-  const createAgendaUiActions = PRONTIO.features.agenda.uiActions?.createAgendaUiActions;
-  const createAgendaEditActions = PRONTIO.features.agenda.editActions?.createAgendaEditActions;
-
-  // cache de pacientes (front)
-  const createPacientesCache = PRONTIO.features.agenda.pacientesCache?.createPacientesCache || null;
-
-  // integração opcional: picker de pacientes
-  const createPacientesApi = PRONTIO.features?.pacientes?.api?.createPacientesApi || null;
-  const createPacientesPicker = PRONTIO.features?.pacientes?.picker?.createPacientesPicker || null;
-
   function createAgendaController(env) {
     env = env || {};
     const document = env.document || global.document;
     const storage = global.localStorage || null;
+
+    // ✅ Resolvido em runtime (não no parse do arquivo)
+    const createAgendaApi = PRONTIO.features.agenda.api?.createAgendaApi;
+    const createAgendaView = PRONTIO.features.agenda.view?.createAgendaView;
+    const createAgendaState = PRONTIO.features.agenda.state?.createAgendaState;
+
+    // módulos especializados
+    const createAgendaLoaders = PRONTIO.features.agenda.loaders?.createAgendaLoaders;
+    const createAgendaUiActions = PRONTIO.features.agenda.uiActions?.createAgendaUiActions;
+    const createAgendaEditActions = PRONTIO.features.agenda.editActions?.createAgendaEditActions;
+
+    // cache de pacientes (front)
+    const createPacientesCache = PRONTIO.features.agenda.pacientesCache?.createPacientesCache || null;
+
+    // integração opcional: picker de pacientes
+    const createPacientesApi = PRONTIO.features?.pacientes?.api?.createPacientesApi || null;
+    const createPacientesPicker = PRONTIO.features?.pacientes?.picker?.createPacientesPicker || null;
 
     if (!createAgendaApi || !createAgendaView || !createAgendaState) {
       console.error("[AgendaController] Dependências básicas não carregadas.");
@@ -61,7 +62,17 @@
     const editActions = createAgendaEditActions ? createAgendaEditActions({ api, state, view, loaders }) : null;
 
     if (!loaders || !uiActions || !editActions) {
-      console.error("[AgendaController] Módulos da Agenda não carregados (loaders/uiActions/editActions).");
+      console.error("[AgendaController] Módulos da Agenda não carregados (loaders/uiActions/editActions).", {
+        createAgendaLoaders: typeof createAgendaLoaders,
+        createAgendaUiActions: typeof createAgendaUiActions,
+        createAgendaEditActions: typeof createAgendaEditActions,
+        loaders: loaders,
+        uiActions: uiActions,
+        editActions: editActions,
+        api: !!api,
+        state: !!state,
+        view: !!view
+      });
       return null;
     }
 

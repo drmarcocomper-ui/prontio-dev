@@ -18,14 +18,17 @@
   }
 
   async function boot_() {
+    // Cache-bust para core scripts (força reload após deploy)
+    const cb = "?_t=" + Date.now();
+
     // 1) Manifest (APP_VERSION + PAGE_MANIFEST)
-    await loadScript_("assets/js/core/manifest.js");
+    await loadScript_("assets/js/core/manifest.js" + cb);
 
     // 2) Loader (PRONTIO.loader)
-    await loadScript_("assets/js/core/loader.js");
+    await loadScript_("assets/js/core/loader.js" + cb);
 
     // 3) Bootstrap (PRONTIO.bootstrap)
-    await loadScript_("assets/js/core/bootstrap.js");
+    await loadScript_("assets/js/core/bootstrap.js" + cb);
   }
 
   if (document.readyState === "loading") {
