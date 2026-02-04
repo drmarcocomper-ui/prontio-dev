@@ -1,7 +1,11 @@
 // frontend/assets/js/features/agenda/agenda.loaders.js
 /**
- * PRONTIO — Agenda Loaders (Front)
+ * PRONTIO — Agenda Loaders (Front) - OTIMIZADO
  * ------------------------------------------------------------
+ * ✅ Cache local com "stale-while-revalidate"
+ * ✅ Mostra dados em cache instantaneamente
+ * ✅ Atualiza com dados frescos em background
+ *
  * Responsabilidades:
  * - Carregar agendamentos da API (dia/semana)
  * - Formatar DTOs para UI usando formatters
@@ -20,6 +24,51 @@
 
   const FX = () => PRONTIO.features.agenda.formatters || {};
   const FILTROS = () => PRONTIO.features.agenda.filtros || {};
+
+  // ========================================
+  // Cache Local (stale-while-revalidate)
+  // ========================================
+  const CACHE_KEY_PREFIX = "prontio.agenda.cache.";
+  const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutos
+
+  function getCacheKey(tipo, data) {
+    return CACHE_KEY_PREFIX + tipo + "." + data;
+  }
+
+  function getFromCache(tipo, data) {
+    try {
+      const key = getCacheKey(tipo, data);
+      const raw = localStorage.getItem(key);
+      if (!raw) return null;
+
+      const cached = JSON.parse(raw);
+      if (!cached || !cached.timestamp || !Array.isArray(cached.items)) return null;
+
+      // Verifica se cache ainda é válido
+      const age = Date.now() - cached.timestamp;
+      if (age > CACHE_MAX_AGE_MS) {
+        localStorage.removeItem(key);
+        return null;
+      }
+
+      return cached.items;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function saveToCache(tipo, data, items) {
+    try {
+      const key = getCacheKey(tipo, data);
+      const cached = {
+        timestamp: Date.now(),
+        items: items || []
+      };
+      localStorage.setItem(key, JSON.stringify(cached));
+    } catch (_) {
+      // localStorage cheio ou indisponível
+    }
+  }
 
   function createAgendaLoaders(ctx) {
     const { api, state, view } = ctx || {};
@@ -132,7 +181,61 @@
     }
 
     // ========================================
-    // Carregar Dia
+    // Renderizar Dia (helper interno)
+    // ========================================
+
+    function renderDia_(ymd, rawItems, callbacks) {
+      const fx = getFormatters();
+
+      state.agendamentosPeriodo = rawItems;
+
+      // Converte DTO -> UI
+      let uiList = rawItems.map((dto) =>
+        fx.dtoToUi ? fx.dtoToUi(dto) : dto
+      );
+
+      // Enriquece com cache de pacientes
+      uiList = enrichWithPacientesCache(uiList);
+
+      // Aplica filtros
+      uiList = applyFilters(uiList);
+
+      state.agendamentosDiaUi = uiList;
+
+      // Gera slots
+      const slots = generateSlots(
+        state.config?.hora_inicio_padrao || "08:00",
+        state.config?.hora_fim_padrao || "18:00",
+        state.config?.duracao_grade_minutos || 15
+      );
+
+      // Monta mapa hora -> agendamentos
+      const map = buildDayMap(uiList, slots);
+
+      // Info de "agora"
+      const now = getNowInfo();
+      const isHoje = now.dataStr === ymd;
+
+      // Renderiza
+      if (view.renderDaySlots) {
+        view.renderDaySlots({
+          slots,
+          map,
+          now,
+          isHoje,
+          horaFoco: state.horaFocoDia || null,
+          callbacks
+        });
+      }
+
+      // Resumo
+      if (view.setResumo && fx.computeResumoDia) {
+        view.setResumo(fx.computeResumoDia(uiList));
+      }
+    }
+
+    // ========================================
+    // Carregar Dia (com cache stale-while-revalidate)
     // ========================================
 
     async function carregarDia() {
@@ -146,8 +249,52 @@
 
       const mySeq = ++state.reqSeqDia;
 
-      if (view.showDayLoading) view.showDayLoading();
+      // Callbacks para a view
+      const callbacks = {
+        onNovo: (hora) => {
+          if (state.controllerActions?.abrirModalNovo) {
+            state.controllerActions.abrirModalNovo(hora);
+          }
+        },
+        onBloquear: (hora) => {
+          if (state.controllerActions?.abrirModalBloqueio) {
+            state.controllerActions.abrirModalBloqueio(hora);
+          }
+        },
+        onChangeStatus: (idAgenda, novoStatus, cardEl) => {
+          if (state.controllerActions?.mudarStatus) {
+            state.controllerActions.mudarStatus(idAgenda, novoStatus, cardEl);
+          }
+        },
+        onEditar: (ag) => {
+          if (state.controllerActions?.abrirModalEditar) {
+            state.controllerActions.abrirModalEditar(ag);
+          }
+        },
+        onAtender: (ag) => {
+          if (state.controllerActions?.abrirProntuario) {
+            state.controllerActions.abrirProntuario(ag);
+          }
+        },
+        onDesbloquear: (idAgenda, cardEl) => {
+          if (state.controllerActions?.desbloquear) {
+            state.controllerActions.desbloquear(idAgenda, cardEl);
+          }
+        }
+      };
 
+      // ✅ PASSO 1: Mostrar dados do cache instantaneamente (se existir)
+      const cachedItems = getFromCache("dia", ymd);
+      if (cachedItems && cachedItems.length > 0) {
+        renderDia_(ymd, cachedItems, callbacks);
+        // Mostra indicador sutil de atualização (não bloqueia)
+        if (view.showDayUpdating) view.showDayUpdating();
+      } else {
+        // Sem cache: mostra loading normal
+        if (view.showDayLoading) view.showDayLoading();
+      }
+
+      // ✅ PASSO 2: Buscar dados frescos da API
       try {
         const raw = await api.listar({
           periodo: { inicio: ymd, fim: ymd },
@@ -161,94 +308,26 @@
         }
 
         // API retorna { items: [...], count: N } ou array direto
-        state.agendamentosPeriodo = (raw && Array.isArray(raw.items)) ? raw.items : (Array.isArray(raw) ? raw : []);
+        const freshItems = (raw && Array.isArray(raw.items)) ? raw.items : (Array.isArray(raw) ? raw : []);
 
-        // Converte DTO -> UI
-        let uiList = state.agendamentosPeriodo.map((dto) =>
-          fx.dtoToUi ? fx.dtoToUi(dto) : dto
-        );
+        // ✅ PASSO 3: Salvar no cache
+        saveToCache("dia", ymd, freshItems);
 
-        // Enriquece com cache de pacientes
-        uiList = enrichWithPacientesCache(uiList);
-
-        // Aplica filtros
-        uiList = applyFilters(uiList);
-
-        state.agendamentosDiaUi = uiList;
-
-        // Gera slots
-        const slots = generateSlots(
-          state.config?.hora_inicio_padrao || "08:00",
-          state.config?.hora_fim_padrao || "18:00",
-          state.config?.duracao_grade_minutos || 15
-        );
-
-        // Monta mapa hora -> agendamentos
-        const map = buildDayMap(uiList, slots);
-
-        // Info de "agora"
-        const now = getNowInfo();
-        const isHoje = now.dataStr === ymd;
-
-        // Callbacks para a view
-        const callbacks = {
-          onNovo: (hora) => {
-            if (state.controllerActions?.abrirModalNovo) {
-              state.controllerActions.abrirModalNovo(hora);
-            }
-          },
-          onBloquear: (hora) => {
-            if (state.controllerActions?.abrirModalBloqueio) {
-              state.controllerActions.abrirModalBloqueio(hora);
-            }
-          },
-          onChangeStatus: (idAgenda, novoStatus, cardEl) => {
-            if (state.controllerActions?.mudarStatus) {
-              state.controllerActions.mudarStatus(idAgenda, novoStatus, cardEl);
-            }
-          },
-          onEditar: (ag) => {
-            if (state.controllerActions?.abrirModalEditar) {
-              state.controllerActions.abrirModalEditar(ag);
-            }
-          },
-          onAtender: (ag) => {
-            if (state.controllerActions?.abrirProntuario) {
-              state.controllerActions.abrirProntuario(ag);
-            }
-          },
-          onDesbloquear: (idAgenda, cardEl) => {
-            if (state.controllerActions?.desbloquear) {
-              state.controllerActions.desbloquear(idAgenda, cardEl);
-            }
-          }
-        };
-
-        // Renderiza
-        if (view.renderDaySlots) {
-          view.renderDaySlots({
-            slots,
-            map,
-            now,
-            isHoje,
-            horaFoco: state.horaFocoDia || null,
-            callbacks
-          });
-        }
-
-        // Resumo
-        if (view.setResumo && fx.computeResumoDia) {
-          view.setResumo(fx.computeResumoDia(uiList));
-        }
+        // ✅ PASSO 4: Renderizar dados frescos
+        renderDia_(ymd, freshItems, callbacks);
 
         if (view.hideDayLoading) view.hideDayLoading();
+        if (view.hideDayUpdating) view.hideDayUpdating();
 
       } catch (err) {
         if (mySeq !== state.reqSeqDia) return;
 
         console.error("[AgendaLoaders] Erro ao carregar dia:", err);
         if (view.hideDayLoading) view.hideDayLoading();
-        if (view.showDayError) {
+        if (view.hideDayUpdating) view.hideDayUpdating();
+
+        // Se tinha cache, não mostra erro (dados antigos ainda visíveis)
+        if (!cachedItems && view.showDayError) {
           view.showDayError(err?.message || "Erro ao carregar agendamentos.");
         }
       }
