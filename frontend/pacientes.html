@@ -524,12 +524,53 @@
           </div>
 
           <p class="ajuda-tabela">
-            Clique sobre uma linha para selecionar o paciente.<br>
+            Clique para selecionar um paciente. <strong>Duplo clique</strong> para ver detalhes.<br>
             Use os botões acima para abrir o prontuário, editar ou alterar o status.
           </p>
         </section>
       </section>
     </main>
+  </div>
+
+  <!-- Modal de Confirmação -->
+  <div id="modalConfirmacao" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalConfirmacaoTitulo">
+    <div class="modal modal--sm">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalConfirmacaoTitulo">Confirmar ação</h2>
+        <div class="modal-header-actions">
+          <button type="button" class="modal-close" aria-label="Fechar" data-modal-close="modalConfirmacao">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <p id="modalConfirmacaoTexto">Tem certeza que deseja realizar esta ação?</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn secundario" id="btnConfirmacaoCancelar">Cancelar</button>
+        <button type="button" class="btn perigo" id="btnConfirmacaoOk">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de Visualização Rápida -->
+  <div id="modalVisualizacao" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="modalVisualizacaoTitulo">
+    <div class="modal modal--lg">
+      <div class="modal-header">
+        <h2 class="modal-title" id="modalVisualizacaoTitulo">Detalhes do Paciente</h2>
+        <div class="modal-header-actions">
+          <button type="button" class="btn secundario btn-sm" id="btnVisualizacaoEditar">Editar</button>
+          <button type="button" class="modal-close" aria-label="Fechar" data-modal-close="modalVisualizacao">✕</button>
+        </div>
+      </div>
+      <div class="modal-body">
+        <div id="modalVisualizacaoConteudo" class="paciente-detalhes">
+          <!-- Preenchido via JS -->
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn secundario" id="btnVisualizacaoFechar">Fechar</button>
+        <button type="button" class="btn primario" id="btnVisualizacaoProntuario">Abrir Prontuário</button>
+      </div>
+    </div>
   </div>
 
   <div id="modalSobreSistema" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalSobreSistemaTitulo">

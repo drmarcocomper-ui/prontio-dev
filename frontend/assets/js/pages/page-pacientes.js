@@ -357,6 +357,8 @@
   function initPacientesPage() {
     initEventos();
     initFormSections_();
+    initModalConfirmacao_();
+    initModalVisualizacao_();
     carregarConfigColunas();
     carregarPreferenciasPaginacao_();
     registrarAtalhosTeclado_();
@@ -386,6 +388,285 @@
     const sec = document.getElementById("secCadastroPaciente");
     if (sec) {
       sec.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  // ========================================
+  // Modal de Confirmação
+  // ========================================
+  let confirmacaoCallback = null;
+
+  function abrirModalConfirmacao_(texto, onConfirm) {
+    const modal = document.getElementById("modalConfirmacao");
+    const textoEl = document.getElementById("modalConfirmacaoTexto");
+    if (!modal) return;
+
+    if (textoEl) textoEl.textContent = texto;
+    confirmacaoCallback = onConfirm;
+
+    modal.classList.remove("hidden");
+    modal.classList.add("visible");
+  }
+
+  function fecharModalConfirmacao_() {
+    const modal = document.getElementById("modalConfirmacao");
+    if (!modal) return;
+
+    modal.classList.add("hidden");
+    modal.classList.remove("visible");
+    confirmacaoCallback = null;
+  }
+
+  function initModalConfirmacao_() {
+    const btnOk = document.getElementById("btnConfirmacaoOk");
+    const btnCancelar = document.getElementById("btnConfirmacaoCancelar");
+    const modal = document.getElementById("modalConfirmacao");
+    const btnClose = modal ? modal.querySelector(".modal-close") : null;
+
+    if (btnOk) {
+      btnOk.addEventListener("click", function () {
+        if (typeof confirmacaoCallback === "function") {
+          confirmacaoCallback();
+        }
+        fecharModalConfirmacao_();
+      });
+    }
+
+    if (btnCancelar) {
+      btnCancelar.addEventListener("click", fecharModalConfirmacao_);
+    }
+
+    if (btnClose) {
+      btnClose.addEventListener("click", fecharModalConfirmacao_);
+    }
+
+    if (modal) {
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal) fecharModalConfirmacao_();
+      });
+    }
+  }
+
+  // ========================================
+  // Modal de Visualização Rápida
+  // ========================================
+  let pacienteVisualizandoId = null;
+
+  function abrirModalVisualizacao_(paciente) {
+    const modal = document.getElementById("modalVisualizacao");
+    const conteudo = document.getElementById("modalVisualizacaoConteudo");
+    const titulo = document.getElementById("modalVisualizacaoTitulo");
+    if (!modal || !conteudo) return;
+
+    pacienteVisualizandoId = String(paciente.idPaciente || paciente.ID_Paciente || paciente.id || "");
+
+    if (titulo) {
+      titulo.textContent = paciente.nomeCompleto || paciente.nome || "Detalhes do Paciente";
+    }
+
+    const ativoBool = typeof paciente.ativo === "boolean"
+      ? paciente.ativo
+      : String(paciente.ativo || "").toLowerCase() === "true" || String(paciente.ativo || "").toUpperCase() === "SIM";
+
+    const statusClass = ativoBool ? "paciente-detalhes__status--ativo" : "paciente-detalhes__status--inativo";
+    const statusText = ativoBool ? "Ativo" : "Inativo";
+
+    const val = function (v) {
+      if (!v) return '<span class="paciente-detalhes__value paciente-detalhes__value--empty">—</span>';
+      return '<span class="paciente-detalhes__value">' + escapeHtml_(v) + '</span>';
+    };
+
+    conteudo.innerHTML = `
+      <div class="paciente-detalhes__section paciente-detalhes__section--full">
+        <h4 class="paciente-detalhes__section-title">Dados Pessoais</h4>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Nome:</span>
+          ${val(paciente.nomeCompleto || paciente.nome)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Nome Social:</span>
+          ${val(paciente.nomeSocial)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Nascimento:</span>
+          ${val(formatarDataParaBR(paciente.dataNascimento))}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Sexo:</span>
+          ${val(paciente.sexo)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Estado Civil:</span>
+          ${val(paciente.estadoCivil)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">CPF:</span>
+          ${val(paciente.cpf)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">RG:</span>
+          ${val(paciente.rg)} ${paciente.rgOrgaoEmissor ? '(' + escapeHtml_(paciente.rgOrgaoEmissor) + ')' : ''}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Status:</span>
+          <span class="paciente-detalhes__status ${statusClass}">${statusText}</span>
+        </div>
+      </div>
+
+      <div class="paciente-detalhes__section">
+        <h4 class="paciente-detalhes__section-title">Contato</h4>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Telefone 1:</span>
+          ${val(paciente.telefone1 || paciente.telefone)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Telefone 2:</span>
+          ${val(paciente.telefone2)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">E-mail:</span>
+          ${val(paciente.email)}
+        </div>
+      </div>
+
+      <div class="paciente-detalhes__section">
+        <h4 class="paciente-detalhes__section-title">Plano de Saúde</h4>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Plano:</span>
+          ${val(paciente.planoSaude)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Carteirinha:</span>
+          ${val(paciente.numeroCarteirinha)}
+        </div>
+      </div>
+
+      <div class="paciente-detalhes__section paciente-detalhes__section--full">
+        <h4 class="paciente-detalhes__section-title">Endereço</h4>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">CEP:</span>
+          ${val(paciente.cep)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Logradouro:</span>
+          ${val(paciente.logradouro)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Número:</span>
+          ${val(paciente.numero)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Complemento:</span>
+          ${val(paciente.complemento)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Bairro:</span>
+          ${val(paciente.enderecoBairro || paciente.bairro)}
+        </div>
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Cidade/UF:</span>
+          ${val((paciente.enderecoCidade || paciente.cidade || "") + (paciente.enderecoUf ? " / " + paciente.enderecoUf : ""))}
+        </div>
+      </div>
+
+      ${(paciente.observacoesClinicas || paciente.observacoesAdministrativas || paciente.obsImportantes) ? `
+      <div class="paciente-detalhes__section paciente-detalhes__section--full">
+        <h4 class="paciente-detalhes__section-title">Observações</h4>
+        ${paciente.observacoesClinicas ? `
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Clínicas:</span>
+          ${val(paciente.observacoesClinicas)}
+        </div>
+        ` : ''}
+        ${paciente.observacoesAdministrativas ? `
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Administrativas:</span>
+          ${val(paciente.observacoesAdministrativas)}
+        </div>
+        ` : ''}
+        ${paciente.obsImportantes && !paciente.observacoesAdministrativas ? `
+        <div class="paciente-detalhes__row">
+          <span class="paciente-detalhes__label">Importantes:</span>
+          ${val(paciente.obsImportantes)}
+        </div>
+        ` : ''}
+      </div>
+      ` : ''}
+    `;
+
+    modal.classList.remove("hidden");
+    modal.classList.add("visible");
+  }
+
+  function fecharModalVisualizacao_() {
+    const modal = document.getElementById("modalVisualizacao");
+    if (!modal) return;
+
+    modal.classList.add("hidden");
+    modal.classList.remove("visible");
+    pacienteVisualizandoId = null;
+  }
+
+  function escapeHtml_(str) {
+    if (!str) return "";
+    return String(str)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  }
+
+  function initModalVisualizacao_() {
+    const btnFechar = document.getElementById("btnVisualizacaoFechar");
+    const btnProntuario = document.getElementById("btnVisualizacaoProntuario");
+    const btnEditar = document.getElementById("btnVisualizacaoEditar");
+    const modal = document.getElementById("modalVisualizacao");
+    const btnClose = modal ? modal.querySelector(".modal-close") : null;
+
+    if (btnFechar) {
+      btnFechar.addEventListener("click", fecharModalVisualizacao_);
+    }
+
+    if (btnClose) {
+      btnClose.addEventListener("click", fecharModalVisualizacao_);
+    }
+
+    if (btnProntuario) {
+      btnProntuario.addEventListener("click", function () {
+        if (pacienteVisualizandoId) {
+          const p = pacientesCache.find(function (px) {
+            return String(px.idPaciente || px.ID_Paciente || px.id || "") === pacienteVisualizandoId;
+          });
+          if (p) {
+            fecharModalVisualizacao_();
+            pacienteSelecionadoId = pacienteVisualizandoId;
+            pacienteSelecionadoNomeCompleto = p.nomeCompleto || p.nome || "";
+            irParaProntuario();
+          }
+        }
+      });
+    }
+
+    if (btnEditar) {
+      btnEditar.addEventListener("click", function () {
+        if (pacienteVisualizandoId) {
+          const p = pacientesCache.find(function (px) {
+            return String(px.idPaciente || px.ID_Paciente || px.id || "") === pacienteVisualizandoId;
+          });
+          if (p) {
+            fecharModalVisualizacao_();
+            pacienteSelecionadoId = pacienteVisualizandoId;
+            pacienteSelecionadoNomeCompleto = p.nomeCompleto || p.nome || "";
+            entrarModoEdicaoPacienteSelecionado();
+          }
+        }
+      });
+    }
+
+    if (modal) {
+      modal.addEventListener("click", function (e) {
+        if (e.target === modal) fecharModalVisualizacao_();
+      });
     }
   }
 
@@ -561,6 +842,21 @@
         const isTypingField = (tag === "input" || tag === "textarea" || tag === "select");
 
         if (key === "escape") {
+          // Prioridade: fechar modais primeiro
+          const modalVisualizacao = document.getElementById("modalVisualizacao");
+          if (modalVisualizacao && modalVisualizacao.classList.contains("visible")) {
+            fecharModalVisualizacao_();
+            ev.preventDefault();
+            return;
+          }
+
+          const modalConfirmacao = document.getElementById("modalConfirmacao");
+          if (modalConfirmacao && modalConfirmacao.classList.contains("visible")) {
+            fecharModalConfirmacao_();
+            ev.preventDefault();
+            return;
+          }
+
           const painel = document.getElementById("painelColunas");
           if (painel && !painel.classList.contains("oculto")) {
             painel.classList.add("oculto");
@@ -991,6 +1287,7 @@
       tr.dataset.idPaciente = id;
       tr.dataset.nomeCompleto = nome;
       tr.dataset.ativo = ativoBool ? "SIM" : "NAO";
+      tr.title = "Duplo clique para ver detalhes";
 
       if (!ativoBool) tr.classList.add("linha-inativa");
       if (pacienteSelecionadoId && id === pacienteSelecionadoId) tr.classList.add("linha-selecionada");
@@ -1039,6 +1336,16 @@
 
       tr.addEventListener("click", function () {
         selecionarPacienteNaTabela(tr);
+      });
+
+      // Double-click abre visualização rápida
+      tr.addEventListener("dblclick", function () {
+        const paciente = pacientesCache.find(function (px) {
+          return String(px.idPaciente || px.ID_Paciente || px.id || "") === id;
+        });
+        if (paciente) {
+          abrirModalVisualizacao_(paciente);
+        }
       });
 
       tbody.appendChild(tr);
@@ -1185,31 +1492,36 @@
     }
 
     const acaoTexto = ativoDesejado ? "reativar" : "inativar";
-    if (!global.confirm("Tem certeza que deseja " + acaoTexto + " este paciente?")) return;
+    const nomePaciente = pacienteSelecionadoNomeCompleto || "este paciente";
 
-    mostrarMensagem("Alterando status do paciente (" + acaoTexto + ")...", "info");
-    setLoading_(true);
+    abrirModalConfirmacao_(
+      "Tem certeza que deseja " + acaoTexto + " " + nomePaciente + "?",
+      async function () {
+        mostrarMensagem("Alterando status do paciente (" + acaoTexto + ")...", "info");
+        setLoading_(true);
 
-    try {
-      if (pacientesApi && typeof pacientesApi.alterarStatusAtivo === "function") {
-        await pacientesApi.alterarStatusAtivo({ idPaciente: pacienteSelecionadoId, ativo: ativoDesejado });
-      } else {
-        await fallbackCallApiData({
-          action: "Pacientes_AlterarStatusAtivo",
-          payload: { idPaciente: pacienteSelecionadoId, ativo: ativoDesejado }
-        });
+        try {
+          if (pacientesApi && typeof pacientesApi.alterarStatusAtivo === "function") {
+            await pacientesApi.alterarStatusAtivo({ idPaciente: pacienteSelecionadoId, ativo: ativoDesejado });
+          } else {
+            await fallbackCallApiData({
+              action: "Pacientes_AlterarStatusAtivo",
+              payload: { idPaciente: pacienteSelecionadoId, ativo: ativoDesejado }
+            });
+          }
+        } catch (err) {
+          const msg = (err && err.message) || "Erro ao alterar status do paciente.";
+          console.error("PRONTIO: erro em alterarStatusPaciente:", err);
+          mostrarMensagem(msg, "erro");
+          setLoading_(false);
+          return;
+        }
+
+        mostrarMensagem("Status do paciente atualizado com sucesso.", "sucesso");
+        await carregarPacientes();
+        setLoading_(false);
       }
-    } catch (err) {
-      const msg = (err && err.message) || "Erro ao alterar status do paciente.";
-      console.error("PRONTIO: erro em alterarStatusPaciente:", err);
-      mostrarMensagem(msg, "erro");
-      setLoading_(false);
-      return;
-    }
-
-    mostrarMensagem("Status do paciente atualizado com sucesso.", "sucesso");
-    await carregarPacientes();
-    setLoading_(false);
+    );
   }
 
   // Colunas visíveis por padrão (mínimo necessário)
