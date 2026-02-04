@@ -63,7 +63,10 @@
     if (state.pacientesCache && typeof state.pacientesCache.setOnNamesResolved === "function") {
       state.pacientesCache.setOnNamesResolved(() => {
         // Re-render com dados atualizados (usa cache, sem nova chamada à API)
-        if (loaders && typeof loaders.carregarDia === "function" && state.modoVisao === "dia") {
+        if (!loaders) return;
+        if (state.modoVisao === "semana" && typeof loaders.carregarSemana === "function") {
+          loaders.carregarSemana();
+        } else if (typeof loaders.carregarDia === "function") {
           loaders.carregarDia();
         }
       });

@@ -17,6 +17,27 @@
   const STORAGE_KEY = "prontio.agenda.pacientesCache.v2";
   const FETCH_DEBOUNCE_MS = 300; // Debounce para agrupar múltiplas requisições
   const MAX_IDS_PER_REQUEST = 20; // Máximo de IDs por requisição
+  const FETCH_TIMEOUT_MS = 10000; // ✅ Timeout de 10 segundos para fetch
+  const MAX_RETRIES = 2; // ✅ Máximo de tentativas
+
+  // ✅ Helper para adicionar timeout a uma Promise
+  function withTimeout_(promise, ms, errorMsg) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(errorMsg || "Timeout"));
+      }, ms);
+
+      promise
+        .then((result) => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
 
   function safeJsonParse(raw, fallback) {
     try {
@@ -37,6 +58,7 @@
 
     // ✅ Controle de fetch automático
     let pendingIds = new Set();
+    let failedIds = new Map(); // ✅ IDs que falharam com contador de retries
     let fetchTimeout = null;
     let isFetching = false;
     let onNamesResolvedCallback = null;
@@ -92,11 +114,27 @@
 
       isFetching = true;
       try {
-        const result = await pacientesApi.buscarPorIds(idsToFetch);
+        // ✅ Adiciona timeout de 10 segundos
+        const result = await withTimeout_(
+          pacientesApi.buscarPorIds(idsToFetch),
+          FETCH_TIMEOUT_MS,
+          "Timeout ao buscar nomes de pacientes"
+        );
         const pacientes = (result && Array.isArray(result.pacientes)) ? result.pacientes : [];
+
+        // ✅ Marca IDs resolvidos (remove de failedIds)
+        const resolvedIds = new Set(pacientes.map(p => String(p.idPaciente || p.ID_Paciente || "")));
+        resolvedIds.forEach(id => failedIds.delete(id));
 
         pacientes.forEach((p) => {
           cachePaciente(p);
+        });
+
+        // ✅ IDs não retornados são considerados falha
+        idsToFetch.forEach(id => {
+          if (!resolvedIds.has(id)) {
+            handleFailedId_(id);
+          }
         });
 
         // Notifica que nomes foram resolvidos (para re-render)
@@ -104,7 +142,9 @@
           onNamesResolvedCallback();
         }
       } catch (e) {
-        console.warn("[PacientesCache] Erro ao buscar nomes:", e);
+        console.warn("[PacientesCache] Erro ao buscar nomes:", e.message || e);
+        // ✅ Todos os IDs falharam - agenda retry se permitido
+        idsToFetch.forEach(id => handleFailedId_(id));
       } finally {
         isFetching = false;
 
@@ -115,21 +155,41 @@
       }
     }
 
+    // ✅ Gerencia IDs que falharam com retry limitado
+    function handleFailedId_(id) {
+      const retries = failedIds.get(id) || 0;
+      if (retries < MAX_RETRIES) {
+        failedIds.set(id, retries + 1);
+        pendingIds.add(id); // Re-adiciona para retry
+      } else {
+        // Máximo de retries atingido - não tenta mais
+        failedIds.delete(id);
+        console.warn("[PacientesCache] Desistindo de buscar nome para ID:", id);
+      }
+    }
+
     async function fetchIndividual_(api, ids) {
       isFetching = true;
       let resolved = 0;
 
       for (const id of ids) {
         try {
-          // Busca pelo ID (pode não funcionar em todas as APIs)
-          const result = await api.buscarSimples(id, 1);
+          // ✅ Busca com timeout individual
+          const result = await withTimeout_(
+            api.buscarSimples(id, 1),
+            FETCH_TIMEOUT_MS,
+            "Timeout ao buscar paciente individual"
+          );
           const pacientes = (result && Array.isArray(result.pacientes)) ? result.pacientes : [];
           if (pacientes.length > 0) {
             cachePaciente(pacientes[0]);
+            failedIds.delete(id); // ✅ Remove de falhas se sucesso
             resolved++;
+          } else {
+            handleFailedId_(id); // ✅ Trata como falha para retry
           }
         } catch (_) {
-          // Ignora erros individuais
+          handleFailedId_(id); // ✅ Agenda retry se permitido
         }
       }
 
