@@ -144,7 +144,20 @@
 
       const missing = assertAgendaDeps_();
       if (missing.length) {
-        console.error("[PRONTIO][Agenda] Dependências faltando (scripts):", missing);
+        console.error("[PRONTIO][Agenda] Dependências faltando (scripts):", missing.join(", "));
+        console.error("[PRONTIO][Agenda] Estado atual:", {
+          formatters: !!PRONTIO.features?.agenda?.formatters,
+          view: typeof PRONTIO.features?.agenda?.view?.createAgendaView,
+          api: typeof PRONTIO.features?.agenda?.api?.createAgendaApi,
+          controller: typeof PRONTIO.features?.agenda?.controller?.createAgendaController,
+          events: typeof PRONTIO.features?.agenda?.events?.bindAgendaEvents,
+          loaders: typeof PRONTIO.features?.agenda?.loaders?.createAgendaLoaders,
+          uiActions: typeof PRONTIO.features?.agenda?.uiActions?.createAgendaUiActions,
+          editActions: typeof PRONTIO.features?.agenda?.editActions?.createAgendaEditActions,
+          pacientesCache: typeof PRONTIO.features?.agenda?.pacientesCache?.createPacientesCache,
+          filtros: typeof PRONTIO.features?.agenda?.filtros?.createAgendaFiltros,
+          state: typeof PRONTIO.features?.agenda?.state?.createAgendaState
+        });
         return;
       }
 
