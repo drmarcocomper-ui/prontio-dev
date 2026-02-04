@@ -78,6 +78,30 @@
     else msgs.info(texto);
   }
 
+  // ============================================================
+  // ✅ P2: Helper para abrir popup com HTML (deduplicação)
+  // ============================================================
+  function abrirPopupComHtml_(html, msgSucesso) {
+    if (!html) {
+      mostrarMensagemExames("Documento gerado, mas o HTML não foi retornado.", "erro");
+      return false;
+    }
+
+    mostrarMensagemExames(msgSucesso || "Documento gerado. Abrindo em nova aba...", "sucesso");
+
+    const win = global.open("", "_blank");
+    if (!win) {
+      // ✅ P1: Usa mostrarMensagemExames em vez de alert()
+      mostrarMensagemExames("Não foi possível abrir a nova aba. Verifique se o bloqueador de pop-up está ativo.", "erro");
+      return false;
+    }
+
+    win.document.open();
+    win.document.write(html + "<script>setTimeout(function(){window.print();},500);<\/script>");
+    win.document.close();
+    return true;
+  }
+
   // -----------------------------
   // Helpers
   // -----------------------------
@@ -215,15 +239,8 @@
       // 2) Fallback: HTML
       const html = data && data.html ? data.html : null;
       if (html) {
-        mostrarMensagemExames("Guia SADT gerada em HTML. Abrindo em nova aba...", "sucesso");
-        const win = global.open("", "_blank");
-        if (!win) {
-          alert("Não foi possível abrir a nova aba. Verifique se o bloqueador de pop-up está ativo.");
-          return;
-        }
-        win.document.open();
-        win.document.write(html + "<script>setTimeout(function(){window.print();},500);<\/script>");
-        win.document.close();
+        // ✅ P2: Usa helper para abrir popup
+        abrirPopupComHtml_(html, "Guia SADT gerada em HTML. Abrindo em nova aba...");
         return;
       }
 
@@ -265,8 +282,9 @@
   async function carregarCatalogoExames() {
     const tbody = document.getElementById("tabelaExamesBody");
     if (tbody) {
+      // ✅ P4: Usa classe CSS em vez de inline style
       tbody.innerHTML =
-        '<tr><td colspan="4" style="text-align:center; font-size:12px; padding:6px;">Carregando exames...</td></tr>';
+        '<tr><td colspan="4" class="tabela-exames-status">Carregando exames...</td></tr>';
     }
 
     try {
@@ -278,8 +296,9 @@
       const erroTexto = (e && e.message) ? e.message : "Erro ao carregar catálogo de exames.";
       console.error("Erro Exames.ListarCatalogo:", e);
       if (tbody) {
+        // ✅ P4: Usa classe CSS em vez de inline style
         tbody.innerHTML =
-          '<tr><td colspan="4" style="text-align:center; font-size:12px; color:#c62828; padding:6px;">' +
+          '<tr><td colspan="4" class="tabela-exames-status tabela-exames-status--erro">' +
           String(erroTexto) +
           "</td></tr>";
       }
@@ -311,8 +330,9 @@
     tbody.innerHTML = "";
 
     if (!lista || !lista.length) {
+      // ✅ P4: Usa classe CSS em vez de inline style
       tbody.innerHTML =
-        '<tr><td colspan="4" style="text-align:center; font-size:12px; color:#777; padding:6px;">Nenhum exame encontrado no catálogo.</td></tr>';
+        '<tr><td colspan="4" class="tabela-exames-status tabela-exames-status--vazio">Nenhum exame encontrado no catálogo.</td></tr>';
       return;
     }
 
@@ -388,22 +408,8 @@
       );
 
       const html = data && data.html ? data.html : null;
-      if (!html) {
-        mostrarMensagemExames("Pedido particular gerado, mas o HTML não foi retornado.", "erro");
-        return;
-      }
-
-      mostrarMensagemExames("Pedido particular gerado com sucesso. Abrindo em nova aba...", "sucesso");
-
-      const win = global.open("", "_blank");
-      if (!win) {
-        alert("Não foi possível abrir a nova aba. Verifique se o bloqueador de pop-up está ativo.");
-        return;
-      }
-
-      win.document.open();
-      win.document.write(html + "<script>setTimeout(function(){window.print();},500);<\/script>");
-      win.document.close();
+      // ✅ P2: Usa helper para abrir popup (deduplica lógica)
+      abrirPopupComHtml_(html, "Pedido particular gerado com sucesso. Abrindo em nova aba...");
     } catch (e) {
       mostrarMensagemExames((e && e.message) ? e.message : "Erro ao gerar pedido particular de exames.", "erro");
       console.error("Erro Exames.GerarParticular:", e);

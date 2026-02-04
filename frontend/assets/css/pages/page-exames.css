@@ -1,11 +1,12 @@
 /* ===========================================
    PRONTIO - CSS específico da página Exames
+   ✅ P3: Usa variáveis CSS para dark theme
 =========================================== */
 
 /* Subtítulo do topo com paciente */
 .topbar-paciente {
   font-size: 13px;
-  color: #666;
+  color: var(--cor-texto-secundario, #666);
 }
 
 /* Mensagem geral da tela (usa .mensagem de components.css para visual) */
@@ -26,15 +27,21 @@
   padding: 6px 12px;
   font-size: 13px;
   border-radius: 16px;
-  border: 1px solid #ccc;
-  background: #f5f5f5;
+  border: 1px solid var(--cor-borda-suave, #ccc);
+  background: var(--cor-fundo-card-alt, #f5f5f5);
+  color: var(--cor-texto-principal, #333);
   cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.aba-btn:hover {
+  background: var(--cor-fundo-suave, #e8e8e8);
 }
 
 .aba-btn.ativa {
-  background: #0d47a1;
+  background: var(--cor-primaria, #0d47a1);
   color: #fff;
-  border-color: #0d47a1;
+  border-color: var(--cor-primaria, #0d47a1);
   font-weight: bold;
 }
 
@@ -63,7 +70,7 @@ body[data-page-id="exames"] .form-grid-2 {
   font-weight: bold;
   margin-bottom: 4px;
   font-size: 13px;
-  color: #444;
+  color: var(--cor-texto-secundario, #444);
 }
 
 .campo-form input,
@@ -72,8 +79,18 @@ body[data-page-id="exames"] .form-grid-2 {
   padding: 6px 8px;
   font-size: 14px;
   border-radius: 4px;
-  border: 1px solid #ccc;
+  border: 1px solid var(--cor-borda-suave, #ccc);
+  background: var(--cor-fundo-card, #fff);
+  color: var(--cor-texto-principal, #333);
   font-family: inherit;
+}
+
+.campo-form input:focus,
+.campo-form select:focus,
+.campo-form textarea:focus {
+  outline: none;
+  border-color: var(--cor-primaria, #0d47a1);
+  box-shadow: 0 0 0 1px var(--cor-primaria-clara, rgba(13, 71, 161, 0.2));
 }
 
 .campo-form textarea {
@@ -84,7 +101,7 @@ body[data-page-id="exames"] .form-grid-2 {
 /* Texto de ajuda dos campos */
 .campo-ajuda {
   font-size: 11px;
-  color: #777;
+  color: var(--cor-texto-suave, #777);
   margin-top: 2px;
 }
 
@@ -106,21 +123,21 @@ body[data-page-id="exames"] .form-grid-2 {
 
 .info-paciente-label {
   font-weight: bold;
-  color: #555;
+  color: var(--cor-texto-secundario, #555);
 }
 
 .info-paciente-valor {
-  color: #111;
+  color: var(--cor-texto-principal, #111);
 }
 
 /* Particular - tabela de exames do catálogo */
 .tabela-exames-wrapper {
-  border: 1px solid #dde3ea;
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
   border-radius: 6px;
   overflow: hidden;
   max-height: 260px;
   overflow-y: auto;
-  background: #fafafa;
+  background: var(--cor-fundo-card-alt, #fafafa);
   margin-top: 8px;
 }
 
@@ -128,20 +145,41 @@ body[data-page-id="exames"] .form-grid-2 {
   width: 100%;
   border-collapse: collapse;
   font-size: 12px;
+  color: var(--cor-texto-principal, #333);
 }
 
 .tabela-exames th,
 .tabela-exames td {
-  border-bottom: 1px solid #e0e0e0;
+  border-bottom: 1px solid var(--cor-borda-suave, #e0e0e0);
   padding: 4px 6px;
   text-align: left;
 }
 
 .tabela-exames thead {
-  background: #e9f2ff;
+  background: var(--cor-primaria-clara, #e9f2ff);
   position: sticky;
   top: 0;
   z-index: 1;
+}
+
+.tabela-exames thead th {
+  color: var(--cor-texto-principal, #333);
+}
+
+/* ✅ P4: Classes para status da tabela (substitui inline styles) */
+.tabela-exames-status {
+  text-align: center;
+  font-size: 12px;
+  padding: 6px;
+  color: var(--cor-texto-suave, #777);
+}
+
+.tabela-exames-status--erro {
+  color: var(--cor-perigo, #c62828);
+}
+
+.tabela-exames-status--vazio {
+  color: var(--cor-texto-suave, #777);
 }
 
 .col-exame-check {
@@ -178,4 +216,59 @@ body[data-page-id="exames"] .form-grid-2 {
   .info-paciente-grid {
     grid-template-columns: 1fr;
   }
+}
+
+/* =========================================
+   ✅ P3: Dark Theme Overrides
+========================================= */
+[data-theme="dark"] .aba-btn {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  border-color: var(--cor-borda-suave, #334155);
+  color: var(--cor-texto-principal, #e2e8f0);
+}
+
+[data-theme="dark"] .aba-btn:hover {
+  background: var(--cor-fundo-suave, #334155);
+}
+
+[data-theme="dark"] .aba-btn.ativa {
+  background: var(--cor-primaria, #3b82f6);
+  border-color: var(--cor-primaria, #3b82f6);
+}
+
+[data-theme="dark"] .campo-form input,
+[data-theme="dark"] .campo-form select,
+[data-theme="dark"] .campo-form textarea {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  border-color: var(--cor-borda-suave, #334155);
+  color: var(--cor-texto-principal, #e2e8f0);
+}
+
+[data-theme="dark"] .campo-form input:focus,
+[data-theme="dark"] .campo-form select:focus,
+[data-theme="dark"] .campo-form textarea:focus {
+  border-color: var(--cor-primaria, #3b82f6);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .tabela-exames-wrapper {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  border-color: var(--cor-borda-suave, #334155);
+}
+
+[data-theme="dark"] .tabela-exames thead {
+  background: var(--cor-primaria-escura, #1e40af);
+}
+
+[data-theme="dark"] .tabela-exames thead th {
+  color: #fff;
+}
+
+[data-theme="dark"] .tabela-exames th,
+[data-theme="dark"] .tabela-exames td {
+  border-color: var(--cor-borda-suave, #334155);
+}
+
+[data-theme="dark"] .tabela-exames-status--erro {
+  color: var(--cor-perigo, #ef4444);
 }
