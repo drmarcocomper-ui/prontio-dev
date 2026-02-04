@@ -236,6 +236,19 @@
     } catch (_) {}
   }
 
+  /* -------- ano atual no footer -------- */
+
+  function applyCurrentYear_(sidebar) {
+    if (!sidebar) return;
+
+    const el = sidebar.querySelector("#anoAtualSidebar");
+    if (!el) return;
+
+    try {
+      el.textContent = String(new Date().getFullYear());
+    } catch (_) {}
+  }
+
   // -----------------------------------------------------
   // Inicializador público (idempotente)
   // -----------------------------------------------------
@@ -261,6 +274,7 @@
       highlightActiveNavLink(sidebar);
       updateProntuarioVisibility(sidebar);
       applyAppVersion_(sidebar);
+      applyCurrentYear_(sidebar);
       return;
     }
     sidebar.dataset.sidebarInited = "true";
@@ -322,6 +336,9 @@
 
     // ✅ versão dinâmica
     applyAppVersion_(sidebar);
+
+    // ✅ ano atual no footer
+    applyCurrentYear_(sidebar);
   }
 
   PRONTIO.widgets.sidebar = {

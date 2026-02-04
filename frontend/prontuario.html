@@ -66,11 +66,33 @@
           <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 15.5A3.5 3.5 0 1 1 15.5 12 3.5 3.5 0 0 1 12 15.5zm7.43-2.53l-1.83-.92a5.6 5.6 0 0 0 0-2.1l1.83-.92a.5.5 0 0 0 .24-.6 9 9 0 0 0-2-3.46.5.5 0 0 0-.64-.1l-1.82.94a5.57 5.57 0 0 0-1.82-1.05V2.92a.5.5 0 0 0-.4-.49 9.15 9.15 0 0 0-4 0 .5.5 0 0 0-.4.49v1.84a5.57 5.57 0 0 0-1.82 1.05l-1.82-.94a.5.5 0 0 0-.64.1 9 9 0 0 0-2 3.46.5.5 0 0 0 .24.6l1.83.92a5.6 5.6 0 0 0 0 2.1l-1.83.92a.5.5 0 0 0-.24.6 9 9 0 0 0 2 3.46.5.5 0 0 0 .64.1l1.82-.94a5.57 5.57 0 0 0 1.82 1.05v1.84a.5.5 0 0 0 .4.49 9.15 9.15 0 0 0 4 0 .5.5 0 0 0 .4-.49v-1.84a5.57 5.57 0 0 0 1.82-1.05l1.82.94a.5.5 0 0 0 .64-.1 9 9 0 0 0 2-3.46.5.5 0 0 0-.24-.6z" fill="currentColor"/></svg></span>
           <span class="label">Configurações</span>
         </a>
+        <a href="relatorios.html" class="nav-link nav-link-soon" data-page-id="relatorios" data-soon="true" aria-disabled="true" tabindex="-1">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M4 19h16v2H4v-2zm2-2V3h2v14H6zm5 0V7h2v10h-2zm5 0V11h2v6h-2z" fill="currentColor"/></svg></span>
+          <span class="label">Relatórios</span>
+          <span class="nav-badge" aria-hidden="true">Em breve</span>
+        </a>
+        <a href="financeiro.html" class="nav-link nav-link-soon" data-page-id="financeiro" data-soon="true" aria-disabled="true" tabindex="-1">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2zm0-4h-2V7h2z" fill="currentColor"/></svg></span>
+          <span class="label">Financeiro</span>
+          <span class="nav-badge" aria-hidden="true">Em breve</span>
+        </a>
       </nav>
-      <div class="sidebar-footer">
-        <button type="button" class="nav-link nav-link-action" data-nav-action="logout">
+      <div class="sidebar-group" data-nav-group="sistema">
+        <div class="nav-label">Sistema</div>
+        <a href="configuracoes.html#perfil" class="nav-link nav-link-sub" data-page-id="perfil">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm0 2c-3.5 0-6 1.7-6 4v1a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-1c0-2.3-2.5-4-6-4z" fill="currentColor"/></svg></span>
+          <span class="label">Perfil</span>
+        </a>
+        <a href="javascript:void(0)" class="nav-link nav-link-sub" data-modal-open="modalSobreSistema">
+          <span class="icon"><svg class="icon-svg" viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2zm1 15h-2v-2h2zm0-4h-2V7h2z" fill="currentColor"/></svg></span>
+          <span class="label">Sobre</span>
+        </a>
+        <button type="button" class="nav-link nav-link-sub nav-link-action" data-nav-action="logout">
           <span class="label">Sair</span>
         </button>
+      </div>
+      <div class="sidebar-footer">
+        <span class="sidebar-year">&copy; <span id="anoAtualSidebar"></span> PRONTIO</span>
       </div>
     </aside>
     <div class="sidebar-backdrop" data-sidebar-backdrop></div>
