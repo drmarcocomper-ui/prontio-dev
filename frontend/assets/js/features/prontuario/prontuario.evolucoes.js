@@ -3,7 +3,7 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.prontuario = PRONTIO.features.prontuario || {};
 
-  const { qs, qsa, parseDataHora, setBtnMais_, escapeHtml_ } = PRONTIO.features.prontuario.utils;
+  const { qs, qsa, parseDataHora, setBtnMais_, escapeHtml_, sortByDateDesc_, setMensagem_, formatDataHoraCompleta_ } = PRONTIO.features.prontuario.utils;
   const { callApiDataTry_ } = PRONTIO.features.prontuario.api;
   const { carregarResumoPaciente_ } = PRONTIO.features.prontuario.paciente;
 
@@ -19,13 +19,9 @@
     lastLimit: 10,
   };
 
+  // ✅ P2: Usa função genérica de utils
   function setMensagemEvolucao(obj) {
-    const el = qs("#mensagemEvolucao");
-    if (!el) return;
-    el.classList.remove("is-hidden", "msg-erro", "msg-sucesso");
-    el.textContent = (obj && obj.texto) || "";
-    if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
-    if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
+    setMensagem_("#mensagemEvolucao", obj);
   }
 
   function abrirNovaEvolucao_() {
@@ -36,15 +32,9 @@
     if (txt) txt.focus();
   }
 
+  // ✅ P2: Usa função genérica de utils (também corrige o bug P1)
   function ordenarEvolucoes(lista) {
-    return (lista || [])
-      .slice()
-      .sort((a, b) => {
-        const da = parseDataHora(a.dataHoraRegistro || a.dataHora || a.data || a.criadoEm) || new Date(0);
-        // ✅ P1: Fix bug - was using a.data instead of b.data
-        const db = parseDataHora(b.dataHoraRegistro || b.dataHora || b.data || b.criadoEm) || new Date(0);
-        return db - da;
-      });
+    return sortByDateDesc_(lista, ["dataHoraRegistro", "dataHora", "data", "criadoEm"]);
   }
 
   function renderListaEvolucoes(lista, ul, vazio) {
@@ -67,18 +57,8 @@
       const origem = ev.origem || "";
       const dataRaw = ev.dataHoraRegistro || ev.dataHora || ev.data || ev.criadoEm || "";
 
-      let dataFmt = "";
-      const dt = parseDataHora(dataRaw);
-      if (dt) {
-        const dia = String(dt.getDate()).padStart(2, "0");
-        const mes = String(dt.getMonth() + 1).padStart(2, "0");
-        const ano = dt.getFullYear();
-        const hora = String(dt.getHours()).padStart(2, "0");
-        const min = String(dt.getMinutes()).padStart(2, "0");
-        dataFmt = `${dia}/${mes}/${ano} ${hora}:${min}`;
-      } else {
-        dataFmt = String(dataRaw || "");
-      }
+      // ✅ P2: Usa função genérica de formatação
+      const dataFmt = formatDataHoraCompleta_(dataRaw) || String(dataRaw || "");
 
       let botoesHTML = "";
       if (index === 0) {

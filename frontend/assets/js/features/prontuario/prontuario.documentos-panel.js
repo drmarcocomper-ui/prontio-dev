@@ -3,7 +3,7 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.prontuario = PRONTIO.features.prontuario || {};
 
-  const { qs, qsa, escapeHtml_ } = PRONTIO.features.prontuario.utils;
+  const { qs, qsa, escapeHtml_, setMensagem_ } = PRONTIO.features.prontuario.utils;
   const { callApiDataTry_ } = PRONTIO.features.prontuario.api;
 
   let documentosPanel = null;
@@ -29,13 +29,9 @@
     return "Documentos";
   }
 
+  // ✅ P2: Usa função genérica de utils
   function setMensagemDocumentos_(obj) {
-    const el = qs("#mensagemDocumentos");
-    if (!el) return;
-    el.classList.remove("is-hidden", "msg-erro", "msg-sucesso");
-    el.textContent = (obj && obj.texto) || "";
-    if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
-    if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
+    setMensagem_("#mensagemDocumentos", obj);
   }
 
   function looksLikeCidCode_(s) {

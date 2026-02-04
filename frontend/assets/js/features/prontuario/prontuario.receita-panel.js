@@ -3,7 +3,7 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.prontuario = PRONTIO.features.prontuario || {};
 
-  const { qs, qsa, setBtnMais_, parseDataHora, formatIsoDateToBR_, formatTipoReceitaLabel_, escapeHtml_ } =
+  const { qs, qsa, setBtnMais_, parseDataHora, formatIsoDateToBR_, formatTipoReceitaLabel_, escapeHtml_, sortByDateDesc_, formatDataHoraCompleta_ } =
     PRONTIO.features.prontuario.utils;
   const { callApiData, callApiDataTry_ } = PRONTIO.features.prontuario.api;
 
@@ -592,15 +592,8 @@
 
       const dataReceitaFmt = formatIsoDateToBR_(dataReceitaIso);
 
-      const dtCriacao = parseDataHora(dataRawCriacao) || new Date(0);
-      let dataCriacaoFmt = "";
-      if (dtCriacao.getTime()) {
-        const diaC = ("0" + dtCriacao.getDate()).slice(-2);
-        const mesC = ("0" + (dtCriacao.getMonth() + 1)).slice(-2);
-        const anoC = dtCriacao.getFullYear();
-        const horaC = ("0" + dtCriacao.getHours()).slice(-2) + ":" + ("0" + dtCriacao.getMinutes()).slice(-2);
-        dataCriacaoFmt = `${diaC}/${mesC}/${anoC} ${horaC}`;
-      }
+      // ✅ P2: Usa função genérica de formatação
+      const dataCriacaoFmt = formatDataHoraCompleta_(dataRawCriacao);
 
       let dataLinha = "";
       if (dataReceitaFmt) dataLinha = dataReceitaFmt;
@@ -703,11 +696,8 @@
       const itemsPaged = data && (data.items || data.receitas || data.lista);
       let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
 
-      lista = (lista || []).slice().sort((a, b) => {
-        const da = parseDataHora(a.dataHoraCriacao || a.dataHora || a.data || a.criadoEm) || new Date(0);
-        const db = parseDataHora(b.dataHoraCriacao || b.dataHora || b.data || b.criadoEm) || new Date(0);
-        return db - da;
-      });
+      // ✅ P2: Usa função genérica de ordenação
+      lista = sortByDateDesc_(lista, ["dataHoraCriacao", "dataHora", "data", "criadoEm"]);
 
       const nextCursor =
         data && (data.nextCursor || (data.page && data.page.nextCursor))

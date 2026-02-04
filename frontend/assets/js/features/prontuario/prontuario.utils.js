@@ -70,6 +70,55 @@
     }
   }
 
+  // ✅ P2: Função genérica para ordenar lista por data (decrescente)
+  function sortByDateDesc_(lista, dateFields) {
+    const fields = dateFields || ["dataHoraRegistro", "dataHoraCriacao", "dataHora", "data", "criadoEm"];
+    return (lista || []).slice().sort((a, b) => {
+      let da = null, db = null;
+      for (const f of fields) {
+        if (!da && a[f]) da = parseDataHora(a[f]);
+        if (!db && b[f]) db = parseDataHora(b[f]);
+      }
+      da = da || new Date(0);
+      db = db || new Date(0);
+      return db - da;
+    });
+  }
+
+  // ✅ P2: Função genérica para exibir mensagens de erro/sucesso
+  function setMensagem_(selector, obj) {
+    const el = qs(selector);
+    if (!el) return;
+    el.classList.remove("is-hidden", "msg-erro", "msg-sucesso");
+    el.textContent = (obj && obj.texto) || "";
+    if (obj && obj.tipo === "erro") el.classList.add("msg-erro");
+    if (obj && obj.tipo === "sucesso") el.classList.add("msg-sucesso");
+  }
+
+  // ✅ P2: Formatar data completa (dd/mm/yyyy HH:mm)
+  function formatDataHoraCompleta_(raw) {
+    const dt = parseDataHora(raw);
+    if (!dt || !dt.getTime()) return "";
+    const dia = String(dt.getDate()).padStart(2, "0");
+    const mes = String(dt.getMonth() + 1).padStart(2, "0");
+    const ano = dt.getFullYear();
+    const hora = String(dt.getHours()).padStart(2, "0");
+    const min = String(dt.getMinutes()).padStart(2, "0");
+    return `${dia}/${mes}/${ano} ${hora}:${min}`;
+  }
+
+  // ✅ P2: Factory para criar estado de paginação
+  function createPagingState_() {
+    return {
+      btnMais: null,
+      cursor: null,
+      hasMore: false,
+      loading: false,
+      lista: [],
+      lastLimit: 10,
+    };
+  }
+
   PRONTIO.features.prontuario.utils = {
     qs,
     qsa,
@@ -79,5 +128,9 @@
     setBtnMais_,
     escapeHtml_,
     trapFocusInPanel_,
+    sortByDateDesc_,
+    setMensagem_,
+    formatDataHoraCompleta_,
+    createPagingState_,
   };
 })(window, document);
