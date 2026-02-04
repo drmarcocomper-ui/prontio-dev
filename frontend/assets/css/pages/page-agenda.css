@@ -452,7 +452,7 @@
 
 .agenda-table__bloqueio-label {
   font-weight: 600;
-  color: #6b7280;
+  color: var(--cor-texto-suave, #6b7280);
 }
 
 /* Status select inline */
@@ -933,11 +933,24 @@
 }
 
 .form-message.erro {
-  color: #b91c1c;
+  color: var(--cor-perigo, #b91c1c);
 }
 
 .form-message.sucesso {
-  color: #16a34a;
+  color: var(--cor-sucesso, #16a34a);
+}
+
+/* Tema dark: cores mais vibrantes para melhor contraste */
+[data-theme="dark"] .form-message.info {
+  color: #38bdf8;
+}
+
+[data-theme="dark"] .form-message.erro {
+  color: #f87171;
+}
+
+[data-theme="dark"] .form-message.sucesso {
+  color: #4ade80;
 }
 
 /* Typeahead (panel + itens) */
@@ -1089,4 +1102,80 @@ input[readonly].input-readonly {
 [data-theme="dark"] input[readonly].input-readonly {
   background-color: var(--cor-fundo-card-alt, #1f2937);
   color: var(--cor-texto-suave, #9ca3af);
+}
+
+/* =========================================================
+   TEMA DARK - AJUSTES ESPECÍFICOS DA AGENDA
+   ========================================================= */
+
+/* Linhas vazias da tabela - padrão mais visível */
+[data-theme="dark"] .agenda-table__row--empty {
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 10px,
+    rgba(34, 197, 94, 0.08) 10px,
+    rgba(34, 197, 94, 0.08) 20px
+  );
+}
+
+[data-theme="dark"] .agenda-table__row--empty:hover {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+/* Slot atual com mais destaque no dark */
+[data-theme="dark"] .agenda-slot.slot-now,
+[data-theme="dark"] .semana-slot-now {
+  background: rgba(14, 165, 233, 0.12);
+}
+
+/* Botões de ação - hover com cores mais vibrantes no dark */
+[data-theme="dark"] .agenda-table__action-btn--editar:hover {
+  color: #60a5fa;
+}
+
+[data-theme="dark"] .agenda-table__action-btn--atender:hover {
+  color: #34d399;
+}
+
+[data-theme="dark"] .agenda-table__action-btn--cancelar:hover {
+  color: #f87171;
+}
+
+[data-theme="dark"] .agenda-table__action-btn--remover:hover {
+  color: #fbbf24;
+}
+
+/* Status das linhas - cores mais vibrantes no dark */
+[data-theme="dark"] .agenda-table__row.status-agendado { border-left-color: #94a3b8; }
+[data-theme="dark"] .agenda-table__row.status-confirmado { border-left-color: #4ade80; }
+[data-theme="dark"] .agenda-table__row.status-aguardando { border-left-color: #fbbf24; }
+[data-theme="dark"] .agenda-table__row.status-em-atendimento { border-left-color: #38bdf8; }
+[data-theme="dark"] .agenda-table__row.status-falta { border-left-color: #f87171; }
+[data-theme="dark"] .agenda-table__row.status-cancelado { border-left-color: #fb923c; }
+[data-theme="dark"] .agenda-table__row.status-remarcado { border-left-color: #a78bfa; }
+[data-theme="dark"] .agenda-table__row.status-concluido { border-left-color: #34d399; }
+
+/* Resumo do dia - valores com melhor contraste */
+[data-theme="dark"] .resumo-confirmados { color: #4ade80; }
+[data-theme="dark"] .resumo-aguardando { color: #fbbf24; }
+[data-theme="dark"] .resumo-em-atendimento { color: #38bdf8; }
+[data-theme="dark"] .resumo-concluidos { color: #34d399; }
+[data-theme="dark"] .resumo-faltas { color: #f87171; }
+[data-theme="dark"] .resumo-cancelados { color: #fb923c; }
+[data-theme="dark"] .resumo-remarcados { color: #a78bfa; }
+
+/* Typeahead panel no dark */
+[data-theme="dark"] .typeahead-panel {
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+}
+
+[data-theme="dark"] .typeahead-item.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* Lista de pacientes no modal */
+[data-theme="dark"] .paciente-lista-item:hover {
+  border-color: rgba(59, 130, 246, 0.4);
 }

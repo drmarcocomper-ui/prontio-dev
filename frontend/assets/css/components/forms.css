@@ -73,6 +73,11 @@ select {
   padding-right: 38px;
 }
 
+/* Tema dark: ícone mais claro */
+[data-theme="dark"] select {
+  background-image: url("data:image/svg+xml;utf8,<svg fill='%239ca3af' height='18' viewBox='0 0 24 24' width='18' xmlns='http://www.w3.org/2000/svg'><path d='M7 10l5 5 5-5z'/></svg>");
+}
+
 /* Hover do select */
 select:hover {
   border-color: var(--cor-primaria-clara);
@@ -224,7 +229,7 @@ input[type="file"]::file-selector-button:hover {
   left: 3px;
   width: 16px;
   height: 16px;
-  background: #ffffff;
+  background: var(--switch-knob-color, #ffffff);
   border-radius: 50%;
   transition: transform 0.2s ease;
 }

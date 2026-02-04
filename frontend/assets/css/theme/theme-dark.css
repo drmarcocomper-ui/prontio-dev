@@ -12,6 +12,7 @@ body[data-theme="dark"] {
   /* Superfícies (card e variações) */
   --cor-fundo-card: #0b1120;
   --cor-fundo-card-alt: #0f172a;
+  --cor-fundo-suave: #1e293b;
 
   /* Bordas */
   --cor-borda-suave: #1f2937;
@@ -19,8 +20,27 @@ body[data-theme="dark"] {
 
   /* Texto */
   --cor-texto-principal: #e5e7eb;
-  --cor-texto-secundario: #cbd5f5;
-  --cor-texto-suave: #9ca3af;
+  --cor-texto-secundario: #cbd5e1;
+  --cor-texto-suave: #94a3b8;
+
+  /* ==============================
+     CORES DA MARCA (ajustadas para dark)
+  =============================== */
+  --cor-primaria-clara: hsl(221, 60%, 25%);
+  --cor-primaria-hover: hsl(221, 83%, 65%);
+
+  /* ==============================
+     CORES SEMÂNTICAS (otimizadas para dark)
+     Mais vibrantes para melhor contraste
+  =============================== */
+  --cor-sucesso: #22c55e;
+  --cor-aviso: #f59e0b;
+  --cor-perigo: #ef4444;
+
+  /* Versões suaves para backgrounds */
+  --cor-sucesso-bg: rgba(34, 197, 94, 0.15);
+  --cor-aviso-bg: rgba(245, 158, 11, 0.15);
+  --cor-perigo-bg: rgba(239, 68, 68, 0.15);
 
   /* Sombras */
   --shadow-card: 0 14px 32px rgba(0, 0, 0, 0.7);
@@ -40,11 +60,24 @@ body[data-theme="dark"] {
   --app-border-strong: var(--cor-borda-forte);
 
   --app-brand: var(--cor-primaria);
-  --app-brand-soft: rgba(37, 99, 235, 0.20);
+  --app-brand-soft: rgba(59, 130, 246, 0.25);
 
   /* Topbar tokens */
   --topbar-icon-color: #e5e7eb;
   --topbar-hover-bg: rgba(255, 255, 255, 0.08);
+
+  /* ==============================
+     COMPONENTES ESPECÍFICOS
+  =============================== */
+
+  /* Botões */
+  --btn-secondary-bg: var(--cor-fundo-card-alt);
+  --btn-secondary-text: var(--cor-primaria);
+  --btn-secondary-border: var(--cor-primaria);
+
+  /* Forms */
+  --select-icon-color: %239ca3af;
+  --switch-knob-color: #e5e7eb;
 
   /* Fundo do body no tema escuro */
   background: radial-gradient(circle at top left, #0b1120 0%, #020617 45%, #000 100%);

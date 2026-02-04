@@ -78,16 +78,16 @@
   border-color: var(--cor-primaria-escura);
 }
 
-/* SECUNDÁRIO (FUNDO BRANCO, BORDA AZUL – padrão PRONTIO) */
+/* SECUNDÁRIO (FUNDO CARD, BORDA AZUL – padrão PRONTIO) */
 .btn-secondary {
-  background-color: #ffffff;
-  border-color: var(--cor-primaria);
-  color: var(--cor-primaria);
+  background-color: var(--btn-secondary-bg, var(--cor-fundo-card));
+  border-color: var(--btn-secondary-border, var(--cor-primaria));
+  color: var(--btn-secondary-text, var(--cor-primaria));
 }
 .btn-secondary:hover {
   background-color: var(--cor-primaria-clara);
-  border-color: var(--cor-primaria-escura);
-  color: var(--cor-primaria-escura);
+  border-color: var(--cor-primaria);
+  color: var(--cor-primaria);
 }
 
 /* OUTLINE (borda + texto na cor primária) */
@@ -125,10 +125,11 @@
 .btn-warning {
   background-color: var(--cor-aviso);
   border-color: var(--cor-aviso);
-  color: #1f2937;
+  color: #000000;
 }
 .btn-warning:hover {
-  background-color: #d48a00;
+  background-color: hsl(38, 92%, 55%);
+  border-color: hsl(38, 92%, 55%);
 }
 
 /* PERIGO */
