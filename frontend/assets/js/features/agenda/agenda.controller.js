@@ -137,9 +137,10 @@
         loaders.init(dom);
 
         // ✅ LOAD INICIAL (resolve: "slots só aparecem depois de criar")
-        Promise.resolve()
-          .then(() => uiActions.setVisao(state.modoVisao || "dia"))
-          .catch(() => loaders.carregarDia());
+        uiActions.setVisao(state.modoVisao || "dia").catch((err) => {
+          console.error("[AgendaController] Erro em setVisao, tentando carregar dia:", err);
+          loaders.carregarDia();
+        });
       },
 
       // navegação / visão
