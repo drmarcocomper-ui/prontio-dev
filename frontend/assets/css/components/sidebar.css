@@ -63,11 +63,12 @@ body.sidebar-compact .sidebar {
 }
 
 /* HEADER (logo + botão compactar) */
+/* Alinhado com topbar: PRONTIO na mesma altura do título */
 .sidebar-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--sp-2);
-  padding: var(--sp-4) var(--sp-3);
+  padding: 26px var(--sp-3) var(--sp-3);
   min-height: 64px;
   box-sizing: border-box;
   border-bottom: 1px solid var(--cor-borda-suave);
