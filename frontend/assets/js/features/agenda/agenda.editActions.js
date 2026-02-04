@@ -16,6 +16,22 @@
   const DURACAO_MIN = 5;      // Mínimo 5 minutos
   const DURACAO_MAX = 480;    // Máximo 8 horas (480 minutos)
 
+  // ✅ P3: Helper para mostrar/esconder loading em botões
+  function setButtonLoading_(btn, isLoading) {
+    if (!btn) return;
+    if (isLoading) {
+      btn.classList.add("btn-loading");
+      btn.dataset.originalText = btn.textContent;
+      btn.textContent = "Aguarde...";
+    } else {
+      btn.classList.remove("btn-loading");
+      if (btn.dataset.originalText) {
+        btn.textContent = btn.dataset.originalText;
+        delete btn.dataset.originalText;
+      }
+    }
+  }
+
   // ✅ Helper para adicionar timeout a uma Promise
   function withTimeout_(promise, ms, errorMsg) {
     return new Promise((resolve, reject) => {
@@ -150,7 +166,10 @@
 
       const permitirEncaixe = dom.novoPermiteEncaixe ? dom.novoPermiteEncaixe.checked === true : false;
 
+      // ✅ P3: Mostra loading durante validação
       view.setFormMsg && view.setFormMsg(dom.msgNovo, "Validando horário...", "info");
+      setButtonLoading_(dom.btnSubmitNovo, true);
+
       const v = await validarConflito_({
         data: dataStr,
         horaInicio: horaStr,
@@ -159,6 +178,8 @@
         permitirEncaixe,
         tipo: dom.novoTipo && dom.novoTipo.value ? String(dom.novoTipo.value) : "CONSULTA"
       });
+
+      setButtonLoading_(dom.btnSubmitNovo, false);
 
       if (!v.ok) {
         view.setFormMsg && view.setFormMsg(dom.msgNovo, v.erro || "Conflito de horário.", "erro");
@@ -362,7 +383,10 @@
 
       const permitirEncaixe = dom.editPermiteEncaixe ? dom.editPermiteEncaixe.checked === true : false;
 
+      // ✅ P3: Mostra loading durante validação
       view.setFormMsg && view.setFormMsg(dom.msgEditar, "Validando horário...", "info");
+      setButtonLoading_(dom.btnSubmitEditar, true);
+
       const v = await validarConflito_({
         data: dataStr,
         horaInicio: horaStr,
@@ -371,6 +395,8 @@
         permitirEncaixe,
         tipo: dom.editTipo && dom.editTipo.value ? dom.editTipo.value : "CONSULTA"
       });
+
+      setButtonLoading_(dom.btnSubmitEditar, false);
 
       if (!v.ok) {
         view.setFormMsg && view.setFormMsg(dom.msgEditar, v.erro || "Conflito de horário.", "erro");

@@ -46,11 +46,13 @@
       // foco/scroll (runtime)
       horaFocoDia: null,
 
-      // config
+      // ✅ P3: Configuração da grade de horários
+      // Valores padrão que podem ser sobrescritos via AgendaConfig.Obter do backend
+      // Para alterar: state.config.hora_inicio_padrao = "07:00", etc.
       config: {
-        hora_inicio_padrao: "08:00",
-        hora_fim_padrao: "18:00",
-        duracao_grade_minutos: 15
+        hora_inicio_padrao: "08:00",    // Início do expediente
+        hora_fim_padrao: "18:00",       // Fim do expediente
+        duracao_grade_minutos: 15       // Intervalo entre slots (15, 30, 60 min)
       },
       configCarregada: false,
 
