@@ -100,6 +100,10 @@
 
     let dom = null;
 
+    // ✅ P0-1: AbortController para cancelar requisições antigas
+    let abortControllerDia = null;
+    let abortControllerSemana = null;
+
     // ========================================
     // Helpers
     // ========================================
@@ -267,6 +271,13 @@
         return;
       }
 
+      // ✅ P0-1: Cancela requisição anterior se existir
+      if (abortControllerDia) {
+        abortControllerDia.abort();
+      }
+      abortControllerDia = new AbortController();
+      const signal = abortControllerDia.signal;
+
       const mySeq = ++state.reqSeqDia;
 
       // Callbacks para a view
@@ -322,14 +333,16 @@
 
       // ✅ PASSO 2: Buscar dados frescos da API
       try {
+        // ✅ P0-1: Passa signal para permitir cancelamento
         const raw = await api.listar({
           periodo: { inicio: ymd, fim: ymd },
-          filtros: { incluirCancelados: false }
+          filtros: { incluirCancelados: false },
+          signal: signal
         });
 
-        // Concorrência: se outra requisição mais nova chegou, ignora esta
-        if (mySeq !== state.reqSeqDia) {
-          console.log("[AgendaLoaders] Requisição de dia obsoleta, ignorando.");
+        // ✅ P0-1: Verifica se foi cancelado ou se outra requisição mais nova chegou
+        if (signal.aborted || mySeq !== state.reqSeqDia) {
+          console.log("[AgendaLoaders] Requisição de dia cancelada/obsoleta, ignorando.");
           return;
         }
 
@@ -346,7 +359,11 @@
         if (view.hideDayUpdating) view.hideDayUpdating();
 
       } catch (err) {
-        if (mySeq !== state.reqSeqDia) return;
+        // ✅ P0-1: Ignora erros de requisições canceladas
+        if (signal.aborted || mySeq !== state.reqSeqDia) {
+          console.log("[AgendaLoaders] Requisição de dia cancelada, erro ignorado.");
+          return;
+        }
 
         console.error("[AgendaLoaders] Erro ao carregar dia:", err);
         if (view.hideDayLoading) view.hideDayLoading();
@@ -372,6 +389,13 @@
         return;
       }
 
+      // ✅ P0-1: Cancela requisição anterior se existir
+      if (abortControllerSemana) {
+        abortControllerSemana.abort();
+      }
+      abortControllerSemana = new AbortController();
+      const signal = abortControllerSemana.signal;
+
       const mySeq = ++state.reqSeqSemana;
 
       if (view.showWeekLoading) view.showWeekLoading();
@@ -380,14 +404,16 @@
         // Calcula período da semana (seg-dom)
         const week = fx.weekPeriodFrom ? fx.weekPeriodFrom(refYmd) : { inicio: refYmd, fim: refYmd, dias: [refYmd] };
 
+        // ✅ P0-1: Passa signal para permitir cancelamento
         const raw = await api.listar({
           periodo: { inicio: week.inicio, fim: week.fim },
-          filtros: { incluirCancelados: false }
+          filtros: { incluirCancelados: false },
+          signal: signal
         });
 
-        // Concorrência
-        if (mySeq !== state.reqSeqSemana) {
-          console.log("[AgendaLoaders] Requisição de semana obsoleta, ignorando.");
+        // ✅ P0-1: Verifica se foi cancelado ou se outra requisição mais nova chegou
+        if (signal.aborted || mySeq !== state.reqSeqSemana) {
+          console.log("[AgendaLoaders] Requisição de semana cancelada/obsoleta, ignorando.");
           return;
         }
 
@@ -454,7 +480,11 @@
         if (view.hideWeekLoading) view.hideWeekLoading();
 
       } catch (err) {
-        if (mySeq !== state.reqSeqSemana) return;
+        // ✅ P0-1: Ignora erros de requisições canceladas
+        if (signal.aborted || mySeq !== state.reqSeqSemana) {
+          console.log("[AgendaLoaders] Requisição de semana cancelada, erro ignorado.");
+          return;
+        }
 
         console.error("[AgendaLoaders] Erro ao carregar semana:", err);
         if (view.hideWeekLoading) view.hideWeekLoading();

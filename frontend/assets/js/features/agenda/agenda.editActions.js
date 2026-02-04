@@ -9,15 +9,42 @@
   // Getter para formatters - evita erro se ainda não carregou
   const getFX = () => PRONTIO.features.agenda.formatters || {};
 
+  // ✅ P0-2: Timeout para validação de conflito (10 segundos)
+  const VALIDAR_CONFLITO_TIMEOUT_MS = 10000;
+
+  // ✅ Helper para adicionar timeout a uma Promise
+  function withTimeout_(promise, ms, errorMsg) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error(errorMsg || "Timeout"));
+      }, ms);
+
+      promise
+        .then((result) => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
+
   function createAgendaEditActions({ api, state, view, loaders }) {
     if (!api || !state || !view || !loaders) {
       console.error("[AgendaEditActions] Dependências ausentes.");
       return {};
     }
 
+    // ✅ P0-2: Validar conflito COM timeout de 10 segundos
     async function validarConflito_(payload) {
       try {
-        await api.validarConflito(payload || {});
+        await withTimeout_(
+          api.validarConflito(payload || {}),
+          VALIDAR_CONFLITO_TIMEOUT_MS,
+          "Tempo esgotado ao validar horário. Tente novamente."
+        );
         return { ok: true };
       } catch (e) {
         return {
@@ -223,9 +250,17 @@
       const dom = state.dom;
       if (!dom) return;
 
-      state.agendamentoEmEdicao = ag || null;
+      // ✅ P0-3: Validar que agendamento existe e tem ID válido
+      const idAgenda = ag?.ID_Agenda || ag?.idAgenda || ag?.idEvento || "";
+      if (!ag || !idAgenda) {
+        console.error("[AgendaEditActions] Tentativa de editar agendamento inválido:", ag);
+        view.setFormMsg && view.setFormMsg(dom.msgEditar, "Agendamento inválido para edição.", "erro");
+        return;
+      }
 
-      if (dom.editIdAgenda) dom.editIdAgenda.value = ag?.ID_Agenda || ag?.idAgenda || ag?.idEvento || "";
+      state.agendamentoEmEdicao = ag;
+
+      if (dom.editIdAgenda) dom.editIdAgenda.value = idAgenda;
       if (dom.editData) dom.editData.value = ag?.data || dom.inputData?.value || "";
       if (dom.editHoraInicio) dom.editHoraInicio.value = ag?.hora_inicio || "";
       if (dom.editDuracao) dom.editDuracao.value = ag?.duracao_minutos || 15;

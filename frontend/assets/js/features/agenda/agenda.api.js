@@ -115,8 +115,16 @@
     return result;
   }
 
-  async function callAction(callApiData, action, payload) {
-    const res = await callApiData({ action, payload: payload || {} });
+  // ✅ P0-1: Suporta AbortSignal para cancelamento de requisições
+  async function callAction(callApiData, action, payload, signal) {
+    // Verifica se já foi cancelado antes de iniciar
+    if (signal && signal.aborted) {
+      const err = new Error("Requisição cancelada");
+      err.name = "AbortError";
+      throw err;
+    }
+
+    const res = await callApiData({ action, payload: payload || {}, signal });
     return unwrapData(res);
   }
 
@@ -207,6 +215,7 @@
       // -----------------------
       // Agenda (canônico)
       // -----------------------
+      // ✅ P0-1: Suporta signal para cancelamento de requisições
       async listar(params) {
         const p = params || {};
         const periodo = p.periodo || {};
@@ -229,7 +238,8 @@
 
         if (idClinica) payload.idClinica = idClinica;
 
-        return await callAction(callApiData, "Agenda.ListarPorPeriodo", payload);
+        // ✅ P0-1: Passa signal para permitir cancelamento
+        return await callAction(callApiData, "Agenda.ListarPorPeriodo", payload, p.signal);
       },
 
       async criar(payload) {
