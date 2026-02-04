@@ -41,6 +41,10 @@
       const plano = pac && (pac.planoSaude || pac.convenio || pac.PlanoSaude || pac.Convenio || pac.plano);
       const carteirinha = pac && (pac.carteirinha || pac.numeroCarteirinha || pac.NumeroCarteirinha || pac.Carteirinha);
 
+      // Telefone para WhatsApp
+      const telefone = pac && (pac.telefone1 || pac.telefone || pac.Telefone1 || pac.Telefone || pac.celular || pac.Celular);
+      ctx.telefone = telefone ? String(telefone).trim() : "";
+
       ctx.nomeCompleto = String(nome || "").trim() || ctx.nomeCompleto || "—";
       ctx.nome = ctx.nomeCompleto;
 
@@ -49,6 +53,12 @@
       setTextOrDash_("#prontuario-paciente-profissao", profissao);
       setTextOrDash_("#prontuario-paciente-plano", plano);
       setTextOrDash_("#prontuario-paciente-carteirinha", carteirinha);
+
+      // Mostrar botão WhatsApp se tiver telefone
+      const btnWa = qs("#btnWhatsAppPaciente");
+      if (btnWa) {
+        btnWa.style.display = ctx.telefone ? "inline-flex" : "none";
+      }
     } catch (e) {
       setTextOrDash_("#prontuario-paciente-idade", "—");
       setTextOrDash_("#prontuario-paciente-profissao", "—");

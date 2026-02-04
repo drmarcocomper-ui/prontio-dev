@@ -81,6 +81,42 @@ body[data-page-id="prontuario"] .paciente-nome {
   color: var(--cor-texto-principal, #111827);
 }
 
+body[data-page-id="prontuario"] .paciente-nome-linha {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Botão WhatsApp */
+body[data-page-id="prontuario"] .btn-whatsapp {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: #25D366;
+  color: #ffffff;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 12px rgba(37, 211, 102, 0.35);
+}
+
+body[data-page-id="prontuario"] .btn-whatsapp:hover {
+  background: #1da851;
+  transform: scale(1.08);
+  box-shadow: 0 6px 18px rgba(37, 211, 102, 0.45);
+}
+
+body[data-page-id="prontuario"] .btn-whatsapp:active {
+  transform: scale(0.96);
+}
+
+body[data-page-id="prontuario"] .btn-whatsapp svg {
+  flex-shrink: 0;
+}
+
 /* 4 blocos: Idade / Profissão / Plano / Carteirinha */
 body[data-page-id="prontuario"] .prontuario-paciente-metrics {
   display: grid;

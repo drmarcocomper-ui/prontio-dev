@@ -31,6 +31,30 @@
     }
   }
 
+  /**
+   * Abre WhatsApp Web/App com mensagem para o paciente
+   */
+  function abrirWhatsApp_(ctx) {
+    if (!ctx.telefone) {
+      showToast_("Paciente não possui telefone cadastrado.", "erro");
+      return;
+    }
+
+    // Limpa telefone: remove tudo que não é número
+    let tel = String(ctx.telefone).replace(/\D/g, "");
+
+    // Se não começar com 55 (Brasil), adiciona
+    if (tel.length <= 11 && !tel.startsWith("55")) {
+      tel = "55" + tel;
+    }
+
+    const nome = ctx.nomeCompleto || ctx.nome || "paciente";
+    const mensagem = encodeURIComponent(`Olá, ${nome}!`);
+    const url = `https://wa.me/${tel}?text=${mensagem}`;
+
+    global.open(url, "_blank");
+  }
+
   function initProntuario() {
     if (PRONTIO._pageInited.prontuario === true) return;
     PRONTIO._pageInited.prontuario = true;
@@ -49,6 +73,9 @@
     qs("#btnAcaoReceita")?.addEventListener("click", () => rx.abrirReceitaNoPainel_(ctx));
     qs("#btnAcaoExames")?.addEventListener("click", () => abrirExames_(ctx));
     qs("#btnAcaoDocumentos")?.addEventListener("click", () => docs.abrirDocumentosPanel_());
+
+    // WhatsApp do paciente
+    qs("#btnWhatsAppPaciente")?.addEventListener("click", () => abrirWhatsApp_(ctx));
 
     // Evolução salvar
     qs("#formEvolucao")?.addEventListener("submit", (evv) => evo.salvarEvolucao(ctx, evv));
