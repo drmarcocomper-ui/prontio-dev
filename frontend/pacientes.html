@@ -193,143 +193,181 @@
             </p>
           </div>
 
-          <form id="formPaciente" class="form-grid" autocomplete="off">
+          <form id="formPaciente" class="form-paciente" autocomplete="off">
             <input type="hidden" id="idPaciente" name="idPaciente">
 
-            <div class="campo campo-full">
-              <label for="nomeCompleto">Nome completo *</label>
-              <input type="text" id="nomeCompleto" required placeholder="Ex.: João da Silva">
+            <!-- Seção: Dados Pessoais -->
+            <div class="form-section is-open" data-section="dados-pessoais">
+              <button type="button" class="form-section__toggle" aria-expanded="true">
+                <span class="form-section__icon">▼</span>
+                <span class="form-section__title">Dados Pessoais</span>
+              </button>
+              <div class="form-section__content">
+                <div class="form-grid">
+                  <div class="campo campo-full">
+                    <label for="nomeCompleto">Nome completo *</label>
+                    <input type="text" id="nomeCompleto" required placeholder="Ex.: João da Silva">
+                  </div>
+                  <div class="campo campo-full">
+                    <label for="nomeSocial">Nome social</label>
+                    <input type="text" id="nomeSocial" placeholder="Ex.: Nome social (opcional)">
+                  </div>
+                  <div class="campo">
+                    <label for="dataNascimento">Data de nascimento</label>
+                    <input type="date" id="dataNascimento">
+                  </div>
+                  <div class="campo">
+                    <label for="sexo">Sexo</label>
+                    <select id="sexo">
+                      <option value="">Selecione...</option>
+                      <option value="F">Feminino</option>
+                      <option value="M">Masculino</option>
+                      <option value="O">Outro / Prefere não informar</option>
+                    </select>
+                  </div>
+                  <div class="campo">
+                    <label for="estadoCivil">Estado civil</label>
+                    <select id="estadoCivil">
+                      <option value="">Selecione...</option>
+                      <option value="SOLTEIRO">Solteiro(a)</option>
+                      <option value="CASADO">Casado(a)</option>
+                      <option value="DIVORCIADO">Divorciado(a)</option>
+                      <option value="VIUVO">Viúvo(a)</option>
+                      <option value="UNIAO_ESTAVEL">União estável</option>
+                      <option value="OUTRO">Outro</option>
+                    </select>
+                  </div>
+                  <div class="campo">
+                    <label for="cpf">CPF</label>
+                    <input type="text" id="cpf" maxlength="14" placeholder="000.000.000-00">
+                  </div>
+                  <div class="campo">
+                    <label for="rg">RG</label>
+                    <input type="text" id="rg" placeholder="RG">
+                  </div>
+                  <div class="campo">
+                    <label for="rgOrgaoEmissor">Órgão emissor</label>
+                    <input type="text" id="rgOrgaoEmissor" placeholder="Ex.: SSP/SC">
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="campo campo-full">
-              <label for="nomeSocial">Nome social</label>
-              <input type="text" id="nomeSocial" placeholder="Ex.: Nome social (opcional)">
+            <!-- Seção: Contato -->
+            <div class="form-section is-open" data-section="contato">
+              <button type="button" class="form-section__toggle" aria-expanded="true">
+                <span class="form-section__icon">▼</span>
+                <span class="form-section__title">Contato</span>
+              </button>
+              <div class="form-section__content">
+                <div class="form-grid">
+                  <div class="campo">
+                    <label for="telefone1">Telefone 1</label>
+                    <input type="tel" id="telefone1" inputmode="tel" placeholder="(00) 00000-0000">
+                  </div>
+                  <div class="campo">
+                    <label for="telefone2">Telefone 2</label>
+                    <input type="tel" id="telefone2" inputmode="tel" placeholder="(00) 00000-0000">
+                  </div>
+                  <div class="campo campo-full">
+                    <label for="email">E-mail</label>
+                    <input type="email" id="email" placeholder="exemplo@dominio.com">
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="campo">
-              <label for="dataNascimento">Data de nascimento</label>
-              <input type="date" id="dataNascimento">
+            <!-- Seção: Endereço -->
+            <div class="form-section" data-section="endereco">
+              <button type="button" class="form-section__toggle" aria-expanded="false">
+                <span class="form-section__icon">▶</span>
+                <span class="form-section__title">Endereço</span>
+              </button>
+              <div class="form-section__content">
+                <div class="form-grid">
+                  <div class="campo">
+                    <label for="cep">CEP</label>
+                    <input type="text" id="cep" placeholder="00000-000">
+                  </div>
+                  <div class="campo campo-full">
+                    <label for="logradouro">Logradouro</label>
+                    <input type="text" id="logradouro" placeholder="Rua, Avenida, etc.">
+                  </div>
+                  <div class="campo">
+                    <label for="numero">Número</label>
+                    <input type="text" id="numero" placeholder="Número">
+                  </div>
+                  <div class="campo">
+                    <label for="complemento">Complemento</label>
+                    <input type="text" id="complemento" placeholder="Apto, bloco, referência...">
+                  </div>
+                  <div class="campo">
+                    <label for="enderecoBairro">Bairro</label>
+                    <input type="text" id="enderecoBairro" placeholder="Bairro">
+                  </div>
+                  <div class="campo">
+                    <label for="enderecoCidade">Cidade</label>
+                    <input type="text" id="enderecoCidade" placeholder="Cidade">
+                  </div>
+                  <div class="campo">
+                    <label for="enderecoUf">UF</label>
+                    <input type="text" id="enderecoUf" maxlength="2" placeholder="UF">
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="campo">
-              <label for="sexo">Sexo</label>
-              <select id="sexo">
-                <option value="">Selecione...</option>
-                <option value="F">Feminino</option>
-                <option value="M">Masculino</option>
-                <option value="O">Outro / Prefere não informar</option>
-              </select>
+            <!-- Seção: Plano de Saúde -->
+            <div class="form-section" data-section="plano">
+              <button type="button" class="form-section__toggle" aria-expanded="false">
+                <span class="form-section__icon">▶</span>
+                <span class="form-section__title">Plano de Saúde</span>
+              </button>
+              <div class="form-section__content">
+                <div class="form-grid">
+                  <div class="campo">
+                    <label for="planoSaude">Plano de saúde</label>
+                    <input type="text" id="planoSaude" placeholder="Ex.: Unimed, Bradesco, Particular...">
+                  </div>
+                  <div class="campo">
+                    <label for="numeroCarteirinha">Nº carteirinha</label>
+                    <input type="text" id="numeroCarteirinha" placeholder="Número da carteira do plano">
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="campo">
-              <label for="estadoCivil">Estado civil</label>
-              <select id="estadoCivil">
-                <option value="">Selecione...</option>
-                <option value="SOLTEIRO">Solteiro(a)</option>
-                <option value="CASADO">Casado(a)</option>
-                <option value="DIVORCIADO">Divorciado(a)</option>
-                <option value="VIUVO">Viúvo(a)</option>
-                <option value="UNIAO_ESTAVEL">União estável</option>
-                <option value="OUTRO">Outro</option>
-              </select>
+            <!-- Seção: Observações -->
+            <div class="form-section" data-section="observacoes">
+              <button type="button" class="form-section__toggle" aria-expanded="false">
+                <span class="form-section__icon">▶</span>
+                <span class="form-section__title">Observações</span>
+              </button>
+              <div class="form-section__content">
+                <div class="form-grid">
+                  <div class="campo campo-full">
+                    <label for="observacoesClinicas">Observações clínicas</label>
+                    <textarea id="observacoesClinicas" rows="3" placeholder="Ex.: alergias, condições relevantes, alertas clínicos..."></textarea>
+                  </div>
+                  <div class="campo campo-full">
+                    <label for="observacoesAdministrativas">Observações administrativas</label>
+                    <textarea id="observacoesAdministrativas" rows="3" placeholder="Ex.: preferências de contato, restrições administrativas..."></textarea>
+                  </div>
+                  <div class="campo campo-full">
+                    <label for="obsImportantes">Observações importantes (legado)</label>
+                    <textarea id="obsImportantes" rows="2" placeholder="Compatibilidade: se Observações administrativas estiver vazio, usaremos este campo."></textarea>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="campo">
-              <label for="cpf">CPF</label>
-              <input type="text" id="cpf" maxlength="14" placeholder="000.000.000-00">
-            </div>
-
-            <div class="campo">
-              <label for="rg">RG</label>
-              <input type="text" id="rg" placeholder="RG">
-            </div>
-
-            <div class="campo">
-              <label for="rgOrgaoEmissor">Órgão emissor</label>
-              <input type="text" id="rgOrgaoEmissor" placeholder="Ex.: SSP/SC">
-            </div>
-
-            <div class="campo">
-              <label for="telefone1">Telefone 1</label>
-              <input type="tel" id="telefone1" inputmode="tel" placeholder="(00) 00000-0000">
-            </div>
-
-            <div class="campo">
-              <label for="telefone2">Telefone 2</label>
-              <input type="tel" id="telefone2" inputmode="tel" placeholder="(00) 00000-0000">
-            </div>
-
-            <div class="campo campo-full">
-              <label for="email">E-mail</label>
-              <input type="email" id="email" placeholder="exemplo@dominio.com">
-            </div>
-
-            <div class="campo">
-              <label for="cep">CEP</label>
-              <input type="text" id="cep" placeholder="00000-000">
-            </div>
-
-            <div class="campo campo-full">
-              <label for="logradouro">Logradouro</label>
-              <input type="text" id="logradouro" placeholder="Rua, Avenida, etc.">
-            </div>
-
-            <div class="campo">
-              <label for="numero">Número</label>
-              <input type="text" id="numero" placeholder="Número">
-            </div>
-
-            <div class="campo">
-              <label for="complemento">Complemento</label>
-              <input type="text" id="complemento" placeholder="Apto, bloco, referência...">
-            </div>
-
-            <div class="campo">
-              <label for="enderecoBairro">Bairro</label>
-              <input type="text" id="enderecoBairro" placeholder="Bairro">
-            </div>
-
-            <div class="campo">
-              <label for="enderecoCidade">Cidade</label>
-              <input type="text" id="enderecoCidade" placeholder="Cidade">
-            </div>
-
-            <div class="campo">
-              <label for="enderecoUf">UF</label>
-              <input type="text" id="enderecoUf" maxlength="2" placeholder="UF">
-            </div>
-
-            <div class="campo">
-              <label for="planoSaude">Plano de saúde</label>
-              <input type="text" id="planoSaude" placeholder="Ex.: Unimed, Bradesco, Particular...">
-            </div>
-
-            <div class="campo">
-              <label for="numeroCarteirinha">Nº carteirinha</label>
-              <input type="text" id="numeroCarteirinha" placeholder="Número da carteira do plano">
-            </div>
-
-            <div class="campo campo-full">
-              <label for="observacoesClinicas">Observações clínicas</label>
-              <textarea id="observacoesClinicas" rows="3" placeholder="Ex.: alergias, condições relevantes, alertas clínicos..."></textarea>
-            </div>
-
-            <div class="campo campo-full">
-              <label for="observacoesAdministrativas">Observações administrativas</label>
-              <textarea id="observacoesAdministrativas" rows="3" placeholder="Ex.: preferências de contato, restrições administrativas..."></textarea>
-            </div>
-
-            <div class="campo campo-full">
-              <label for="obsImportantes">Observações importantes (legado)</label>
-              <textarea id="obsImportantes" rows="3" placeholder="Compatibilidade: se Observações administrativas estiver vazio, usaremos este campo."></textarea>
-            </div>
-
-            <div class="botoes-form campo-full">
+            <!-- Botões do formulário -->
+            <div class="botoes-form">
               <button type="submit" id="btnSalvarPaciente" class="btn primario">Salvar paciente</button>
               <button type="button" id="btnCancelarEdicao" class="btn secundario oculto">Cancelar edição</button>
             </div>
 
-            <p class="form-dica campo-full">
+            <p class="form-dica">
               Dica: após preencher, você pode pressionar <strong>Enter</strong> para salvar.
             </p>
           </form>
@@ -408,22 +446,24 @@
                 Nome (sempre visível)
               </label>
 
-              <label><input type="checkbox" class="chk-coluna" data-col="dataCadastro" checked> Data cadastro</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="dataNascimento" checked> Data nasc.</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="sexo" checked> Sexo</label>
+              <!-- Colunas visíveis por padrão -->
               <label><input type="checkbox" class="chk-coluna" data-col="cpf" checked> CPF</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="rg" checked> RG</label>
               <label><input type="checkbox" class="chk-coluna" data-col="telefone1" checked> Telefone 1</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="telefone2" checked> Telefone 2</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="email" checked> E-mail</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="enderecoBairro" checked> Bairro</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="enderecoCidade" checked> Cidade</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="enderecoUf" checked> UF</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="obsImportantes" checked> Obs. importantes</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="planoSaude" checked> Plano de saúde</label>
-              <label><input type="checkbox" class="chk-coluna" data-col="numeroCarteirinha" checked> Nº carteirinha</label>
               <label><input type="checkbox" class="chk-coluna" data-col="ativo" checked> Ativo</label>
 
+              <!-- Colunas ocultas por padrão -->
+              <label><input type="checkbox" class="chk-coluna" data-col="dataCadastro"> Data cadastro</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="dataNascimento"> Data nasc.</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="sexo"> Sexo</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="rg"> RG</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="telefone2"> Telefone 2</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="email"> E-mail</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="enderecoBairro"> Bairro</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="enderecoCidade"> Cidade</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="enderecoUf"> UF</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="obsImportantes"> Obs. importantes</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="planoSaude"> Plano de saúde</label>
+              <label><input type="checkbox" class="chk-coluna" data-col="numeroCarteirinha"> Nº carteirinha</label>
               <label><input type="checkbox" class="chk-coluna" data-col="nomeSocial"> Nome social</label>
               <label><input type="checkbox" class="chk-coluna" data-col="estadoCivil"> Estado civil</label>
               <label><input type="checkbox" class="chk-coluna" data-col="rgOrgaoEmissor"> Órgão emissor</label>

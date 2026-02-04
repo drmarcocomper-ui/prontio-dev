@@ -40,6 +40,12 @@ body[data-page-id="pacientes"] #mensagem {
 }
 
 /* FORMULÁRIO */
+.form-paciente {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
@@ -76,7 +82,7 @@ body[data-page-id="pacientes"] #mensagem {
 }
 
 .botoes-form {
-  margin-top: 4px;
+  margin-top: 0.75rem;
   display: flex;
   gap: 8px;
 }
@@ -85,6 +91,85 @@ body[data-page-id="pacientes"] #mensagem {
   font-size: 12px;
   color: #666;
   margin-top: 4px;
+}
+
+/* SEÇÕES COLAPSÁVEIS DO FORMULÁRIO */
+.form-section {
+  border: 1px solid #d0d7e2;
+  border-radius: 8px;
+  background: #fafbfc;
+  overflow: hidden;
+}
+
+.form-section__toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1rem;
+  background: #f2f5f9;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+  color: #333;
+  transition: background 0.15s ease;
+}
+
+.form-section__toggle:hover {
+  background: #e8ecf2;
+}
+
+.form-section__icon {
+  font-size: 10px;
+  color: #666;
+  transition: transform 0.2s ease;
+}
+
+.form-section__title {
+  flex: 1;
+}
+
+.form-section__content {
+  display: none;
+  padding: 1rem;
+  background: #fff;
+}
+
+.form-section.is-open .form-section__content {
+  display: block;
+}
+
+.form-section.is-open .form-section__icon {
+  transform: rotate(0deg);
+}
+
+.form-section:not(.is-open) .form-section__icon {
+  transform: rotate(-90deg);
+}
+
+/* Dark mode */
+[data-theme="dark"] .form-section {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+[data-theme="dark"] .form-section__toggle {
+  background: #334155;
+  color: #e2e8f0;
+}
+
+[data-theme="dark"] .form-section__toggle:hover {
+  background: #475569;
+}
+
+[data-theme="dark"] .form-section__content {
+  background: #1e293b;
+}
+
+[data-theme="dark"] .form-section__icon {
+  color: #94a3b8;
 }
 
 /* CONTROLES ACIMA DA TABELA */
@@ -308,5 +393,13 @@ body[data-page-id="pacientes"] .btn:not(:disabled):hover {
 
   .linha-controles {
     align-items: flex-start;
+  }
+
+  .form-section__toggle {
+    padding: 0.625rem 0.75rem;
+  }
+
+  .form-section__content {
+    padding: 0.75rem;
   }
 }

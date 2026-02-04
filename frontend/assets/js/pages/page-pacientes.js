@@ -356,10 +356,37 @@
 
   function initPacientesPage() {
     initEventos();
+    initFormSections_();
     carregarConfigColunas();
     carregarPreferenciasPaginacao_();
     registrarAtalhosTeclado_();
     carregarPacientes();
+  }
+
+  // Toggle das seções colapsáveis do formulário
+  function initFormSections_() {
+    const toggles = document.querySelectorAll(".form-section__toggle");
+    toggles.forEach(function (toggle) {
+      if (toggle.dataset.bound === "1") return;
+      toggle.dataset.bound = "1";
+
+      toggle.addEventListener("click", function () {
+        const section = this.closest(".form-section");
+        if (!section) return;
+
+        const isOpen = section.classList.contains("is-open");
+        section.classList.toggle("is-open", !isOpen);
+        this.setAttribute("aria-expanded", !isOpen ? "true" : "false");
+      });
+    });
+  }
+
+  // Scroll suave até o formulário
+  function scrollToForm_() {
+    const sec = document.getElementById("secCadastroPaciente");
+    if (sec) {
+      sec.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }
 
   function initEventos() {
@@ -405,8 +432,9 @@
       btnNovoPaciente.addEventListener("click", function () {
         sairModoEdicao(false);
         mostrarSecaoCadastro(true);
+        scrollToForm_();
         const nomeInput = document.getElementById("nomeCompleto");
-        if (nomeInput) nomeInput.focus();
+        if (nomeInput) setTimeout(function () { nomeInput.focus(); }, 100);
         mostrarMensagem("Novo paciente: preencha os dados e salve.", "info");
       });
     }
@@ -1104,6 +1132,7 @@
     idEmEdicao = pacienteSelecionadoId;
     preencherFormularioComPaciente(p);
     atualizarUIEdicao();
+    scrollToForm_();
     mostrarMensagem("Editando paciente: " + (p.nomeCompleto || p.nome || ""), "info");
   }
 
@@ -1183,17 +1212,56 @@
     setLoading_(false);
   }
 
+  // Colunas visíveis por padrão (mínimo necessário)
+  const DEFAULT_VISIBLE_COLS = {
+    dataCadastro: false,
+    dataNascimento: false,
+    sexo: false,
+    cpf: true,
+    rg: false,
+    telefone1: true,
+    telefone2: false,
+    email: false,
+    enderecoBairro: false,
+    enderecoCidade: false,
+    enderecoUf: false,
+    obsImportantes: false,
+    planoSaude: false,
+    numeroCarteirinha: false,
+    ativo: true,
+    nomeSocial: false,
+    estadoCivil: false,
+    rgOrgaoEmissor: false,
+    cep: false,
+    logradouro: false,
+    numero: false,
+    complemento: false,
+    observacoesClinicas: false,
+    observacoesAdministrativas: false
+  };
+
   function carregarConfigColunas() {
     try {
       const json = global.localStorage.getItem("prontio_pacientes_cols_visiveis");
-      if (!json) return;
+      let cfg;
 
-      const cfg = JSON.parse(json);
+      if (json) {
+        cfg = JSON.parse(json);
+      } else {
+        // Usa configuração padrão mínima se não houver preferência salva
+        cfg = DEFAULT_VISIBLE_COLS;
+      }
+
       const checkboxes = document.querySelectorAll(".chk-coluna");
       checkboxes.forEach(function (cb) {
         const col = cb.dataset.col;
-        if (Object.prototype.hasOwnProperty.call(cfg, col)) cb.checked = !!cfg[col];
+        if (Object.prototype.hasOwnProperty.call(cfg, col)) {
+          cb.checked = !!cfg[col];
+        }
       });
+
+      // Aplica visibilidade imediatamente
+      aplicarVisibilidadeColunas();
     } catch (e) {
       console.warn("Erro ao carregar configuração de colunas:", e);
     }
