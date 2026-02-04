@@ -421,6 +421,19 @@
     } catch (_) {}
   }
 
+  // ✅ P1: Helper para mostrar erros no chat sem alert()
+  function showChatError_(msg) {
+    if (messagesEl) {
+      const errDiv = document.createElement("div");
+      errDiv.className = "prontio-chat-error";
+      errDiv.textContent = msg || "Erro desconhecido";
+      messagesEl.appendChild(errDiv);
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    } else {
+      console.error("[widget-chat]", msg);
+    }
+  }
+
   async function loadMessages_(showErrors) {
     try {
       const res = await callApiData({
@@ -433,7 +446,8 @@
       await updateUnreadSummary_();
     } catch (e) {
       if (showErrors) {
-        global.alert("Erro ao carregar mensagens: " + (e && e.message ? e.message : String(e)));
+        // ✅ P1: Usa feedback visual em vez de alert()
+        showChatError_("Erro ao carregar mensagens: " + (e && e.message ? e.message : String(e)));
       }
     }
   }
@@ -475,7 +489,8 @@
       await markAsRead_();
       await updateUnreadSummary_();
     } catch (e) {
-      global.alert("Erro ao enviar mensagem: " + (e && e.message ? e.message : String(e)));
+      // ✅ P1: Usa feedback visual em vez de alert()
+      showChatError_("Erro ao enviar mensagem: " + (e && e.message ? e.message : String(e)));
     }
   }
 
