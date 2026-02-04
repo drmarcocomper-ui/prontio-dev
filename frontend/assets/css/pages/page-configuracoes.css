@@ -23,6 +23,7 @@
 
 /* Inputs, textarea e select
    Escopados para a grid de configurações
+   ✅ P3: Usando variáveis CSS para dark theme
 */
 .form-config-grid .campo-controle input,
 .form-config-grid .campo-controle textarea,
@@ -31,7 +32,9 @@
   padding: 6px 8px;
   font-size: 14px;
   border-radius: 4px;
-  border: 1px solid #dde3ea; /* antes: var(--cor-borda-suave) */
+  border: 1px solid var(--cor-borda-suave, #dde3ea);
+  background: var(--cor-fundo-card, #fff);
+  color: var(--cor-texto-principal, #333);
   box-sizing: border-box;
 }
 
@@ -39,14 +42,14 @@
 .form-config-grid .campo-controle textarea:focus,
 .form-config-grid .campo-controle select:focus {
   outline: none;
-  border-color: #2563eb;
-  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.2);
+  border-color: var(--cor-primaria, #2563eb);
+  box-shadow: 0 0 0 1px var(--cor-primaria-clara, rgba(37, 99, 235, 0.2));
 }
 
 /* Texto de ajuda abaixo dos campos */
 .campo-ajuda {
   font-size: 11px;
-  color: #6b7280; /* antes: var(--cor-texto-suave) */
+  color: var(--cor-texto-suave, #6b7280);
   margin-top: 3px;
   line-height: 1.4;
 }
@@ -56,13 +59,14 @@
   margin-top: 0;
   margin-bottom: 4px;
   font-size: 16px;
+  color: var(--cor-texto-principal, #333);
 }
 
 /* Subtítulos das seções */
 .secao-config-subtitulo {
   margin: 0;
   font-size: 12px;
-  color: #6b7280; /* antes: var(--cor-texto-suave) */
+  color: var(--cor-texto-suave, #6b7280);
 }
 
 /* Área de ações (botões principais) */
@@ -97,6 +101,24 @@
 /* Ajuste de espaçamento de header de card APENAS na página Configurações */
 body[data-page-id="configuracoes"] .card-header {
   margin-bottom: 10px;
+}
+
+/* =====================================
+   ✅ P3: Dark Theme Overrides
+===================================== */
+[data-theme="dark"] .form-config-grid .campo-controle input,
+[data-theme="dark"] .form-config-grid .campo-controle textarea,
+[data-theme="dark"] .form-config-grid .campo-controle select {
+  background: var(--cor-fundo-card-alt, #1e293b);
+  border-color: var(--cor-borda-suave, #334155);
+  color: var(--cor-texto-principal, #e2e8f0);
+}
+
+[data-theme="dark"] .form-config-grid .campo-controle input:focus,
+[data-theme="dark"] .form-config-grid .campo-controle textarea:focus,
+[data-theme="dark"] .form-config-grid .campo-controle select:focus {
+  border-color: var(--cor-primaria, #3b82f6);
+  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.3);
 }
 
 /* Responsividade */

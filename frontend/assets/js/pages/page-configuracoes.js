@@ -60,13 +60,15 @@
     if (!div) return;
 
     if (!texto) {
-      div.style.display = "none";
+      // ✅ P4: Usa classes ao invés de style inline
+      div.classList.add("is-hidden");
       div.textContent = "";
-      div.className = "mensagem";
+      div.className = "mensagem is-hidden";
       return;
     }
 
-    div.style.display = "block";
+    // ✅ P4: Usa classes ao invés de style inline
+    div.classList.remove("is-hidden");
     div.textContent = texto;
     div.className = "mensagem";
 
@@ -93,9 +95,20 @@
     }
     const div = document.getElementById("mensagemConfig");
     if (!div) return;
-    div.style.display = "none";
+    // ✅ P4: Usa classes ao invés de style inline
+    div.classList.add("is-hidden");
     div.textContent = "";
-    div.className = "mensagem";
+    div.className = "mensagem is-hidden";
+  }
+
+  // ✅ P2: Helper para extrair mensagem de erro de forma segura
+  function extractErrorMessage_(reason, fallback) {
+    if (!reason) return fallback || "Erro desconhecido.";
+    if (typeof reason === "string") return reason;
+    if (reason.message && typeof reason.message === "string") {
+      return reason.message;
+    }
+    return fallback || "Erro desconhecido.";
   }
 
   // -----------------------------------------
@@ -245,148 +258,157 @@
   // -----------------------------------------
   // Load (AgendaConfig + Clínica)
   // -----------------------------------------
+  // ✅ P0: Adicionado try-catch para erros síncronos
   async function carregarConfiguracoes() {
-    if (!callApiData) {
-      mostrarMensagemConfig("Erro interno: API não disponível no front (callApiData).", "erro");
-      return;
-    }
+    try {
+      if (!callApiData) {
+        mostrarMensagemConfig("Erro interno: API não disponível.", "erro");
+        return;
+      }
 
-    limparMensagemConfig();
-    mostrarMensagemConfig("Carregando configurações...", "info");
+      limparMensagemConfig();
+      mostrarMensagemConfig("Carregando configurações...", "info");
 
-    // Carrega em paralelo (best-effort)
-    const results = await Promise.allSettled([
-      // AgendaConfig (dot + fallback underscore)
-      callWithFallback_("AgendaConfig.Obter", "AgendaConfig_Obter", {}),
-      // Clínica (actions do Registry)
-      callDirect_("Clinica_Get", {})
-    ]);
+      // Carrega em paralelo (best-effort)
+      const results = await Promise.allSettled([
+        // AgendaConfig (dot + fallback underscore)
+        callWithFallback_("AgendaConfig.Obter", "AgendaConfig_Obter", {}),
+        // Clínica (actions do Registry)
+        callDirect_("Clinica_Get", {})
+      ]);
 
-    const rAgenda = results[0];
-    const rClinica = results[1];
+      const rAgenda = results[0];
+      const rClinica = results[1];
 
-    let okAgenda = false;
-    let okClinica = false;
+      const okAgenda = rAgenda.status === "fulfilled";
+      const okClinica = rClinica.status === "fulfilled";
 
-    if (rAgenda.status === "fulfilled") {
-      const cfg = rAgenda.value || {};
-      applyAgendaConfigToForm_(cfg);
-      okAgenda = true;
-    }
+      if (okAgenda) {
+        const cfg = rAgenda.value || {};
+        applyAgendaConfigToForm_(cfg);
+      }
 
-    if (rClinica.status === "fulfilled") {
-      const clin = rClinica.value || {};
-      applyClinicaToForm_(clin);
-      okClinica = true;
-    }
+      if (okClinica) {
+        const clin = rClinica.value || {};
+        applyClinicaToForm_(clin);
+      }
 
-    if (okAgenda && okClinica) {
-      mostrarMensagemConfig("Configurações carregadas com sucesso.", "sucesso");
-      return;
-    }
+      // ✅ P1/P2: Mensagens de erro amigáveis usando helper
+      if (okAgenda && okClinica) {
+        mostrarMensagemConfig("Configurações carregadas com sucesso.", "sucesso");
+        return;
+      }
 
-    if (okAgenda && !okClinica) {
-      const reason = rClinica.reason;
-      const msg = (reason && reason.message) ? String(reason.message) : "Falha ao carregar dados da clínica.";
-      mostrarMensagemConfig("Agenda carregada. Clínica: " + msg, "aviso");
-      return;
-    }
+      if (okAgenda && !okClinica) {
+        const msg = extractErrorMessage_(rClinica.reason, "Não foi possível carregar dados da clínica.");
+        mostrarMensagemConfig("Agenda carregada. Clínica: " + msg, "aviso");
+        return;
+      }
 
-    if (!okAgenda && okClinica) {
-      const reason = rAgenda.reason;
-      const msg = (reason && reason.message) ? String(reason.message) : "Falha ao carregar configuração da agenda.";
-      mostrarMensagemConfig("Clínica carregada. Agenda: " + msg, "aviso");
-      return;
-    }
+      if (!okAgenda && okClinica) {
+        const msg = extractErrorMessage_(rAgenda.reason, "Não foi possível carregar configuração da agenda.");
+        mostrarMensagemConfig("Clínica carregada. Agenda: " + msg, "aviso");
+        return;
+      }
 
-    // ambos falharam
-    {
-      const msgA = (rAgenda.reason && rAgenda.reason.message) ? String(rAgenda.reason.message) : "AgendaConfig.Obter falhou.";
-      const msgC = (rClinica.reason && rClinica.reason.message) ? String(rClinica.reason.message) : "Clinica_Get falhou.";
-      mostrarMensagemConfig("Falha ao carregar: " + msgA + " | " + msgC, "erro");
+      // ambos falharam
+      const msgA = extractErrorMessage_(rAgenda.reason, "Erro ao carregar agenda.");
+      const msgC = extractErrorMessage_(rClinica.reason, "Erro ao carregar clínica.");
+      mostrarMensagemConfig("Falha ao carregar configurações. Verifique sua conexão e tente novamente.", "erro");
+      console.error("[Configuracoes] Erros:", msgA, "|", msgC);
+    } catch (err) {
+      // ✅ P0: Captura erros síncronos inesperados
+      console.error("[Configuracoes] Erro inesperado ao carregar:", err);
+      mostrarMensagemConfig("Erro inesperado ao carregar configurações.", "erro");
     }
   }
 
   // -----------------------------------------
   // Save (AgendaConfig + Clínica)
   // -----------------------------------------
+  // ✅ P0: Adicionado try-catch para erros síncronos
   async function salvarConfiguracoes() {
-    const formData = readForm_();
+    try {
+      const formData = readForm_();
 
-    // Validações mínimas (mantidas)
-    if (!formData.medico.medicoNomeCompleto) {
-      mostrarMensagemConfig("Informe o nome completo do médico.", "erro");
-      return;
-    }
-    if (!formData.medico.medicoCRM) {
-      mostrarMensagemConfig("Informe o CRM.", "erro");
-      return;
-    }
-
-    mostrarMensagemConfig("Salvando configurações...", "info");
-
-    // 1) Salva AgendaConfig (dot + fallback underscore)
-    const payloadAgendaConfig = {
-      medicoNomeCompleto: formData.medico.medicoNomeCompleto,
-      medicoCRM: formData.medico.medicoCRM,
-      medicoEspecialidade: formData.medico.medicoEspecialidade,
-      hora_inicio_padrao: formData.agenda.hora_inicio_padrao,
-      hora_fim_padrao: formData.agenda.hora_fim_padrao,
-      duracao_grade_minutos: formData.agenda.duracao_grade_minutos,
-      dias_ativos: formData.agenda.dias_ativos
-    };
-
-    // 2) Salva Clínica (Clinica_Update)
-    // NOTE: Registry indica roles:["admin"] para Clinica_Update
-    const payloadClinica = {
-      clinicaNome: formData.clinica.clinicaNome,
-      clinicaEndereco: formData.clinica.clinicaEndereco,
-      clinicaTelefone: formData.clinica.clinicaTelefone,
-      clinicaEmail: formData.clinica.clinicaEmail,
-      logoUrl: formData.clinica.logoUrl
-    };
-
-    const results = await Promise.allSettled([
-      callWithFallback_("AgendaConfig.Salvar", "AgendaConfig_Salvar", payloadAgendaConfig),
-      callDirect_("Clinica_Update", payloadClinica)
-    ]);
-
-    const rAgenda = results[0];
-    const rClinica = results[1];
-
-    const okAgenda = rAgenda.status === "fulfilled";
-    const okClinica = rClinica.status === "fulfilled";
-
-    if (okAgenda && okClinica) {
-      mostrarMensagemConfig("Configurações salvas com sucesso.", "sucesso");
-      return;
-    }
-
-    if (okAgenda && !okClinica) {
-      const reason = rClinica.reason;
-      const code = reason && reason.code ? String(reason.code) : "";
-      const msg = (reason && reason.message) ? String(reason.message) : "Falha ao salvar clínica.";
-      // Se não for admin, isso é esperado pelo contrato do Registry.
-      if (code === "PERMISSION_DENIED") {
-        mostrarMensagemConfig("Agenda salva. Clínica não salva (permissão admin necessária).", "aviso");
-      } else {
-        mostrarMensagemConfig("Agenda salva. Clínica: " + msg, "aviso");
+      // Validações mínimas (mantidas)
+      if (!formData.medico.medicoNomeCompleto) {
+        mostrarMensagemConfig("Informe o nome completo do médico.", "erro");
+        return;
       }
-      return;
-    }
+      if (!formData.medico.medicoCRM) {
+        mostrarMensagemConfig("Informe o CRM.", "erro");
+        return;
+      }
 
-    if (!okAgenda && okClinica) {
-      const reason = rAgenda.reason;
-      const msg = (reason && reason.message) ? String(reason.message) : "Falha ao salvar agenda.";
-      mostrarMensagemConfig("Clínica salva. Agenda: " + msg, "aviso");
-      return;
-    }
+      mostrarMensagemConfig("Salvando configurações...", "info");
 
-    // ambos falharam
-    {
-      const msgA = (rAgenda.reason && rAgenda.reason.message) ? String(rAgenda.reason.message) : "AgendaConfig.Salvar falhou.";
-      const msgC = (rClinica.reason && rClinica.reason.message) ? String(rClinica.reason.message) : "Clinica_Update falhou.";
-      mostrarMensagemConfig("Falha ao salvar: " + msgA + " | " + msgC, "erro");
+      // 1) Salva AgendaConfig (dot + fallback underscore)
+      const payloadAgendaConfig = {
+        medicoNomeCompleto: formData.medico.medicoNomeCompleto,
+        medicoCRM: formData.medico.medicoCRM,
+        medicoEspecialidade: formData.medico.medicoEspecialidade,
+        hora_inicio_padrao: formData.agenda.hora_inicio_padrao,
+        hora_fim_padrao: formData.agenda.hora_fim_padrao,
+        duracao_grade_minutos: formData.agenda.duracao_grade_minutos,
+        dias_ativos: formData.agenda.dias_ativos
+      };
+
+      // 2) Salva Clínica (Clinica_Update)
+      // NOTE: Registry indica roles:["admin"] para Clinica_Update
+      const payloadClinica = {
+        clinicaNome: formData.clinica.clinicaNome,
+        clinicaEndereco: formData.clinica.clinicaEndereco,
+        clinicaTelefone: formData.clinica.clinicaTelefone,
+        clinicaEmail: formData.clinica.clinicaEmail,
+        logoUrl: formData.clinica.logoUrl
+      };
+
+      const results = await Promise.allSettled([
+        callWithFallback_("AgendaConfig.Salvar", "AgendaConfig_Salvar", payloadAgendaConfig),
+        callDirect_("Clinica_Update", payloadClinica)
+      ]);
+
+      const rAgenda = results[0];
+      const rClinica = results[1];
+
+      const okAgenda = rAgenda.status === "fulfilled";
+      const okClinica = rClinica.status === "fulfilled";
+
+      // ✅ P1/P2: Mensagens de erro amigáveis usando helper
+      if (okAgenda && okClinica) {
+        mostrarMensagemConfig("Configurações salvas com sucesso.", "sucesso");
+        return;
+      }
+
+      if (okAgenda && !okClinica) {
+        const reason = rClinica.reason;
+        const code = reason && reason.code ? String(reason.code) : "";
+        // Se não for admin, isso é esperado pelo contrato do Registry.
+        if (code === "PERMISSION_DENIED") {
+          mostrarMensagemConfig("Agenda salva. Dados da clínica requerem permissão de administrador.", "aviso");
+        } else {
+          const msg = extractErrorMessage_(reason, "Não foi possível salvar dados da clínica.");
+          mostrarMensagemConfig("Agenda salva. Clínica: " + msg, "aviso");
+        }
+        return;
+      }
+
+      if (!okAgenda && okClinica) {
+        const msg = extractErrorMessage_(rAgenda.reason, "Não foi possível salvar configuração da agenda.");
+        mostrarMensagemConfig("Clínica salva. Agenda: " + msg, "aviso");
+        return;
+      }
+
+      // ambos falharam
+      const msgA = extractErrorMessage_(rAgenda.reason, "Erro ao salvar agenda.");
+      const msgC = extractErrorMessage_(rClinica.reason, "Erro ao salvar clínica.");
+      mostrarMensagemConfig("Falha ao salvar configurações. Verifique os dados e tente novamente.", "erro");
+      console.error("[Configuracoes] Erros ao salvar:", msgA, "|", msgC);
+    } catch (err) {
+      // ✅ P0: Captura erros síncronos inesperados
+      console.error("[Configuracoes] Erro inesperado ao salvar:", err);
+      mostrarMensagemConfig("Erro inesperado ao salvar configurações.", "erro");
     }
   }
 
@@ -398,24 +420,39 @@
     const btnRecarregar = document.getElementById("btnRecarregarConfig");
 
     if (!callApiData) {
-      mostrarMensagemConfig("Erro interno: API não disponível no front (callApiData).", "erro");
+      mostrarMensagemConfig("Erro interno: API não disponível.", "erro");
       return;
     }
 
+    // ✅ P0: Event listeners com tratamento de erros para async functions
     if (form) {
-      form.addEventListener("submit", function (event) {
+      form.addEventListener("submit", async function (event) {
         event.preventDefault();
-        salvarConfiguracoes();
+        try {
+          await salvarConfiguracoes();
+        } catch (err) {
+          console.error("[Configuracoes] Erro não tratado ao salvar:", err);
+          mostrarMensagemConfig("Erro inesperado ao salvar.", "erro");
+        }
       });
     }
 
     if (btnRecarregar) {
-      btnRecarregar.addEventListener("click", function () {
-        carregarConfiguracoes();
+      btnRecarregar.addEventListener("click", async function () {
+        try {
+          await carregarConfiguracoes();
+        } catch (err) {
+          console.error("[Configuracoes] Erro não tratado ao recarregar:", err);
+          mostrarMensagemConfig("Erro inesperado ao recarregar.", "erro");
+        }
       });
     }
 
-    carregarConfiguracoes();
+    // ✅ P0: Carregamento inicial com tratamento de erros
+    carregarConfiguracoes().catch(function (err) {
+      console.error("[Configuracoes] Erro não tratado no carregamento inicial:", err);
+      mostrarMensagemConfig("Erro ao carregar configurações iniciais.", "erro");
+    });
   }
 
   // -----------------------------------------
