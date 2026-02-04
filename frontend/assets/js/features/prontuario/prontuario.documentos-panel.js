@@ -11,7 +11,9 @@
   let documentosPanelLastFocus = null;
   let docTipoAtual = "";
 
-  let docSuggestTimer = null;
+  // ✅ P0-3: Timers separados para CID e Encaminhamento (evita race condition)
+  let cidSuggestTimer = null;
+  let encSuggestTimer = null;
 
   const docState = {
     atestado: { cidObj: null },
@@ -134,12 +136,13 @@
       docState.atestado.cidObj = null;
       if (hint) hint.textContent = "";
 
-      if (docSuggestTimer) clearTimeout(docSuggestTimer);
+      // ✅ P0-3: Usa timer específico para CID
+      if (cidSuggestTimer) clearTimeout(cidSuggestTimer);
       hideSuggestSlot_(slot);
 
       if (q.length < 2) return;
 
-      docSuggestTimer = setTimeout(async () => {
+      cidSuggestTimer = setTimeout(async () => {
         let items = [];
         try { items = await buscarCid_(q); } catch (_) { items = []; }
 
@@ -181,12 +184,13 @@
       const q = String(input.value || "").trim();
       docState.encaminhamento.pick = null;
 
-      if (docSuggestTimer) clearTimeout(docSuggestTimer);
+      // ✅ P0-3: Usa timer específico para Encaminhamento
+      if (encSuggestTimer) clearTimeout(encSuggestTimer);
       hideSuggestSlot_(slot);
 
       if (q.length < 2) return;
 
-      docSuggestTimer = setTimeout(async () => {
+      encSuggestTimer = setTimeout(async () => {
         let items = [];
         try { items = await buscarEncaminhamento_(q); } catch (_) { items = []; }
 

@@ -12,7 +12,26 @@
   let receitaPanelLastFocus = null;
 
   let receitaMedCounter = 0;
-  let medSuggestTimer = null;
+
+  // ✅ P0-2: Map de timers por input para evitar race condition entre múltiplos campos
+  const medSuggestTimers = new Map();
+
+  // ✅ P0-1: Único listener global para fechar sugestões (evita memory leak)
+  let globalClickListenerAttached = false;
+  const activeAutocompleteBlocos = new Set();
+
+  function attachGlobalClickListener_() {
+    if (globalClickListenerAttached) return;
+    globalClickListenerAttached = true;
+
+    document.addEventListener("click", (ev) => {
+      activeAutocompleteBlocos.forEach((bloco) => {
+        if (bloco && !bloco.contains(ev.target)) {
+          clearSugestoes_(bloco);
+        }
+      });
+    });
+  }
 
   let recPaging = {
     btnMais: null,
@@ -204,18 +223,28 @@
 
     if (!bloco || !nomeInput || !posologiaInput) return;
 
-    document.addEventListener("click", (ev) => {
-      if (!bloco.contains(ev.target)) clearSugestoes_(bloco);
-    });
+    // ✅ P0-1: Registra bloco para o listener global (evita memory leak)
+    activeAutocompleteBlocos.add(bloco);
+    attachGlobalClickListener_();
+
+    // ✅ P0-2: Gera ID único para este input para o Map de timers
+    const inputId = `med-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    nomeInput.dataset.autocompleteId = inputId;
 
     nomeInput.addEventListener("input", () => {
       const q = (nomeInput.value || "").trim();
       clearSugestoes_(bloco);
 
-      if (medSuggestTimer) clearTimeout(medSuggestTimer);
+      // ✅ P0-2: Limpa timer específico deste input
+      const existingTimer = medSuggestTimers.get(inputId);
+      if (existingTimer) clearTimeout(existingTimer);
+
       if (q.length < 2) return;
 
-      medSuggestTimer = setTimeout(async () => {
+      // ✅ P0-2: Armazena timer específico no Map
+      const timer = setTimeout(async () => {
+        medSuggestTimers.delete(inputId);
+
         const items = await buscarSugestoesMedicamento_(q);
 
         renderSugestoes_(bloco, q, items, (picked) => {
@@ -244,6 +273,8 @@
           posologiaInput.focus();
         });
       }, 180);
+
+      medSuggestTimers.set(inputId, timer);
     });
 
     nomeInput.addEventListener("keydown", (ev) => {
@@ -308,6 +339,21 @@
     }
 
     card.querySelector(".receita-med-remover").addEventListener("click", () => {
+      // ✅ P0-1: Remove bloco do Set ao remover card (evita referências órfãs)
+      const bloco = card.querySelector(".receita-item-bloco");
+      if (bloco) activeAutocompleteBlocos.delete(bloco);
+
+      // ✅ P0-2: Limpa timer do input se existir
+      const nomeInput = card.querySelector(".med-nome");
+      if (nomeInput && nomeInput.dataset.autocompleteId) {
+        const timerId = nomeInput.dataset.autocompleteId;
+        const timer = medSuggestTimers.get(timerId);
+        if (timer) {
+          clearTimeout(timer);
+          medSuggestTimers.delete(timerId);
+        }
+      }
+
       card.remove();
       atualizarTituloMedicamentos_();
     });
@@ -383,7 +429,15 @@
         ? "Receita.SalvarRascunho"
         : "Receita.SalvarFinal";
 
-    const resp = await callApiData({ action: acao, payload: payload });
+    // ✅ P0-4: Envolver chamada de API em try-catch para evitar estado inconsistente
+    let resp;
+    try {
+      resp = await callApiData({ action: acao, payload: payload });
+    } catch (err) {
+      console.error("[PRONTIO] Erro ao salvar receita:", err);
+      global.alert("Erro ao salvar receita: " + (err && err.message ? err.message : String(err || "Erro desconhecido")));
+      return; // ✅ Não limpa formulário se falhou
+    }
 
     const idReceita =
       (resp && (resp.idReceita || resp.ID_Receita)) ||
@@ -391,14 +445,23 @@
       "";
 
     if (acao === "Receita.SalvarFinal" && idReceita) {
-      const pdf = await callApiData({ action: "Receita.GerarPdf", payload: { idReceita } });
-      const win = global.open("", "_blank");
-      if (!win) return global.alert("Pop-up bloqueado. Libere para imprimir a receita.");
-      win.document.open();
-      win.document.write(pdf && pdf.html ? pdf.html : "");
-      win.document.close();
+      try {
+        const pdf = await callApiData({ action: "Receita.GerarPdf", payload: { idReceita } });
+        const win = global.open("", "_blank");
+        if (!win) {
+          global.alert("Pop-up bloqueado. Libere para imprimir a receita.");
+        } else {
+          win.document.open();
+          win.document.write(pdf && pdf.html ? pdf.html : "");
+          win.document.close();
+        }
+      } catch (pdfErr) {
+        console.warn("[PRONTIO] Erro ao gerar PDF da receita:", pdfErr);
+        global.alert("Receita salva, mas ocorreu um erro ao gerar o PDF.");
+      }
     }
 
+    // ✅ Só limpa formulário após sucesso
     if (qs("#receitaObservacoes")) qs("#receitaObservacoes").value = "";
     if (qs("#receitaItensContainer")) qs("#receitaItensContainer").innerHTML = "";
     receitaMedCounter = 0;
