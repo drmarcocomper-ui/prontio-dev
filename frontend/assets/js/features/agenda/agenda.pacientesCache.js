@@ -80,7 +80,35 @@
       if (!storage) return;
       try {
         storage.setItem(STORAGE_KEY, JSON.stringify({ nomeById, miniById }));
-      } catch (_) {}
+      } catch (err) {
+        // ✅ P2: Tratamento de quota exceeded
+        const isQuotaError = err && (
+          err.name === "QuotaExceededError" ||
+          err.code === 22 ||
+          err.code === 1014 || // Firefox
+          (err.name === "NS_ERROR_DOM_QUOTA_REACHED")
+        );
+
+        if (isQuotaError) {
+          console.warn("[PacientesCache] localStorage cheio, limpando entradas antigas...");
+          // Limpa metade das entradas mais antigas
+          try {
+            const nomeKeys = Object.keys(nomeById);
+            const miniKeys = Object.keys(miniById);
+            const halfNome = Math.floor(nomeKeys.length / 2);
+            const halfMini = Math.floor(miniKeys.length / 2);
+
+            nomeKeys.slice(0, halfNome).forEach((k) => delete nomeById[k]);
+            miniKeys.slice(0, halfMini).forEach((k) => delete miniById[k]);
+
+            // Tenta salvar novamente
+            storage.setItem(STORAGE_KEY, JSON.stringify({ nomeById, miniById }));
+            console.log("[PacientesCache] Cache reduzido e salvo com sucesso.");
+          } catch (_) {
+            console.warn("[PacientesCache] Não foi possível salvar no cache após limpeza.");
+          }
+        }
+      }
     }
 
     // ✅ Fetch automático de nomes não resolvidos

@@ -27,6 +27,20 @@
   // ✅ Getter para resolver em runtime (não no parse)
   const FX = () => PRONTIO.features.agenda.formatters || {};
 
+  // ✅ P2: Debounce helper para evitar chamadas excessivas
+  const DEBOUNCE_FILTROS_MS = 300;
+
+  function debounce_(fn, ms) {
+    let timer = null;
+    return function (...args) {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        timer = null;
+        fn.apply(this, args);
+      }, ms);
+    };
+  }
+
   function createAgendaUiActions({ state, view, loaders }) {
     if (!state || !view || !loaders) {
       console.error("[AgendaUiActions] Dependências ausentes.", { state: !!state, view: !!view, loaders: !!loaders });
@@ -140,10 +154,20 @@
     // -------------------------
     // Filtros
     // -------------------------
-    async function onFiltrosChanged(nome, status) {
-      state.filtros = { nome: String(nome || ""), status: String(status || "") };
+
+    // ✅ P2: Função interna para aplicar filtros (será debounced)
+    async function applyFilters_() {
       persistFiltros_();
       await refresh_();
+    }
+
+    // ✅ P2: Debounce para evitar múltiplas requisições em digitação rápida
+    const debouncedApplyFilters_ = debounce_(applyFilters_, DEBOUNCE_FILTROS_MS);
+
+    async function onFiltrosChanged(nome, status) {
+      state.filtros = { nome: String(nome || ""), status: String(status || "") };
+      // ✅ P2: Usa debounce para evitar chamadas excessivas
+      debouncedApplyFilters_();
     }
 
     async function limparFiltros() {

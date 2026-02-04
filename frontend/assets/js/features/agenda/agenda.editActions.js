@@ -12,6 +12,10 @@
   // ✅ P0-2: Timeout para validação de conflito (10 segundos)
   const VALIDAR_CONFLITO_TIMEOUT_MS = 10000;
 
+  // ✅ P2: Limites de duração do agendamento (em minutos)
+  const DURACAO_MIN = 5;      // Mínimo 5 minutos
+  const DURACAO_MAX = 480;    // Máximo 8 horas (480 minutos)
+
   // ✅ Helper para adicionar timeout a uma Promise
   function withTimeout_(promise, ms, errorMsg) {
     return new Promise((resolve, reject) => {
@@ -92,6 +96,23 @@
       return { ok: true };
     }
 
+    // ✅ P2: Valida duração do agendamento
+    function _validarDuracao_(duracao) {
+      if (!duracao || isNaN(duracao) || duracao < DURACAO_MIN) {
+        return {
+          ok: false,
+          message: `Duração mínima é ${DURACAO_MIN} minutos.`
+        };
+      }
+      if (duracao > DURACAO_MAX) {
+        return {
+          ok: false,
+          message: `Duração máxima é ${DURACAO_MAX} minutos (${DURACAO_MAX / 60} horas).`
+        };
+      }
+      return { ok: true };
+    }
+
     // =========================================================
     // NOVO (submit)
     // =========================================================
@@ -105,8 +126,16 @@
       const horaStr = dom.novoHoraInicio && dom.novoHoraInicio.value ? String(dom.novoHoraInicio.value) : "";
       const duracao = parseInt(String(dom.novoDuracao ? dom.novoDuracao.value : "0"), 10);
 
-      if (!dataStr || !horaStr || !duracao) {
-        view.setFormMsg && view.setFormMsg(dom.msgNovo, "Preencha data, hora inicial e duração.", "erro");
+      if (!dataStr || !horaStr) {
+        view.setFormMsg && view.setFormMsg(dom.msgNovo, "Preencha data e hora inicial.", "erro");
+        view.safeDisable && view.safeDisable(dom.btnSubmitNovo, false);
+        return;
+      }
+
+      // ✅ P2: Valida duração com limites
+      const chkD = _validarDuracao_(duracao);
+      if (!chkD.ok) {
+        view.setFormMsg && view.setFormMsg(dom.msgNovo, chkD.message, "erro");
         view.safeDisable && view.safeDisable(dom.btnSubmitNovo, false);
         return;
       }
@@ -309,8 +338,16 @@
       const horaStr = dom.editHoraInicio && dom.editHoraInicio.value;
       const duracao = parseInt(String(dom.editDuracao ? dom.editDuracao.value : "0"), 10);
 
-      if (!dataStr || !horaStr || !duracao) {
-        view.setFormMsg && view.setFormMsg(dom.msgEditar, "Preencha data, hora inicial e duração.", "erro");
+      if (!dataStr || !horaStr) {
+        view.setFormMsg && view.setFormMsg(dom.msgEditar, "Preencha data e hora inicial.", "erro");
+        view.safeDisable && view.safeDisable(dom.btnSubmitEditar, false);
+        return;
+      }
+
+      // ✅ P2: Valida duração com limites
+      const chkD = _validarDuracao_(duracao);
+      if (!chkD.ok) {
+        view.setFormMsg && view.setFormMsg(dom.msgEditar, chkD.message, "erro");
         view.safeDisable && view.safeDisable(dom.btnSubmitEditar, false);
         return;
       }

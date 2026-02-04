@@ -65,9 +65,60 @@
         items: items || []
       };
       localStorage.setItem(key, JSON.stringify(cached));
-    } catch (_) {
-      // localStorage cheio ou indisponível
+    } catch (err) {
+      // ✅ P2: Tratamento de quota exceeded
+      const isQuotaError = err && (
+        err.name === "QuotaExceededError" ||
+        err.code === 22 ||
+        err.code === 1014 || // Firefox
+        (err.name === "NS_ERROR_DOM_QUOTA_REACHED")
+      );
+
+      if (isQuotaError) {
+        console.warn("[AgendaLoaders] localStorage cheio, limpando cache antigo...");
+        // Tenta limpar cache antigo e salvar novamente
+        try {
+          clearOldCacheEntries_();
+          const key = getCacheKey(tipo, data);
+          const cached = { timestamp: Date.now(), items: items || [] };
+          localStorage.setItem(key, JSON.stringify(cached));
+        } catch (_) {
+          console.warn("[AgendaLoaders] Não foi possível salvar no cache após limpeza.");
+        }
+      }
     }
+  }
+
+  // ✅ P2: Limpa entradas de cache mais antigas (mantém as 5 mais recentes)
+  function clearOldCacheEntries_() {
+    try {
+      const entries = [];
+      const keys = Object.keys(localStorage);
+
+      keys.forEach((k) => {
+        if (k.startsWith(CACHE_KEY_PREFIX)) {
+          try {
+            const raw = localStorage.getItem(k);
+            const data = JSON.parse(raw);
+            entries.push({ key: k, timestamp: data?.timestamp || 0 });
+          } catch (_) {
+            // Entrada inválida, remove
+            localStorage.removeItem(k);
+          }
+        }
+      });
+
+      // Ordena por timestamp (mais antigos primeiro)
+      entries.sort((a, b) => a.timestamp - b.timestamp);
+
+      // Remove as entradas mais antigas, mantendo apenas as 5 mais recentes
+      const toRemove = entries.slice(0, Math.max(0, entries.length - 5));
+      toRemove.forEach((e) => localStorage.removeItem(e.key));
+
+      if (toRemove.length > 0) {
+        console.log("[AgendaLoaders] Removidas", toRemove.length, "entradas antigas do cache.");
+      }
+    } catch (_) {}
   }
 
   // ✅ Invalidar cache de uma data específica (chamado após mutações)
