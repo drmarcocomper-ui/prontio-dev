@@ -30,7 +30,7 @@
   }
 
   // ============================================================
-  // Core bootstrap
+  // Core bootstrap (otimizado para carregamento paralelo)
   // ============================================================
   async function ensureCoreLoaded_() {
     const loader = PRONTIO.loader;
@@ -50,22 +50,31 @@
 
     if (hasApi && hasAuth) return true;
 
-    await loader.loadOnce("assets/js/core/config.js");
-    await loader.loadOnce("assets/js/core/dom.js");
-    await loader.loadOnce("assets/js/core/utils.js");
-    await loader.loadOnce("assets/js/core/state.js");
+    // ✅ Carrega scripts base em paralelo (não têm dependências entre si)
+    await Promise.all([
+      loader.loadOnce("assets/js/core/config.js"),
+      loader.loadOnce("assets/js/core/dom.js"),
+      loader.loadOnce("assets/js/core/utils.js"),
+      loader.loadOnce("assets/js/core/state.js")
+    ]);
 
+    // ✅ Carrega API (base para auth/session)
     const okApi = await loader.loadOnce("assets/js/core/api.js");
 
-    await loader.loadOnce("assets/js/core/session.js");
+    // ✅ Carrega auth, session, theme em paralelo
+    await Promise.all([
+      loader.loadOnce("assets/js/core/session.js"),
+      loader.loadOnce("assets/js/core/auth.js"),
+      loader.loadOnce("assets/js/core/theme.js")
+    ]);
+
     try {
       if (PRONTIO.core?.session?.init) {
         PRONTIO.core.session.init();
       }
     } catch (_) {}
 
-    await loader.loadOnce("assets/js/core/auth.js");
-    await loader.loadOnce("assets/js/core/theme.js");
+    // App depende de auth
     await loader.loadOnce("assets/js/core/app.js");
 
     try {
@@ -167,8 +176,20 @@
       const entry = manifest[pageId];
 
       if (entry?.js?.length) {
-        for (let i = 0; i < entry.js.length; i++) {
-          await loader.loadOnce(entry.js[i]);
+        const scripts = entry.js;
+
+        // ✅ Separa scripts: módulos (paralelo) vs entry points (sequencial no final)
+        const entryScripts = scripts.filter(s => s.includes(".entry.js") || s.includes("page-"));
+        const moduleScripts = scripts.filter(s => !s.includes(".entry.js") && !s.includes("page-"));
+
+        // ✅ Carrega módulos em paralelo (muito mais rápido)
+        if (moduleScripts.length > 0) {
+          await Promise.all(moduleScripts.map(s => loader.loadOnce(s)));
+        }
+
+        // ✅ Carrega entry points em sequência (dependem dos módulos)
+        for (const s of entryScripts) {
+          await loader.loadOnce(s);
         }
       }
 
