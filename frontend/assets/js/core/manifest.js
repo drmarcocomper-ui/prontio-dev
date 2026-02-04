@@ -46,6 +46,7 @@
 
         // módulos da agenda
         "assets/js/features/agenda/agenda.pacientesCache.js",
+        "assets/js/features/agenda/agenda.filtros.js",
         "assets/js/features/agenda/agenda.loaders.js",
         "assets/js/features/agenda/agenda.uiActions.js",
         "assets/js/features/agenda/agenda.editActions.js",
