@@ -7,6 +7,9 @@
 
   <link rel="icon" href="data:," />
 
+  <!-- ✅ Tema instantâneo (evita flash) -->
+  <script>(function(){try{var t=localStorage.getItem("prontio.theme");if(t==="dark"||t==="light"){document.documentElement.dataset.theme=t}else if(window.matchMedia&&window.matchMedia("(prefers-color-scheme:dark)").matches){document.documentElement.dataset.theme="dark"}}catch(e){}})();</script>
+
   <link rel="stylesheet" href="assets/css/style.css">
   <link rel="stylesheet" href="assets/css/components/modals.css">
   <link rel="stylesheet" href="assets/css/components/topbar.css">

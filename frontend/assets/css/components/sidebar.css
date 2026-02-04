@@ -105,10 +105,19 @@ body.sidebar-compact .sidebar {
   }
 }
 
+/* App brand block (logo + versão) */
+.app-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+}
+
 .app-logo {
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 700;
   color: var(--cor-primaria);
+  line-height: 1.2;
   transition: opacity 0.2s ease;
 }
 
@@ -121,6 +130,7 @@ body.sidebar-compact .app-logo {
 .app-version {
   font-size: 11px;
   color: var(--cor-texto-suave);
+  line-height: 1;
   transition: opacity 0.2s ease, max-width 0.25s ease;
   overflow: hidden;
   white-space: nowrap;

@@ -140,14 +140,27 @@
         }
       } catch (_) {}
 
-      // chat
-      await loader.loadOnce("assets/js/widgets/widget-chat.js");
-      try {
-        if (PRONTIO.widgets?.chat?.init && !PRONTIO.widgets.chat._inited) {
-          await PRONTIO.widgets.chat.init();
-          PRONTIO.widgets.chat._inited = true;
-        }
-      } catch (_) {}
+      // ✅ Chat carrega LAZY (após 2s ou no primeiro clique)
+      // Melhora performance do carregamento inicial
+      const loadChatLazy = async () => {
+        if (PRONTIO.widgets?.chat?._inited) return;
+        await loader.loadOnce("assets/js/widgets/widget-chat.js");
+        try {
+          if (PRONTIO.widgets?.chat?.init && !PRONTIO.widgets.chat._inited) {
+            await PRONTIO.widgets.chat.init();
+            PRONTIO.widgets.chat._inited = true;
+          }
+        } catch (_) {}
+      };
+
+      // Carrega chat após 2 segundos (não bloqueia carregamento inicial)
+      setTimeout(loadChatLazy, 2000);
+
+      // Ou carrega imediatamente se clicar no botão do chat
+      const chatBtn = document.getElementById("prontio-chat-topbtn");
+      if (chatBtn) {
+        chatBtn.addEventListener("click", loadChatLazy, { once: true });
+      }
     }
   }
 

@@ -46,18 +46,24 @@
   stroke-linejoin: round !important;
 }
 
-/* ✅ Troca sol/lua CENTRAL via CSS */
+/* ✅ Troca sol/lua CENTRAL via CSS (funciona com html ou body) */
+:root[data-theme="light"] .js-theme-icon-sun,
 body[data-theme="light"] .js-theme-icon-sun { display: block !important; }
+:root[data-theme="light"] .js-theme-icon-moon,
 body[data-theme="light"] .js-theme-icon-moon { display: none !important; }
 
+:root[data-theme="dark"] .js-theme-icon-sun,
 body[data-theme="dark"] .js-theme-icon-sun { display: none !important; }
+:root[data-theme="dark"] .js-theme-icon-moon,
 body[data-theme="dark"] .js-theme-icon-moon { display: block !important; }
 
 /* Hover por tema */
+:root[data-theme="light"] .theme-toggle-btn:hover,
 body[data-theme="light"] .theme-toggle-btn:hover {
   background: var(--topbar-hover-bg, rgba(0, 0, 0, 0.06));
 }
 
+:root[data-theme="dark"] .theme-toggle-btn:hover,
 body[data-theme="dark"] .theme-toggle-btn:hover {
   background: rgba(255, 255, 255, 0.04);
 }

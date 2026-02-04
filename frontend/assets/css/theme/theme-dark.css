@@ -1,9 +1,10 @@
 /* =========================================
    PRONTIO - Theme Dark
-   Aplicado quando <body data-theme="dark">
+   Aplicado quando data-theme="dark" está em html ou body
    Define tokens. Componentes usam tokens.
 ========================================= */
 
+:root[data-theme="dark"],
 body[data-theme="dark"] {
   /* Fundo geral */
   --cor-fundo-app: #020617;
@@ -50,6 +51,7 @@ body[data-theme="dark"] {
   color: var(--cor-texto-principal);
 }
 
+:root[data-theme="dark"] .main-area,
 body[data-theme="dark"] .main-area {
   background: transparent;
 }

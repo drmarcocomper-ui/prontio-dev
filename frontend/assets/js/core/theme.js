@@ -65,14 +65,8 @@
   }
 
   function initTheme() {
-    // 1) aplica tema inicial
-    const body = document.body;
-    const temaAtual =
-      body && (body.dataset.theme === "light" || body.dataset.theme === "dark")
-        ? body.dataset.theme
-        : null;
-
-    const temaInicial = temaAtual || detectarTemaInicial();
+    // 1) aplica tema inicial - SEMPRE prioriza localStorage
+    const temaInicial = detectarTemaInicial();
     aplicarTema(temaInicial);
 
     // 2) bind do toggle (idempotente por botão)
@@ -98,6 +92,20 @@
   try {
     PRONTIO.ui = PRONTIO.ui || {};
     PRONTIO.ui.initTheme = initTheme;
+  } catch (e) {}
+
+  // ✅ Auto-aplica tema IMEDIATAMENTE quando script carrega
+  // Isso evita flash de tema errado ao navegar entre páginas
+  try {
+    const temaImediato = detectarTemaInicial();
+    if (document.body) {
+      document.body.dataset.theme = temaImediato;
+    } else {
+      // Body ainda não existe, aplica assim que existir
+      document.addEventListener("DOMContentLoaded", function() {
+        aplicarTema(detectarTemaInicial());
+      }, { once: true });
+    }
   } catch (e) {}
 
 })(window, document);
