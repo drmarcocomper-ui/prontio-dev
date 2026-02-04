@@ -28,16 +28,15 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.agenda = PRONTIO.features.agenda || {};
 
-  const F =
-    PRONTIO.features.agenda.formatters ||
-    {
-      normalizeHora: (v) => String(v || ""),
-      getDiaSemanaLabel: () => "",
-      formatDataBonita: (s) => s,
-      getStatusClass: () => "status-agendado",
-      normalizeStatusLabel: (s) => String(s || ""),
-      STATUS_OPTIONS_UI: ["Agendado", "Confirmado", "Em atendimento", "Concluído", "Faltou", "Cancelado"]
-    };
+  // ✅ Getter para resolver em runtime (não no parse)
+  const F = () => PRONTIO.features.agenda.formatters || {
+    normalizeHora: (v) => String(v || ""),
+    getDiaSemanaLabel: () => "",
+    formatDataBonita: (s) => s,
+    getStatusClass: () => "status-agendado",
+    normalizeStatusLabel: (s) => String(s || ""),
+    STATUS_OPTIONS_UI: ["Agendado", "Confirmado", "Em atendimento", "Concluído", "Faltou", "Cancelado"]
+  };
 
   function getEl(doc, id) {
     const el = doc.getElementById(id);
@@ -168,12 +167,13 @@
     }
 
     // ====== Render: Table Row (para visualização em tabela) ======
-    function createTableRowAgendamento(slot, ag, callbacks) {
-      const cb = callbacks || {};
+    // ✅ Refatorado para usar event delegation (sem listeners individuais)
+    function createTableRowAgendamento(slot, ag) {
       const tr = doc.createElement("tr");
       tr.className = "agenda-table__row";
-      tr.classList.add(F.getStatusClass(ag.status));
+      tr.classList.add(F().getStatusClass(ag.status));
       tr.dataset.idAgenda = ag.ID_Agenda || "";
+      tr.dataset.agData = JSON.stringify(ag); // ✅ Armazena dados para event delegation
 
       // Horário
       const tdHorario = doc.createElement("td");
@@ -194,28 +194,23 @@
       tdTipo.textContent = ag.tipo || "";
       tr.appendChild(tdTipo);
 
-      // Status (dropdown)
+      // Status (dropdown) - ✅ sem listener individual
       const tdStatus = doc.createElement("td");
       tdStatus.className = "agenda-table__cell agenda-table__cell--status";
 
       const statusSelect = doc.createElement("select");
       statusSelect.className = "agenda-table__status-select";
       statusSelect.setAttribute("aria-label", "Alterar status do agendamento");
+      statusSelect.dataset.action = "changeStatus"; // ✅ Marca para delegation
 
-      (F.STATUS_OPTIONS_UI || []).forEach((opt) => {
+      (F().STATUS_OPTIONS_UI || []).forEach((opt) => {
         const o = doc.createElement("option");
         o.value = opt;
         o.textContent = opt;
         statusSelect.appendChild(o);
       });
 
-      statusSelect.value = F.normalizeStatusLabel(ag.status);
-
-      statusSelect.addEventListener("change", () => {
-        if (typeof cb.onChangeStatus === "function") {
-          cb.onChangeStatus(ag.ID_Agenda, statusSelect.value, tr);
-        }
-      });
+      statusSelect.value = F().normalizeStatusLabel(ag.status);
 
       tdStatus.appendChild(statusSelect);
       tr.appendChild(tdStatus);
@@ -232,7 +227,7 @@
       tdMotivo.textContent = ag.motivo || "";
       tr.appendChild(tdMotivo);
 
-      // Ações
+      // Ações - ✅ sem listeners individuais
       const tdAcoes = doc.createElement("td");
       tdAcoes.className = "agenda-table__cell agenda-table__cell--acoes";
 
@@ -243,31 +238,22 @@
       btnEditar.type = "button";
       btnEditar.className = "agenda-table__action-btn agenda-table__action-btn--editar";
       btnEditar.title = "Editar agendamento";
+      btnEditar.dataset.action = "editar"; // ✅ Marca para delegation
       btnEditar.innerHTML = '<span aria-hidden="true">&#9998;</span>';
-      btnEditar.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof cb.onEditar === "function") cb.onEditar(ag);
-      });
 
       const btnAtender = doc.createElement("button");
       btnAtender.type = "button";
       btnAtender.className = "agenda-table__action-btn agenda-table__action-btn--atender";
       btnAtender.title = "Abrir prontuário";
+      btnAtender.dataset.action = "atender"; // ✅ Marca para delegation
       btnAtender.innerHTML = '<span aria-hidden="true">&#128203;</span>';
-      btnAtender.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof cb.onAtender === "function") cb.onAtender(ag);
-      });
 
       const btnCancelar = doc.createElement("button");
       btnCancelar.type = "button";
       btnCancelar.className = "agenda-table__action-btn agenda-table__action-btn--cancelar";
       btnCancelar.title = "Cancelar agendamento";
+      btnCancelar.dataset.action = "cancelar"; // ✅ Marca para delegation
       btnCancelar.innerHTML = '<span aria-hidden="true">&#10006;</span>';
-      btnCancelar.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof cb.onCancelar === "function") cb.onCancelar(ag);
-      });
 
       acoesWrap.appendChild(btnEditar);
       acoesWrap.appendChild(btnAtender);
@@ -278,11 +264,12 @@
       return tr;
     }
 
-    function createTableRowBloqueio(slot, ag, callbacks) {
-      const cb = callbacks || {};
+    // ✅ Refatorado para usar event delegation
+    function createTableRowBloqueio(slot, ag) {
       const tr = doc.createElement("tr");
       tr.className = "agenda-table__row agenda-table__row--bloqueio";
       tr.dataset.idAgenda = ag.ID_Agenda || "";
+      tr.dataset.bloqueio = "true"; // ✅ Marca como bloqueio
 
       // Horário
       const tdHorario = doc.createElement("td");
@@ -303,7 +290,7 @@
         tr.appendChild(td);
       }
 
-      // Ações
+      // Ações - ✅ sem listener individual
       const tdAcoes = doc.createElement("td");
       tdAcoes.className = "agenda-table__cell agenda-table__cell--acoes";
 
@@ -314,11 +301,8 @@
       btnRemover.type = "button";
       btnRemover.className = "agenda-table__action-btn agenda-table__action-btn--remover";
       btnRemover.title = "Remover bloqueio";
+      btnRemover.dataset.action = "desbloquear"; // ✅ Marca para delegation
       btnRemover.innerHTML = '<span aria-hidden="true">&#128275;</span>';
-      btnRemover.addEventListener("click", (e) => {
-        e.stopPropagation();
-        if (typeof cb.onDesbloquear === "function") cb.onDesbloquear(ag.ID_Agenda, tr);
-      });
 
       acoesWrap.appendChild(btnRemover);
       tdAcoes.appendChild(acoesWrap);
@@ -327,11 +311,12 @@
       return tr;
     }
 
-    function createTableRowEmpty(slot, callbacks) {
-      const cb = callbacks || {};
+    // ✅ Refatorado para usar event delegation
+    function createTableRowEmpty(slot) {
       const tr = doc.createElement("tr");
       tr.className = "agenda-table__row agenda-table__row--empty";
       tr.dataset.hora = slot;
+      tr.dataset.action = "novo"; // ✅ Marca para delegation (clique na linha)
 
       // Horário
       const tdHorario = doc.createElement("td");
@@ -352,19 +337,13 @@
         tr.appendChild(td);
       }
 
-      // Clique na linha abre modal de novo agendamento
-      tr.addEventListener("click", () => {
-        if (typeof cb.onNovo === "function") cb.onNovo(slot);
-      });
-
-      tr.addEventListener("dblclick", () => {
-        if (typeof cb.onNovo === "function") cb.onNovo(slot);
-      });
+      // ✅ Sem listeners individuais - delegation no container
 
       return tr;
     }
 
     // ====== Render: Day Table ======
+    // ✅ Refatorado com event delegation para evitar memory leak
     function renderDayTable(params) {
       const p = params || {};
       const slots = Array.isArray(p.slots) ? p.slots : [];
@@ -413,8 +392,8 @@
         const ags = map.get(hora) || [];
 
         if (!ags.length) {
-          // Slot vazio
-          const tr = createTableRowEmpty(hora, cb);
+          // Slot vazio - ✅ sem callbacks
+          const tr = createTableRowEmpty(hora);
           if (isHoje && now && now.hhmm && hora === now.hhmm) {
             tr.classList.add("agenda-table__row--now");
           }
@@ -422,13 +401,13 @@
 
           if (horaFoco && hora === horaFoco && !rowToFocus) rowToFocus = tr;
         } else {
-          // Slots com agendamentos
+          // Slots com agendamentos - ✅ sem callbacks
           ags.forEach((ag, idx) => {
             let tr;
             if (ag.bloqueio) {
-              tr = createTableRowBloqueio(hora, ag, cb);
+              tr = createTableRowBloqueio(hora, ag);
             } else {
-              tr = createTableRowAgendamento(hora, ag, cb);
+              tr = createTableRowAgendamento(hora, ag);
             }
 
             if (isHoje && now && now.hhmm && hora === now.hhmm) {
@@ -439,6 +418,63 @@
 
             if (horaFoco && hora === horaFoco && idx === 0 && !rowToFocus) rowToFocus = tr;
           });
+        }
+      });
+
+      // ✅ EVENT DELEGATION: Um único listener para todos os eventos
+      tbody.addEventListener("click", (e) => {
+        const target = e.target;
+        const btn = target.closest("[data-action]");
+        const tr = target.closest("tr");
+
+        if (!tr) return;
+
+        // Ação em botão
+        if (btn) {
+          const action = btn.dataset.action;
+          const idAgenda = tr.dataset.idAgenda || "";
+
+          if (action === "editar" && tr.dataset.agData) {
+            e.stopPropagation();
+            try {
+              const ag = JSON.parse(tr.dataset.agData);
+              if (typeof cb.onEditar === "function") cb.onEditar(ag);
+            } catch (_) {}
+          } else if (action === "atender" && tr.dataset.agData) {
+            e.stopPropagation();
+            try {
+              const ag = JSON.parse(tr.dataset.agData);
+              if (typeof cb.onAtender === "function") cb.onAtender(ag);
+            } catch (_) {}
+          } else if (action === "cancelar" && tr.dataset.agData) {
+            e.stopPropagation();
+            try {
+              const ag = JSON.parse(tr.dataset.agData);
+              if (typeof cb.onCancelar === "function") cb.onCancelar(ag);
+            } catch (_) {}
+          } else if (action === "desbloquear" && idAgenda) {
+            e.stopPropagation();
+            if (typeof cb.onDesbloquear === "function") cb.onDesbloquear(idAgenda, tr);
+          }
+          return;
+        }
+
+        // Clique em linha vazia (novo agendamento)
+        if (tr.dataset.action === "novo" && tr.dataset.hora) {
+          if (typeof cb.onNovo === "function") cb.onNovo(tr.dataset.hora);
+        }
+      });
+
+      // ✅ Delegation para change em selects (status)
+      tbody.addEventListener("change", (e) => {
+        const target = e.target;
+        if (target.dataset.action === "changeStatus") {
+          const tr = target.closest("tr");
+          if (tr && tr.dataset.idAgenda) {
+            if (typeof cb.onChangeStatus === "function") {
+              cb.onChangeStatus(tr.dataset.idAgenda, target.value, tr);
+            }
+          }
         }
       });
 
@@ -460,7 +496,7 @@
       const cb = callbacks || {};
       const card = doc.createElement("div");
       card.className = "agendamento-card";
-      card.classList.add(F.getStatusClass(ag.status));
+      card.classList.add(F().getStatusClass(ag.status));
 
       const linhaPrincipal = doc.createElement("div");
       linhaPrincipal.className = "agendamento-linha-principal";
@@ -487,14 +523,14 @@
       statusSelect.className = "agendamento-status-select";
       statusSelect.setAttribute("aria-label", "Alterar status do agendamento");
 
-      (F.STATUS_OPTIONS_UI || []).forEach((opt) => {
+      (F().STATUS_OPTIONS_UI || []).forEach((opt) => {
         const o = doc.createElement("option");
         o.value = opt;
         o.textContent = opt;
         statusSelect.appendChild(o);
       });
 
-      statusSelect.value = F.normalizeStatusLabel(ag.status);
+      statusSelect.value = F().normalizeStatusLabel(ag.status);
 
       statusSelect.addEventListener("change", () => {
         if (typeof cb.onChangeStatus === "function") {
@@ -701,8 +737,8 @@
         const cell = doc.createElement("div");
         cell.className = "semana-cell semana-header-cell semana-sticky-cell";
         cell.innerHTML = `
-          <div class="semana-header-dia">${F.getDiaSemanaLabel(ds)}</div>
-          <div class="semana-header-data">${F.formatDataBonita(ds)}</div>
+          <div class="semana-header-dia">${F().getDiaSemanaLabel(ds)}</div>
+          <div class="semana-header-data">${F().formatDataBonita(ds)}</div>
         `;
         if (ds === now.dataStr) cell.classList.add("semana-header-today");
         headerRow.appendChild(cell);

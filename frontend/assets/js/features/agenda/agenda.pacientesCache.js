@@ -3,6 +3,8 @@
  * Cache local (front) para resolver nomeCompleto a partir de idPaciente.
  * - Agenda (backend) NÃO faz join com Pacientes.
  * - Front resolve exibição via cache persistido.
+ *
+ * ✅ v2: Adicionado fetch automático de nomes não resolvidos via API
  */
 
 (function (global) {
@@ -12,7 +14,9 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.agenda = PRONTIO.features.agenda || {};
 
-  const STORAGE_KEY = "prontio.agenda.pacientesCache.v1";
+  const STORAGE_KEY = "prontio.agenda.pacientesCache.v2";
+  const FETCH_DEBOUNCE_MS = 300; // Debounce para agrupar múltiplas requisições
+  const MAX_IDS_PER_REQUEST = 20; // Máximo de IDs por requisição
 
   function safeJsonParse(raw, fallback) {
     try {
@@ -30,6 +34,12 @@
     // maps em memória
     const nomeById = {};
     const miniById = {};
+
+    // ✅ Controle de fetch automático
+    let pendingIds = new Set();
+    let fetchTimeout = null;
+    let isFetching = false;
+    let onNamesResolvedCallback = null;
 
     function load() {
       const raw = storage ? storage.getItem(STORAGE_KEY) : null;
@@ -49,6 +59,103 @@
       try {
         storage.setItem(STORAGE_KEY, JSON.stringify({ nomeById, miniById }));
       } catch (_) {}
+    }
+
+    // ✅ Fetch automático de nomes não resolvidos
+    function scheduleFetch_() {
+      if (fetchTimeout) clearTimeout(fetchTimeout);
+      fetchTimeout = setTimeout(() => {
+        fetchTimeout = null;
+        executeFetch_();
+      }, FETCH_DEBOUNCE_MS);
+    }
+
+    async function executeFetch_() {
+      if (isFetching || pendingIds.size === 0) return;
+
+      // Pega até MAX_IDS_PER_REQUEST IDs
+      const idsToFetch = Array.from(pendingIds).slice(0, MAX_IDS_PER_REQUEST);
+      idsToFetch.forEach((id) => pendingIds.delete(id));
+
+      // Obtém API de pacientes
+      const pacientesApi = PRONTIO.features?.pacientes?.api?.createPacientesApi
+        ? PRONTIO.features.pacientes.api.createPacientesApi(PRONTIO)
+        : null;
+
+      if (!pacientesApi || typeof pacientesApi.buscarPorIds !== "function") {
+        // Fallback: busca individual via buscarSimples (menos eficiente)
+        if (pacientesApi && typeof pacientesApi.buscarSimples === "function") {
+          await fetchIndividual_(pacientesApi, idsToFetch);
+        }
+        return;
+      }
+
+      isFetching = true;
+      try {
+        const result = await pacientesApi.buscarPorIds(idsToFetch);
+        const pacientes = (result && Array.isArray(result.pacientes)) ? result.pacientes : [];
+
+        pacientes.forEach((p) => {
+          cachePaciente(p);
+        });
+
+        // Notifica que nomes foram resolvidos (para re-render)
+        if (onNamesResolvedCallback && pacientes.length > 0) {
+          onNamesResolvedCallback();
+        }
+      } catch (e) {
+        console.warn("[PacientesCache] Erro ao buscar nomes:", e);
+      } finally {
+        isFetching = false;
+
+        // Se ainda há IDs pendentes, agenda outro fetch
+        if (pendingIds.size > 0) {
+          scheduleFetch_();
+        }
+      }
+    }
+
+    async function fetchIndividual_(api, ids) {
+      isFetching = true;
+      let resolved = 0;
+
+      for (const id of ids) {
+        try {
+          // Busca pelo ID (pode não funcionar em todas as APIs)
+          const result = await api.buscarSimples(id, 1);
+          const pacientes = (result && Array.isArray(result.pacientes)) ? result.pacientes : [];
+          if (pacientes.length > 0) {
+            cachePaciente(pacientes[0]);
+            resolved++;
+          }
+        } catch (_) {
+          // Ignora erros individuais
+        }
+      }
+
+      if (onNamesResolvedCallback && resolved > 0) {
+        onNamesResolvedCallback();
+      }
+
+      isFetching = false;
+
+      if (pendingIds.size > 0) {
+        scheduleFetch_();
+      }
+    }
+
+    function queueForFetch_(idPaciente) {
+      const id = String(idPaciente || "").trim();
+      if (!id) return;
+      if (nomeById[id]) return; // Já temos o nome
+      if (pendingIds.has(id)) return; // Já está na fila
+
+      pendingIds.add(id);
+      scheduleFetch_();
+    }
+
+    function setOnNamesResolved(callback) {
+      onNamesResolvedCallback = typeof callback === "function" ? callback : null;
     }
 
     function getPacienteId(p) {
@@ -91,6 +198,8 @@
 
     function enrichUiList(uiList) {
       const list = Array.isArray(uiList) ? uiList : [];
+      const unresolvedIds = [];
+
       for (let i = 0; i < list.length; i++) {
         const ag = list[i];
         if (!ag) continue;
@@ -109,8 +218,17 @@
         }
 
         const nome = resolveNomeFromId(id);
-        if (nome) ag.nomeCompleto = nome;
+        if (nome) {
+          ag.nomeCompleto = nome;
+        } else if (id) {
+          // ✅ Adiciona à fila para fetch automático
+          unresolvedIds.push(id);
+        }
       }
+
+      // ✅ Agenda fetch para IDs não resolvidos
+      unresolvedIds.forEach((id) => queueForFetch_(id));
+
       return list;
     }
 
@@ -127,7 +245,8 @@
       cachePaciente,
       resolveNomeFromId,
       getMiniById,
-      enrichUiList
+      enrichUiList,
+      setOnNamesResolved // ✅ Callback para re-render quando nomes são resolvidos
     };
   }
 

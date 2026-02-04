@@ -29,7 +29,7 @@
   // Cache Local (stale-while-revalidate)
   // ========================================
   const CACHE_KEY_PREFIX = "prontio.agenda.cache.";
-  const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutos
+  const CACHE_MAX_AGE_MS = 2 * 60 * 1000; // ✅ 2 minutos (reduzido de 5)
 
   function getCacheKey(tipo, data) {
     return CACHE_KEY_PREFIX + tipo + "." + data;
@@ -68,6 +68,26 @@
     } catch (_) {
       // localStorage cheio ou indisponível
     }
+  }
+
+  // ✅ Invalidar cache de uma data específica (chamado após mutações)
+  function invalidateCache(tipo, data) {
+    try {
+      const key = getCacheKey(tipo, data);
+      localStorage.removeItem(key);
+    } catch (_) {}
+  }
+
+  // ✅ Invalidar todo o cache da agenda (usado em operações críticas)
+  function invalidateAllCache() {
+    try {
+      const keys = Object.keys(localStorage);
+      keys.forEach((k) => {
+        if (k.startsWith(CACHE_KEY_PREFIX)) {
+          localStorage.removeItem(k);
+        }
+      });
+    } catch (_) {}
   }
 
   function createAgendaLoaders(ctx) {
@@ -452,10 +472,29 @@
       dom = domRefs || null;
     }
 
+    // ✅ Wrapper para invalidar cache de uma data
+    function invalidateCacheDia(data) {
+      const ymd = data || state.dataSelecionada || "";
+      if (ymd) invalidateCache("dia", ymd);
+    }
+
+    function invalidateCacheSemana(data) {
+      const fx = getFormatters();
+      const ymd = data || state.dataSelecionada || "";
+      if (ymd && fx.weekPeriodFrom) {
+        const week = fx.weekPeriodFrom(ymd);
+        if (week.inicio) invalidateCache("semana", week.inicio);
+      }
+    }
+
     return {
       init,
       carregarDia,
-      carregarSemana
+      carregarSemana,
+      // ✅ Funções de invalidação de cache
+      invalidateCacheDia,
+      invalidateCacheSemana,
+      invalidateAllCache: invalidateAllCache
     };
   }
 

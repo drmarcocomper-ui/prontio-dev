@@ -130,6 +130,8 @@
         await api.criar(payload);
         view.setFormMsg && view.setFormMsg(dom.msgNovo, "Agendamento criado!", "sucesso");
 
+        // ✅ Invalida cache antes de recarregar
+        loaders.invalidateCacheDia && loaders.invalidateCacheDia(dataStr);
         await loaders.carregarDia();
 
         setTimeout(function () {
@@ -197,6 +199,8 @@
 
         view.setFormMsg && view.setFormMsg(dom.msgBloqueio, "Horário bloqueado!", "sucesso");
 
+        // ✅ Invalida cache antes de recarregar
+        loaders.invalidateCacheDia && loaders.invalidateCacheDia(dataStr);
         await loaders.carregarDia();
 
         setTimeout(function () {
@@ -321,6 +325,10 @@
         await api.atualizar(idAgenda, patch);
         view.setFormMsg && view.setFormMsg(dom.msgEditar, "Agendamento atualizado!", "sucesso");
 
+        // ✅ Invalida cache antes de recarregar
+        loaders.invalidateCacheDia && loaders.invalidateCacheDia(dataStr);
+        loaders.invalidateCacheSemana && loaders.invalidateCacheSemana(dataStr);
+
         if (state.modoVisao === "dia") await loaders.carregarDia();
         else await loaders.carregarSemana();
 
@@ -351,6 +359,10 @@
         if (statusCanon === "CANCELADO") await api.cancelar(idAgenda, "Cancelado pela agenda");
         else await api.atualizar(idAgenda, { status: statusCanon });
 
+        // ✅ Invalida cache antes de recarregar
+        loaders.invalidateCacheDia && loaders.invalidateCacheDia();
+        loaders.invalidateCacheSemana && loaders.invalidateCacheSemana();
+
         if (state.modoVisao === "dia") await loaders.carregarDia();
         else await loaders.carregarSemana();
       } catch (err) {
@@ -374,6 +386,11 @@
 
       try {
         await api.desbloquearHorario(idAgenda, "Bloqueio removido");
+
+        // ✅ Invalida cache antes de recarregar
+        loaders.invalidateCacheDia && loaders.invalidateCacheDia();
+        loaders.invalidateCacheSemana && loaders.invalidateCacheSemana();
+
         if (state.modoVisao === "dia") await loaders.carregarDia();
         else await loaders.carregarSemana();
       } catch (err) {

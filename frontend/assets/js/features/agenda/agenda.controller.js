@@ -58,6 +58,16 @@
 
     // módulos
     const loaders = createAgendaLoaders ? createAgendaLoaders({ api, state, view }) : null;
+
+    // ✅ Configura callback para re-render quando nomes de pacientes são resolvidos
+    if (state.pacientesCache && typeof state.pacientesCache.setOnNamesResolved === "function") {
+      state.pacientesCache.setOnNamesResolved(() => {
+        // Re-render com dados atualizados (usa cache, sem nova chamada à API)
+        if (loaders && typeof loaders.carregarDia === "function" && state.modoVisao === "dia") {
+          loaders.carregarDia();
+        }
+      });
+    }
     const uiActions = createAgendaUiActions ? createAgendaUiActions({ state, view, loaders }) : null;
     const editActions = createAgendaEditActions ? createAgendaEditActions({ api, state, view, loaders }) : null;
 
