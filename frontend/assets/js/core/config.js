@@ -33,8 +33,8 @@
   const ENV = detectEnv_();
 
   const API_URLS = {
-    dev: "https://script.google.com/macros/s/AKfycbxS0a85W0Nd-B06NIorR1gOb91InfPAbLssSate7XyBeFt-GnMdqDaUDhb6JA-8nGX3zA/exec",
-    prod: "https://script.google.com/macros/s/AKfycbxS0a85W0Nd-B06NIorR1gOb91InfPAbLssSate7XyBeFt-GnMdqDaUDhb6JA-8nGX3zA/exec"
+    dev: "https://script.google.com/macros/s/AKfycbyyJOWqxNJWglELr3rkwN0DarBe-g7sFgnhI2nAYDmET6SIvw-ZnTlQitPBnlmhq_-xTg/exec",
+    prod: "https://script.google.com/macros/s/AKfycbyyJOWqxNJWglELr3rkwN0DarBe-g7sFgnhI2nAYDmET6SIvw-ZnTlQitPBnlmhq_-xTg/exec"
   };
 
   // ENV normalizado
