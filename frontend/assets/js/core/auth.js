@@ -310,8 +310,7 @@
       const err = new Error("Token ausente.");
       err.code = "AUTH_NO_TOKEN";
       err.details = { field: "token" };
-      // comportamento consistente: derruba local também
-      forceLogoutLocal("AUTH_NO_TOKEN", { redirect: false });
+      // ✅ NÃO faz logout automático - só desloga ao clicar em "Sair"
       throw err;
     }
 
@@ -339,10 +338,8 @@
 
       return res;
     } catch (e) {
-      // ✅ Se for erro AUTH canônico, encerra sessão local também
-      if (e && isAuthErrorCode_(e.code)) {
-        forceLogoutLocal(String(e.code || "AUTH_REQUIRED"), { redirect: true, clearChat: true });
-      }
+      // ✅ NÃO faz logout automático - só desloga ao clicar em "Sair"
+      // Apenas propaga o erro sem forçar logout
       throw e;
     }
   }

@@ -57,6 +57,9 @@
   // Valor oficial (usado pelo api.js)
   PRONTIO.config.apiTimeoutMs = 20000;
 
+  // ✅ Desativa logout automático - só desloga ao clicar em "Sair"
+  PRONTIO.config.autoLogoutOnAuthError = false;
+
   // Alias retrocompatível (não usado pelo api.js, mas mantido)
   PRONTIO.config.apiTimeout = PRONTIO.config.apiTimeoutMs;
 

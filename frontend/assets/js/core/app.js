@@ -269,14 +269,8 @@
         return false;
       }
     } catch (e) {
-      warn_("Falha no guard de autenticação:", e && e.message ? e.message : String(e));
-      // fallback: tenta redirecionar via auth
-      try {
-        if (PRONTIO.auth && typeof PRONTIO.auth.forceLogoutLocal === "function") {
-          PRONTIO.auth.forceLogoutLocal((e && e.code) ? String(e.code) : "AUTH_REQUIRED", { redirect: true, clearChat: true });
-        }
-      } catch (_) {}
-      return false;
+      // ✅ NÃO faz logout automático - só desloga ao clicar em "Sair"
+      warn_("Falha no guard de autenticação (ignorado):", e && e.message ? e.message : String(e));
     }
 
     // Se existir router do PRONTIO, inicia (best-effort)

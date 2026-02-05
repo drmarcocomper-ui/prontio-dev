@@ -64,20 +64,9 @@
         await PRONTIO.auth.me();
       }
     } catch (e) {
-      // Se me() falhar por qualquer motivo, garantimos saída segura
-      try {
-        if (PRONTIO.auth && typeof PRONTIO.auth.forceLogoutLocal === "function") {
-          PRONTIO.auth.forceLogoutLocal((e && e.code) ? String(e.code) : "AUTH_REQUIRED", { redirect: true, clearChat: true });
-          return;
-        }
-      } catch (_) {}
-
-      // fallback mínimo
-      try {
-        PRONTIO.auth.clearSession && PRONTIO.auth.clearSession();
-        PRONTIO.auth.requireAuth({ redirect: true });
-      } catch (_) {}
-      return;
+      // ✅ NÃO faz logout automático - só desloga ao clicar em "Sair"
+      // Apenas loga o erro mas continua a sessão
+      console.warn("[Guard] Erro ao validar sessão (ignorado):", e && e.code ? e.code : e);
     }
   }
 

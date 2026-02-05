@@ -257,11 +257,9 @@
           if (res && res.user) this.setUser(res.user);
           return true;
         } catch (e) {
-          if (redirect && auth.forceLogoutLocal && e && e.code) {
-            try { auth.forceLogoutLocal(String(e.code), { redirect: true, clearChat: true }); } catch (_) {}
-            return false;
-          }
-          return false;
+          // ✅ NÃO faz logout automático - só desloga ao clicar em "Sair"
+          console.warn("[Session] Erro ao validar sessão (ignorado):", e && e.code ? e.code : e);
+          return true; // Continua mesmo com erro
         }
       }
 
