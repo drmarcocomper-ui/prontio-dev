@@ -152,18 +152,13 @@
       const payload = { idPaciente: ctx.idPaciente, limit: limit };
       if (append && evoPaging.cursor) payload.cursor = evoPaging.cursor;
 
-      console.log("[PRONTIO] Carregando evoluções, payload:", payload);
-
       const data = await callApiDataTry_(
         ["Prontuario.Evolucao.ListarPorPacientePaged", "Prontuario.Evolucao.ListarPorPaciente", "Evolucao.ListarPorPaciente"],
         payload
       );
 
-      console.log("[PRONTIO] Evoluções carregadas, data:", JSON.stringify(data, null, 2));
-
       const itemsPaged = data && (data.items || data.evolucoes || data.lista);
       let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
-      console.log("[PRONTIO] Lista de evoluções:", lista.length, "itens");
       lista = ordenarEvolucoes(lista);
 
       const nextCursor =
