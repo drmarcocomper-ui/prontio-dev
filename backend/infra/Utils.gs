@@ -14,6 +14,21 @@
 var PRONTIO_DB_ID_DEV = "1h6zr6ultbjK8Dx0c1hrlI0K8UF45plzJE8vHQe7JMck";
 var PRONTIO_DB_ID_PROD = "1Gy84gjpf0pGHqUzuYpY6xaEYBlvf-8oztUE5D8_hjew";
 
+/**
+ * Cria resposta padronizada da API (usado por handlers legados).
+ * @param {boolean} success - Se a operação foi bem sucedida
+ * @param {Object|null} data - Dados da resposta
+ * @param {Array<string>} errors - Lista de mensagens de erro
+ * @returns {Object} Envelope de resposta
+ */
+function createApiResponse_(success, data, errors) {
+  return {
+    success: !!success,
+    data: data || null,
+    errors: Array.isArray(errors) ? errors : []
+  };
+}
+
 // cache em memória (por execução)
 var _PRONTIO_DB_CACHE_ = _PRONTIO_DB_CACHE_ || {};
 
