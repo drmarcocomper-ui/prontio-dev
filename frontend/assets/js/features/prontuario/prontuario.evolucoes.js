@@ -216,10 +216,9 @@
 
       carregarResumoPaciente_(ctx);
 
-      if (historicoCompletoCarregado) {
-        const currentLimit = evoPaging.lastLimit && evoPaging.lastLimit > 0 ? evoPaging.lastLimit : 1;
-        carregarEvolucoesPaginadas_(ctx, { append: false, limit: currentLimit });
-      }
+      // Sempre recarrega a lista após salvar
+      const currentLimit = evoPaging.lastLimit && evoPaging.lastLimit > 0 ? evoPaging.lastLimit : 10;
+      carregarEvolucoesPaginadas_(ctx, { append: false, limit: currentLimit });
     } catch (e) {
       // ✅ P1: Mensagem de erro com detalhes
       const detalhe = e && e.message ? ` (${e.message})` : "";
