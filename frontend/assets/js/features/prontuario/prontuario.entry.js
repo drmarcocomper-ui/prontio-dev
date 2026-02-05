@@ -36,8 +36,6 @@
    * Abre WhatsApp Web/App com mensagem para o paciente
    */
   function abrirWhatsApp_(ctx) {
-    console.log("[WhatsApp] ctx.telefone:", ctx.telefone);
-
     if (!ctx.telefone) {
       showToast_("Paciente não possui telefone cadastrado.", "erro");
       return;
@@ -45,7 +43,6 @@
 
     // Limpa telefone: remove tudo que não é número
     let tel = String(ctx.telefone).replace(/\D/g, "");
-    console.log("[WhatsApp] telefone limpo:", tel);
 
     // Se não começar com 55 (Brasil), adiciona
     if (tel.length <= 11 && !tel.startsWith("55")) {
@@ -55,8 +52,6 @@
     const nome = ctx.nomeCompleto || ctx.nome || "paciente";
     const mensagem = encodeURIComponent(`Olá, ${nome}!`);
     const url = `https://wa.me/${tel}?text=${mensagem}`;
-
-    console.log("[WhatsApp] URL:", url);
 
     // Abre em nova aba
     const win = global.open(url, "_blank");
