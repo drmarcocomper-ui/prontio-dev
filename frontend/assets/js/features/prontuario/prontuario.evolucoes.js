@@ -295,13 +295,19 @@
         return;
       }
 
+      // Ordena alfabeticamente pelo nome do template
+      anamnesesCache.sort((a, b) => {
+        const nomeA = (a.nomeTemplate || "").toLowerCase();
+        const nomeB = (b.nomeTemplate || "").toLowerCase();
+        return nomeA.localeCompare(nomeB);
+      });
+
       if (vazio) vazio.style.display = "none";
 
       anamnesesCache.forEach((anamnese) => {
         const item = document.createElement("div");
         item.className = "anamnese-select-item";
 
-        const dataFmt = formatDataHoraCompleta_(anamnese.dataPreenchimento);
         const templateNome = anamnese.nomeTemplate || "Anamnese";
 
         let resumo = "";
@@ -313,8 +319,7 @@
         item.innerHTML = `
           <div class="anamnese-select-item__info">
             <div class="anamnese-select-item__header">
-              <span class="anamnese-select-item__data">${escapeHtml_(dataFmt)}</span>
-              <span class="badge">${escapeHtml_(templateNome)}</span>
+              <span class="anamnese-select-item__nome">${escapeHtml_(templateNome)}</span>
             </div>
             ${resumo ? `<div class="anamnese-select-item__resumo texto-menor">${escapeHtml_(resumo)}</div>` : ""}
           </div>
@@ -357,8 +362,7 @@
     const dados = anamnese.dados || {};
     const linhas = [];
 
-    const dataFmt = formatDataHoraCompleta_(anamnese.dataPreenchimento);
-    linhas.push(`ANAMNESE (${anamnese.nomeTemplate || "Geral"} - ${dataFmt})`);
+    linhas.push(`ANAMNESE (${anamnese.nomeTemplate || "Geral"})`);
     linhas.push("");
 
     // Queixa Principal
