@@ -59,6 +59,16 @@ function _prontuarioPacienteObterResumo_(payload) {
     "NUMERO_CARTEIRINHA"
   ]);
 
+  var telefonePrincipal = _prontuarioPickFirst_(p, [
+    "telefonePrincipal",
+    "telefone1",
+    "telefone",
+    "Telefone1",
+    "Telefone",
+    "celular",
+    "Celular"
+  ]);
+
   var idade = _prontuarioPickFirst_(p, ["idade", "Idade"]);
   if (!idade) {
     var idadeCalc = _prontuarioCalcIdadeFromAny_(dn);
@@ -74,7 +84,8 @@ function _prontuarioPacienteObterResumo_(payload) {
       idade: idade ? String(idade) : "",
       profissao: profissao ? String(profissao) : "",
       planoSaude: planoSaude ? String(planoSaude) : "",
-      carteirinha: carteirinha ? String(carteirinha) : ""
+      carteirinha: carteirinha ? String(carteirinha) : "",
+      telefonePrincipal: telefonePrincipal ? String(telefonePrincipal) : ""
     }
   };
 }
