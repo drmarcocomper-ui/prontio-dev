@@ -14,9 +14,11 @@
   }
 
   async function carregarResumoPaciente_(ctx) {
+    console.log("[Paciente] carregarResumoPaciente_ ctx.idPaciente:", ctx.idPaciente);
     setTextOrDash_("#prontuario-paciente-nome", ctx.nomeCompleto || "—");
 
     if (!ctx.idPaciente) {
+      console.log("[Paciente] Sem idPaciente, abortando");
       setTextOrDash_("#prontuario-paciente-idade", "—");
       setTextOrDash_("#prontuario-paciente-profissao", "—");
       setTextOrDash_("#prontuario-paciente-plano", "—");
@@ -30,7 +32,13 @@
         { idPaciente: ctx.idPaciente }
       );
 
+      console.log("[Paciente] API retornou:", data);
+
       const pac = data && data.paciente ? data.paciente : data;
+      console.log("[Paciente] pac object:", pac);
+      console.log("[Paciente] pac.telefonePrincipal:", pac?.telefonePrincipal);
+      console.log("[Paciente] pac.telefone:", pac?.telefone);
+      console.log("[Paciente] pac.telefone1:", pac?.telefone1);
 
       const nome =
         (pac && (pac.nomeCompleto || pac.nomeExibicao || pac.nomeSocial || pac.nome || pac.Nome)) ||
