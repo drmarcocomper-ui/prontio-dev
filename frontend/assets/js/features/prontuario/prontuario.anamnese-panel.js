@@ -5,7 +5,7 @@
   PRONTIO.features = PRONTIO.features || {};
   PRONTIO.features.prontuario = PRONTIO.features.prontuario || {};
 
-  const { qs, qsa, setBtnMais_, escapeHtml_, formatDataHoraCompleta_, createPagingState_, showToast_, extractErrorMessage_, trapFocusInPanel_ } =
+  const { qs, qsa, setBtnMais_, escapeHtml_, formatDataHoraCompleta_, createPagingState_, showToast_, extractErrorMessage_ } =
     PRONTIO.features.prontuario.utils;
   const { callApiData, callApiDataTry_ } = PRONTIO.features.prontuario.api;
 
@@ -13,8 +13,6 @@
   let anamnesePanel = null;
   let anamnesePanelAside = null;
   let anamnesePanelLastFocus = null;
-  let templateAtual = null;
-  let templatesCache = [];
   let anamnesePaging = createPagingState_();
 
   // ============================================================
@@ -51,14 +49,15 @@
     anamnesePanel.setAttribute("aria-hidden", "false");
     anamnesePanel.removeAttribute("inert");
 
-    // Carrega templates e historico
-    carregarTemplates_(ctx);
+    // Limpa formulario
+    const form = qs("#formAnamnese");
+    if (form) form.reset();
+
+    // Carrega historico
     carregarHistoricoAnamneses_(ctx);
 
-    // Foco no primeiro elemento
-    const focusTarget = qs("#selectAnamneseTemplate") ||
-      (anamnesePanelAside ? anamnesePanelAside.querySelector("input, textarea, button, select") : null);
-
+    // Foco no primeiro campo
+    const focusTarget = qs("#anamnese-titulo");
     if (focusTarget && typeof focusTarget.focus === "function") {
       setTimeout(() => focusTarget.focus(), 0);
     }
@@ -81,18 +80,6 @@
       if (ev.target === anamnesePanel) fecharAnamnesePanel_();
     });
 
-    // Selecao de template
-    const selectTemplate = qs("#selectAnamneseTemplate");
-    if (selectTemplate) {
-      selectTemplate.addEventListener("change", (ev) => {
-        const idTemplate = ev.target.value;
-        const template = templatesCache.find(t => t.idTemplate === idTemplate);
-        if (template) {
-          selecionarTemplate_(template, ctx);
-        }
-      });
-    }
-
     // Submit do formulario
     const formAnamnese = qs("#formAnamnese");
     if (formAnamnese) {
@@ -108,319 +95,8 @@
   }
 
   // ============================================================
-  // TEMPLATES
+  // SUBMIT - SALVAR ANAMNESE (TITULO + TEXTO)
   // ============================================================
-
-  async function carregarTemplates_(ctx) {
-    const selectEl = qs("#selectAnamneseTemplate");
-    if (!selectEl) return;
-
-    selectEl.innerHTML = '<option value="">Carregando templates...</option>';
-    selectEl.disabled = true;
-
-    try {
-      const data = await callApiDataTry_(
-        ["Anamnese.Template.Listar"],
-        {}
-      );
-
-      templatesCache = data && data.templates ? data.templates : [];
-
-      if (!templatesCache.length) {
-        selectEl.innerHTML = '<option value="">Nenhum template disponivel</option>';
-        return;
-      }
-
-      selectEl.innerHTML = '<option value="">Selecione um modelo...</option>';
-      templatesCache.forEach((t) => {
-        const opt = document.createElement("option");
-        opt.value = t.idTemplate;
-        opt.textContent = t.nome || "Template sem nome";
-        selectEl.appendChild(opt);
-      });
-
-      selectEl.disabled = false;
-
-      // Seleciona primeiro template automaticamente se houver apenas um
-      if (templatesCache.length === 1) {
-        selectEl.value = templatesCache[0].idTemplate;
-        selecionarTemplate_(templatesCache[0], ctx);
-      }
-
-    } catch (err) {
-      console.error("[PRONTIO] Erro ao carregar templates:", err);
-      selectEl.innerHTML = '<option value="">Erro ao carregar templates</option>';
-      showToast_("Erro ao carregar templates de anamnese.", "error");
-    }
-  }
-
-  function selecionarTemplate_(template, ctx) {
-    templateAtual = template;
-    const container = qs("#anamnese-campos");
-    if (!container) return;
-
-    container.innerHTML = "";
-
-    if (!template || !template.secoes || !template.secoes.secoes) {
-      container.innerHTML = '<p class="texto-suave">Selecione um modelo para iniciar.</p>';
-      return;
-    }
-
-    const secoes = template.secoes.secoes;
-    secoes.forEach((secao) => {
-      const secaoEl = renderizarSecao_(secao);
-      container.appendChild(secaoEl);
-    });
-  }
-
-  // ============================================================
-  // RENDERIZACAO DE FORMULARIO
-  // ============================================================
-
-  function renderizarSecao_(secao) {
-    const div = document.createElement("div");
-    div.className = "anamnese-secao";
-    div.dataset.secaoId = secao.id;
-
-    const titulo = document.createElement("h4");
-    titulo.className = "anamnese-secao__titulo";
-    titulo.textContent = secao.titulo || "Secao";
-    div.appendChild(titulo);
-
-    const campos = secao.campos || [];
-    campos.forEach((campo) => {
-      const campoEl = renderizarCampo_(campo);
-      if (campoEl) div.appendChild(campoEl);
-    });
-
-    return div;
-  }
-
-  function renderizarCampo_(campo) {
-    const wrapper = document.createElement("div");
-    wrapper.className = "form-group" + (campo.obrigatorio ? " campo-obrigatorio" : "");
-    wrapper.dataset.campoId = campo.id;
-
-    const label = document.createElement("label");
-    label.textContent = campo.label || campo.id;
-    label.setAttribute("for", "anamnese-campo-" + campo.id);
-    wrapper.appendChild(label);
-
-    let input = null;
-
-    switch (campo.tipo) {
-      case "text":
-        input = renderText_(campo);
-        break;
-      case "textarea":
-        input = renderTextarea_(campo);
-        break;
-      case "radio":
-        input = renderRadio_(campo);
-        break;
-      case "checkboxList":
-        input = renderCheckboxList_(campo);
-        break;
-      case "repeater":
-        input = renderRepeater_(campo);
-        break;
-      default:
-        input = renderText_(campo);
-    }
-
-    if (input) wrapper.appendChild(input);
-
-    return wrapper;
-  }
-
-  function renderText_(campo) {
-    const input = document.createElement("input");
-    input.type = "text";
-    input.id = "anamnese-campo-" + campo.id;
-    input.name = campo.id;
-    input.className = "form-control";
-    input.placeholder = campo.placeholder || "";
-    if (campo.obrigatorio) input.required = true;
-    return input;
-  }
-
-  function renderTextarea_(campo) {
-    const textarea = document.createElement("textarea");
-    textarea.id = "anamnese-campo-" + campo.id;
-    textarea.name = campo.id;
-    textarea.className = "form-control";
-    textarea.rows = campo.rows || 3;
-    textarea.placeholder = campo.placeholder || "";
-    if (campo.obrigatorio) textarea.required = true;
-    return textarea;
-  }
-
-  function renderRadio_(campo) {
-    const div = document.createElement("div");
-    div.className = "anamnese-radio-group";
-
-    const opcoes = campo.opcoes || [];
-    opcoes.forEach((opcao, idx) => {
-      const radioId = "anamnese-campo-" + campo.id + "-" + idx;
-
-      const radioWrapper = document.createElement("label");
-      radioWrapper.className = "anamnese-radio-label";
-
-      const radio = document.createElement("input");
-      radio.type = "radio";
-      radio.name = campo.id;
-      radio.id = radioId;
-      radio.value = opcao;
-
-      const span = document.createElement("span");
-      span.textContent = opcao;
-
-      radioWrapper.appendChild(radio);
-      radioWrapper.appendChild(span);
-      div.appendChild(radioWrapper);
-    });
-
-    return div;
-  }
-
-  function renderCheckboxList_(campo) {
-    const div = document.createElement("div");
-    div.className = "anamnese-checkbox-group";
-
-    const opcoes = campo.opcoes || [];
-    opcoes.forEach((opcao, idx) => {
-      const cbId = "anamnese-campo-" + campo.id + "-" + idx;
-
-      const cbWrapper = document.createElement("label");
-      cbWrapper.className = "anamnese-checkbox-label";
-
-      const cb = document.createElement("input");
-      cb.type = "checkbox";
-      cb.name = campo.id;
-      cb.id = cbId;
-      cb.value = opcao;
-
-      const span = document.createElement("span");
-      span.textContent = opcao;
-
-      cbWrapper.appendChild(cb);
-      cbWrapper.appendChild(span);
-      div.appendChild(cbWrapper);
-    });
-
-    return div;
-  }
-
-  function renderRepeater_(campo) {
-    const div = document.createElement("div");
-    div.className = "anamnese-repeater";
-    div.dataset.repeaterId = campo.id;
-
-    const itemsContainer = document.createElement("div");
-    itemsContainer.className = "anamnese-repeater__items";
-    div.appendChild(itemsContainer);
-
-    const btnAdd = document.createElement("button");
-    btnAdd.type = "button";
-    btnAdd.className = "btn btn-secondary btn-sm anamnese-repeater__add";
-    btnAdd.textContent = "+ Adicionar " + (campo.label || "item");
-    btnAdd.addEventListener("click", () => addRepeaterItem_(itemsContainer, campo));
-    div.appendChild(btnAdd);
-
-    // Adiciona primeiro item
-    addRepeaterItem_(itemsContainer, campo);
-
-    return div;
-  }
-
-  function addRepeaterItem_(container, campo) {
-    const item = document.createElement("div");
-    item.className = "anamnese-repeater__item";
-
-    const subcampos = campo.subcampos || [];
-    subcampos.forEach((sub) => {
-      const input = document.createElement("input");
-      input.type = "text";
-      input.className = "form-control form-control-sm";
-      input.name = campo.id + "[]" + sub.id;
-      input.placeholder = sub.label || sub.id;
-      item.appendChild(input);
-    });
-
-    const btnRemove = document.createElement("button");
-    btnRemove.type = "button";
-    btnRemove.className = "btn btn-danger btn-sm anamnese-repeater__remove";
-    btnRemove.textContent = "X";
-    btnRemove.addEventListener("click", () => {
-      if (container.children.length > 1) {
-        item.remove();
-      }
-    });
-    item.appendChild(btnRemove);
-
-    container.appendChild(item);
-  }
-
-  // ============================================================
-  // COLETA E SUBMIT
-  // ============================================================
-
-  function coletarDadosFormulario_() {
-    const container = qs("#anamnese-campos");
-    if (!container) return {};
-
-    const dados = {};
-
-    // Coleta campos simples (text, textarea)
-    container.querySelectorAll("input[type='text'], textarea").forEach((el) => {
-      const name = el.name;
-      if (!name) return;
-
-      // Repeater fields
-      if (name.includes("[]")) {
-        const parts = name.split("[]");
-        const baseId = parts[0];
-        const subId = parts[1];
-
-        if (!dados[baseId]) dados[baseId] = [];
-
-        // Encontra ou cria o item atual
-        const item = el.closest(".anamnese-repeater__item");
-        if (!item) return;
-
-        const itemIdx = Array.from(item.parentNode.children).indexOf(item);
-        if (!dados[baseId][itemIdx]) dados[baseId][itemIdx] = {};
-        dados[baseId][itemIdx][subId] = el.value;
-      } else {
-        dados[name] = el.value;
-      }
-    });
-
-    // Coleta radios
-    container.querySelectorAll("input[type='radio']:checked").forEach((el) => {
-      dados[el.name] = el.value;
-    });
-
-    // Coleta checkboxes
-    const checkboxGroups = {};
-    container.querySelectorAll("input[type='checkbox']:checked").forEach((el) => {
-      if (!checkboxGroups[el.name]) checkboxGroups[el.name] = [];
-      checkboxGroups[el.name].push(el.value);
-    });
-    Object.assign(dados, checkboxGroups);
-
-    // Limpa repeaters vazios
-    Object.keys(dados).forEach((key) => {
-      if (Array.isArray(dados[key])) {
-        dados[key] = dados[key].filter((item) => {
-          if (!item || typeof item !== "object") return false;
-          return Object.values(item).some((v) => v && String(v).trim());
-        });
-      }
-    });
-
-    return dados;
-  }
 
   async function onSubmitAnamnese_(ev, ctx) {
     ev.preventDefault();
@@ -431,56 +107,45 @@
       return;
     }
 
-    if (!templateAtual) {
-      showToast_("Selecione um modelo de anamnese.", "error");
+    const tituloEl = qs("#anamnese-titulo");
+    const textoEl = qs("#anamnese-texto");
+
+    const titulo = tituloEl ? tituloEl.value.trim() : "";
+    const texto = textoEl ? textoEl.value.trim() : "";
+
+    if (!titulo) {
+      showToast_("Informe o titulo da anamnese.", "error");
+      if (tituloEl) tituloEl.focus();
       return;
     }
 
-    const dados = coletarDadosFormulario_();
-
-    // Valida campo obrigatorio
-    const camposObrigatorios = [];
-    if (templateAtual.secoes && templateAtual.secoes.secoes) {
-      templateAtual.secoes.secoes.forEach((secao) => {
-        (secao.campos || []).forEach((campo) => {
-          if (campo.obrigatorio) camposObrigatorios.push(campo.id);
-        });
-      });
-    }
-
-    for (const campoId of camposObrigatorios) {
-      const valor = dados[campoId];
-      if (!valor || (typeof valor === "string" && !valor.trim())) {
-        showToast_("Preencha todos os campos obrigatorios.", "error");
-        return;
-      }
+    if (!texto) {
+      showToast_("Informe o texto da anamnese.", "error");
+      if (textoEl) textoEl.focus();
+      return;
     }
 
     const payload = {
       idPaciente: idPaciente,
       idProfissional: ctx.idProfissional || "",
-      idTemplate: templateAtual.idTemplate,
-      nomeTemplate: templateAtual.nome,
-      dados: dados
+      nomeTemplate: titulo,
+      dados: {
+        titulo: titulo,
+        texto: texto
+      }
     };
 
     const btnSubmit = ev.submitter || qs("#formAnamnese button[type='submit']");
     if (btnSubmit) btnSubmit.disabled = true;
 
     try {
-      const resp = await callApiData({ action: "Anamnese.Salvar", payload: payload });
+      await callApiData({ action: "Anamnese.Salvar", payload: payload });
 
       showToast_("Anamnese salva com sucesso!", "success");
 
       // Limpa formulario
       const form = qs("#formAnamnese");
       if (form) form.reset();
-      const container = qs("#anamnese-campos");
-      if (container) container.innerHTML = '<p class="texto-suave">Selecione um modelo para iniciar nova anamnese.</p>';
-      templateAtual = null;
-
-      const selectEl = qs("#selectAnamneseTemplate");
-      if (selectEl) selectEl.value = "";
 
       // Recarrega historico
       carregarHistoricoAnamneses_(ctx);
@@ -498,7 +163,7 @@
   // ============================================================
 
   async function carregarHistoricoAnamneses_(ctx) {
-    return carregarHistoricoAnamnesesPaged_(ctx, { append: false, limit: 5 });
+    return carregarHistoricoAnamnesesPaged_(ctx, { append: false, limit: 10 });
   }
 
   async function carregarHistoricoAnamnesesPaged_(ctx, opts) {
@@ -590,27 +255,22 @@
       item.className = "anamnese-historico-item";
       item.dataset.idAnamnese = anamnese.idAnamnese;
 
-      const dataFmt = formatDataHoraCompleta_(anamnese.dataPreenchimento);
-      const templateNome = anamnese.nomeTemplate || "Anamnese";
+      const titulo = anamnese.nomeTemplate || (anamnese.dados && anamnese.dados.titulo) || "Anamnese";
 
-      // Monta resumo dos dados
+      // Resumo do texto
       let resumo = "";
-      if (anamnese.dados) {
-        const dados = anamnese.dados;
-        if (dados.queixaPrincipal) {
-          resumo = String(dados.queixaPrincipal).substring(0, 100);
-          if (dados.queixaPrincipal.length > 100) resumo += "...";
-        }
+      if (anamnese.dados && anamnese.dados.texto) {
+        resumo = String(anamnese.dados.texto).substring(0, 100);
+        if (anamnese.dados.texto.length > 100) resumo += "...";
       }
 
       item.innerHTML = `
         <div class="anamnese-historico-item__header">
-          <span class="anamnese-historico-item__data">${escapeHtml_(dataFmt || "—")}</span>
-          <span class="anamnese-historico-item__template badge">${escapeHtml_(templateNome)}</span>
+          <span class="anamnese-historico-item__titulo">${escapeHtml_(titulo)}</span>
         </div>
         ${resumo ? `<div class="anamnese-historico-item__resumo texto-menor">${escapeHtml_(resumo)}</div>` : ""}
         <div class="anamnese-historico-item__actions">
-          <button type="button" class="btn btn-secondary btn-sm js-anamnese-ver">Ver detalhes</button>
+          <button type="button" class="btn btn-secondary btn-sm js-anamnese-ver">Ver</button>
         </div>
       `;
 
@@ -627,30 +287,24 @@
   }
 
   function abrirDetalheAnamnese_(anamnese) {
-    // Abre modal ou expande para mostrar todos os dados
     const modal = document.createElement("div");
     modal.className = "modal-backdrop anamnese-detalhe-modal";
     modal.setAttribute("role", "dialog");
     modal.setAttribute("aria-modal", "true");
 
-    const templateNome = anamnese.nomeTemplate || "Anamnese";
-    const dataFmt = formatDataHoraCompleta_(anamnese.dataPreenchimento);
-
-    let dadosHtml = "";
-    if (anamnese.dados && typeof anamnese.dados === "object") {
-      dadosHtml = renderDadosAnamnese_(anamnese.dados);
-    }
+    const titulo = anamnese.nomeTemplate || (anamnese.dados && anamnese.dados.titulo) || "Anamnese";
+    const texto = (anamnese.dados && anamnese.dados.texto) || "";
 
     modal.innerHTML = `
       <div class="modal modal--lg">
         <div class="modal-header">
-          <h2 class="modal-title">${escapeHtml_(templateNome)} - ${escapeHtml_(dataFmt)}</h2>
+          <h2 class="modal-title">${escapeHtml_(titulo)}</h2>
           <div class="modal-header-actions">
             <button type="button" class="modal-close" aria-label="Fechar">X</button>
           </div>
         </div>
         <div class="modal-body">
-          ${dadosHtml}
+          <div class="anamnese-texto-completo" style="white-space: pre-wrap;">${escapeHtml_(texto)}</div>
         </div>
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary js-fechar-modal">Fechar</button>
@@ -677,65 +331,6 @@
     document.addEventListener("keydown", handleEsc);
   }
 
-  function renderDadosAnamnese_(dados) {
-    if (!dados || typeof dados !== "object") return "<p>Sem dados registrados.</p>";
-
-    const labels = {
-      queixaPrincipal: "Queixa Principal",
-      inicio: "Inicio dos Sintomas",
-      evolucao: "Evolucao",
-      fatoresAgravantes: "Fatores Agravantes/Atenuantes",
-      pessoais: "Antecedentes Pessoais",
-      pessoaisOutros: "Outros Antecedentes",
-      familiares: "Antecedentes Familiares",
-      medicamentos: "Medicamentos em Uso",
-      temAlergia: "Possui Alergias",
-      alergias: "Alergias",
-      tabagismo: "Tabagismo",
-      etilismo: "Etilismo",
-      atividadeFisica: "Atividade Fisica",
-      pa: "Pressao Arterial",
-      fc: "Frequencia Cardiaca",
-      temperatura: "Temperatura",
-      peso: "Peso",
-      altura: "Altura",
-      observacoes: "Observacoes"
-    };
-
-    let html = '<dl class="anamnese-dados-lista">';
-
-    Object.keys(dados).forEach((key) => {
-      const valor = dados[key];
-      const label = labels[key] || key;
-
-      if (!valor || (typeof valor === "string" && !valor.trim())) return;
-      if (Array.isArray(valor) && !valor.length) return;
-
-      html += `<dt>${escapeHtml_(label)}</dt>`;
-
-      if (Array.isArray(valor)) {
-        // Repeater ou checkbox list
-        if (typeof valor[0] === "object") {
-          // Repeater (medicamentos)
-          html += "<dd><ul>";
-          valor.forEach((item) => {
-            const parts = Object.values(item).filter(v => v && String(v).trim());
-            html += `<li>${escapeHtml_(parts.join(" - "))}</li>`;
-          });
-          html += "</ul></dd>";
-        } else {
-          // Checkbox list
-          html += `<dd>${escapeHtml_(valor.join(", "))}</dd>`;
-        }
-      } else {
-        html += `<dd>${escapeHtml_(String(valor))}</dd>`;
-      }
-    });
-
-    html += "</dl>";
-    return html;
-  }
-
   // ============================================================
   // EXPORTS
   // ============================================================
@@ -744,7 +339,6 @@
     setupAnamnesePanelEvents_,
     abrirAnamnesePanel_: abrirAnamnesePanel_,
     fecharAnamnesePanel_,
-    carregarTemplates_,
     carregarHistoricoAnamneses_,
     getPanelRefs: () => ({ panel: anamnesePanel, aside: anamnesePanelAside }),
     getAnamnesePaging: () => anamnesePaging,

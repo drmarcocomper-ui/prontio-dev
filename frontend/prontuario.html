@@ -421,23 +421,21 @@
   <div id="anamnesePanel" class="slide-panel-backdrop" aria-hidden="true" inert style="display:none;">
     <aside class="slide-panel" role="dialog" aria-modal="true">
       <header class="slide-panel-header">
-        <h2 id="anamnesePanelTitulo">Anamnese Estruturada</h2>
+        <h2 id="anamnesePanelTitulo">Anamnese</h2>
         <button type="button" class="slide-panel-close" aria-label="Fechar" data-close-anamnese>X</button>
       </header>
 
       <div class="slide-panel-body">
-        <!-- Seletor de template -->
-        <div id="anamnese-template-selector" class="anamnese-section">
-          <label for="selectAnamneseTemplate" class="texto-menor texto-suave">Selecione o modelo:</label>
-          <select id="selectAnamneseTemplate" class="form-select">
-            <option value="">Carregando...</option>
-          </select>
-        </div>
-
-        <!-- Formulario dinamico -->
+        <!-- Formulario simples -->
         <form id="formAnamnese" class="anamnese-form">
-          <div id="anamnese-campos">
-            <p class="texto-suave">Selecione um modelo para iniciar.</p>
+          <div class="form-group">
+            <label for="anamnese-titulo">Título</label>
+            <input type="text" id="anamnese-titulo" name="titulo" class="form-control" placeholder="Ex: Consulta inicial, Retorno, etc." required>
+          </div>
+
+          <div class="form-group">
+            <label for="anamnese-texto">Texto</label>
+            <textarea id="anamnese-texto" name="texto" class="form-control" rows="10" placeholder="Digite o conteúdo da anamnese..." required></textarea>
           </div>
 
           <div class="form-actions anamnese-form-actions">
@@ -448,9 +446,9 @@
 
         <!-- Historico -->
         <div id="anamnese-historico" class="anamnese-section anamnese-historico-section">
-          <h4>Historico de Anamneses</h4>
+          <h4>Anamneses Salvas</h4>
           <p id="anamnese-historico-vazio" class="msg-menor" role="status" aria-live="polite">
-            Carregando historico...
+            Carregando...
           </p>
           <div id="anamnese-lista" class="anamnese-lista"></div>
           <button type="button" id="btnMaisAnamneses" class="btn btn-outline btn-sm" style="display:none;">
