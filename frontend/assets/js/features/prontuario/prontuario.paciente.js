@@ -54,10 +54,10 @@
       setTextOrDash_("#prontuario-paciente-plano", plano);
       setTextOrDash_("#prontuario-paciente-carteirinha", carteirinha);
 
-      // Mostrar botão WhatsApp se tiver telefone
+      // Sempre mostrar botão WhatsApp (mensagem de erro se não tiver telefone)
       const btnWa = qs("#btnWhatsAppPaciente");
       if (btnWa) {
-        btnWa.style.display = ctx.telefone ? "inline-flex" : "none";
+        btnWa.style.display = "inline-flex";
       }
     } catch (e) {
       setTextOrDash_("#prontuario-paciente-idade", "—");
