@@ -106,34 +106,14 @@
   }
 
   async function chooseUserInteractive_() {
-    const users = await fetchUsersFromBackend_();
-
-    if (!users || users.length === 0) {
-      // ✅ Usa usuário da sessão em vez de prompt
-      const sessionUser = (PRONTIO.core && PRONTIO.core.session) ? PRONTIO.core.session.getUser() : null;
-      const nome = sessionUser?.nomeCompleto || sessionUser?.nome || "Usuário";
-      return {
-        idUsuario: sessionUser?.idUsuario || "LOCAL-" + Date.now(),
-        nome: nome,
-        tipo: sessionUser?.perfil || "LOCAL"
-      };
-    }
-
-    let msg = "Escolha seu usuário:\n\n";
-    users.forEach((u, idx) => {
-      const n = idx + 1;
-      const tipo = u.tipo ? ` (${u.tipo})` : "";
-      msg += `${n} - ${u.nome}${tipo}\n`;
-    });
-    msg += "\nDigite o número correspondente:";
-
-    while (true) {
-      const input = global.prompt(msg);
-      if (input === null) return null;
-      const n = parseInt(input, 10);
-      if (!isNaN(n) && n >= 1 && n <= users.length) return users[n - 1];
-      global.alert("Opção inválida, tente novamente.");
-    }
+    // ✅ Sempre usa o usuário da sessão automaticamente, sem prompt
+    const sessionUser = (PRONTIO.core && PRONTIO.core.session) ? PRONTIO.core.session.getUser() : null;
+    const nome = sessionUser?.nomeCompleto || sessionUser?.nome || "Usuário";
+    return {
+      idUsuario: sessionUser?.idUsuario || "LOCAL-" + Date.now(),
+      nome: nome,
+      tipo: sessionUser?.perfil || "LOCAL"
+    };
   }
 
   async function ensureUser_() {
