@@ -100,23 +100,53 @@
      */
     async recuperarSessao() {
       try {
-        const raw = localStorage.getItem("prontio_session");
-        if (!raw) return null;
-
-        const session = JSON.parse(raw);
-        PRONTIO.session = session;
-
-        // Verifica se o token do Supabase ainda é válido
         const supabase = getSupabase();
         const supabaseSession = supabase.getSession();
 
+        // Se não tem sessão Supabase, não há nada a recuperar
         if (!supabaseSession?.access_token) {
-          this.logout();
           return null;
         }
 
-        return session;
-      } catch {
+        // Tenta restaurar prontio_session do localStorage
+        const raw = localStorage.getItem("prontio_session");
+        if (raw) {
+          const session = JSON.parse(raw);
+          PRONTIO.session = session;
+          return session;
+        }
+
+        // prontio_session não existe, mas Supabase session sim
+        // Busca dados do usuário na tabela usuario
+        const userId = supabaseSession.user?.id;
+        if (!userId) return null;
+
+        const userData = await this._carregarDadosUsuario(userId);
+        if (!userData) {
+          console.warn("[AuthService] Usuário autenticado mas não encontrado na tabela usuario");
+          return null;
+        }
+
+        // Salva sessão (mesma estrutura do login)
+        PRONTIO.session = {
+          userId: userData.id,
+          idUsuario: userData.id,
+          authUserId: userId,
+          clinicaId: userData.clinica_id,
+          idClinica: userData.clinica_id,
+          nome: userData.nome_completo,
+          nomeCompleto: userData.nome_completo,
+          email: userData.email,
+          perfil: userData.perfil,
+          idProfissional: userData.profissional_id,
+          profissionalId: userData.profissional_id
+        };
+
+        localStorage.setItem("prontio_session", JSON.stringify(PRONTIO.session));
+
+        return PRONTIO.session;
+      } catch (e) {
+        console.warn("[AuthService] Erro ao recuperar sessão:", e);
         return null;
       }
     },
