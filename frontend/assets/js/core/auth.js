@@ -264,8 +264,18 @@
   function requireAuth(opts) {
     opts = opts || {};
     const redirect = opts.redirect !== false;
+
+    // ✅ Verifica Supabase primeiro
+    if (PRONTIO.services && PRONTIO.services.auth && typeof PRONTIO.services.auth.isAuthenticated === "function") {
+      if (PRONTIO.services.auth.isAuthenticated()) {
+        return true;
+      }
+    }
+
+    // ✅ Fallback: token legado
     const token = getToken();
     if (token) return true;
+
     if (redirect) forceLogoutLocal("AUTH_REQUIRED", { redirect: true });
     return false;
   }
