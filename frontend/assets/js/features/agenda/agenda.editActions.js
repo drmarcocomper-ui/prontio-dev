@@ -552,8 +552,12 @@
     }
 
     function abrirProntuario(ag) {
-      // Normaliza: aceita ID_Paciente, idPaciente ou id_paciente
-      const idPaciente = String(ag?.ID_Paciente || ag?.idPaciente || ag?.id_paciente || "").trim();
+      // Normaliza: aceita múltiplos formatos de ID (Supabase e legado)
+      const idPaciente = String(ag?.idPaciente || ag?.ID_Paciente || ag?.id_paciente || ag?.paciente_id || "").trim();
+      const idAgenda = String(ag?.idAgenda || ag?.ID_Agenda || ag?.id_agenda || ag?.id || "").trim();
+      const nomePaciente = String(ag?.nomeCompleto || ag?.nomePaciente || ag?.nome_paciente || "").trim();
+
+      console.log("[Agenda] abrirProntuario:", { idPaciente, idAgenda, ag });
 
       if (!ag || !idPaciente) {
         showAviso_("Este agendamento não está vinculado a um paciente cadastrado. Selecione um paciente no agendamento para vincular ao prontuário.");
@@ -563,14 +567,15 @@
       try {
         localStorage.setItem("prontio.pacienteSelecionado", JSON.stringify({
           ID_Paciente: idPaciente,
-          nomeCompleto: String(ag.nomeCompleto || "").trim(),
-          nome: String(ag.nomeCompleto || "").trim()
+          idPaciente: idPaciente,
+          nomeCompleto: nomePaciente,
+          nome: nomePaciente
         }));
       } catch (_) {}
 
       const params = new URLSearchParams();
       params.set("idPaciente", idPaciente);
-      if (ag.ID_Agenda) params.set("idAgenda", ag.ID_Agenda);
+      if (idAgenda) params.set("idAgenda", idAgenda);
       global.location.href = "prontuario.html?" + params.toString();
     }
 

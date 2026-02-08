@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\natendimento: alinhar código com estrutura real da planilha\n\n- MigrationsAtendimento: adicionar coluna idProfissional\n- Schema: adicionar campos chamadoEm e concluidoEm\n- Atendimento.gs: incluir idProfissional em sync e DTOs\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push)",
+      "Bash(ls:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat\\(prontuario\\): add WhatsApp button to send message to patient v1.5.5\n\n- Add WhatsApp button next to patient name in header\n- Extract phone from API response \\(telefone1, telefone, celular\\)\n- Open wa.me link with pre-filled greeting message\n- Show/hide button based on phone availability\n- Green circular button with WhatsApp icon and hover effects\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nchore\\(config\\): update API deployment URL\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(clasp push:*)",
+      "Bash(git commit:*)",
+      "Bash(git status:*)"
+    ]
+  }
+}
