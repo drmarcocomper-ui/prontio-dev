@@ -50,6 +50,12 @@
   // Helpers: sessão (idProfissional / idClinica)
   // ------------------------------------------------------------
   function getSessionUser_(PRONTIORef) {
+    // ✅ Tenta PRONTIO.session primeiro (Supabase)
+    if (PRONTIORef && PRONTIORef.session && PRONTIORef.session.idProfissional) {
+      return PRONTIORef.session;
+    }
+
+    // ✅ Fallback: PRONTIO.core.session (legado)
     try {
       const s = PRONTIORef && PRONTIORef.core && PRONTIORef.core.session;
       if (s && typeof s.getUser === "function") return s.getUser();
