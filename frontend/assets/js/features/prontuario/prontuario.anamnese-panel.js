@@ -9,6 +9,9 @@
     PRONTIO.features.prontuario.utils;
   const { callApiData, callApiDataTry_ } = PRONTIO.features.prontuario.api;
 
+  // ✅ Helper para serviço Supabase de anamnese
+  const getAnamneseService = () => PRONTIO.services?.anamnese || null;
+
   // Estado do panel
   let anamnesePanel = null;
   let anamnesePanelAside = null;
@@ -153,31 +156,47 @@
     if (btnSubmit) btnSubmit.disabled = true;
 
     try {
-      if (anamneseEditando) {
-        // Atualizar existente
-        const payload = {
-          idAnamnese: anamneseEditando,
-          nomeTemplate: titulo,
-          dados: {
-            titulo: titulo,
-            texto: texto
+      // ✅ Usa Supabase service diretamente
+      const supaService = getAnamneseService();
+
+      if (supaService) {
+        const dados = { titulo, texto };
+
+        if (anamneseEditando) {
+          // Atualizar existente
+          const result = await supaService.atualizar(anamneseEditando, { nomeTemplate: titulo, dados });
+          if (!result.success) {
+            throw new Error(result.error || "Erro ao atualizar anamnese");
           }
-        };
-        await callApiData({ action: "Anamnese.Atualizar", payload: payload });
-        showToast_("Anamnese atualizada com sucesso!", "success");
+          showToast_("Anamnese atualizada com sucesso!", "success");
+        } else {
+          // Criar nova
+          const result = await supaService.salvar({ idPaciente, nomeTemplate: titulo, dados });
+          if (!result.success) {
+            throw new Error(result.error || "Erro ao salvar anamnese");
+          }
+          showToast_("Anamnese salva com sucesso!", "success");
+        }
       } else {
-        // Criar nova
-        const payload = {
-          idPaciente: idPaciente,
-          idProfissional: ctx.idProfissional || "",
-          nomeTemplate: titulo,
-          dados: {
-            titulo: titulo,
-            texto: texto
-          }
-        };
-        await callApiData({ action: "Anamnese.Salvar", payload: payload });
-        showToast_("Anamnese salva com sucesso!", "success");
+        // Fallback para API legada
+        if (anamneseEditando) {
+          const payload = {
+            idAnamnese: anamneseEditando,
+            nomeTemplate: titulo,
+            dados: { titulo, texto }
+          };
+          await callApiData({ action: "Anamnese.Atualizar", payload: payload });
+          showToast_("Anamnese atualizada com sucesso!", "success");
+        } else {
+          const payload = {
+            idPaciente: idPaciente,
+            idProfissional: ctx.idProfissional || "",
+            nomeTemplate: titulo,
+            dados: { titulo, texto }
+          };
+          await callApiData({ action: "Anamnese.Salvar", payload: payload });
+          showToast_("Anamnese salva com sucesso!", "success");
+        }
       }
 
       // Limpa formulario
@@ -238,10 +257,21 @@
     }
 
     try {
-      await callApiData({
-        action: "Anamnese.Excluir",
-        payload: { idAnamnese: anamnese.idAnamnese }
-      });
+      // ✅ Usa Supabase service diretamente
+      const supaService = getAnamneseService();
+
+      if (supaService && typeof supaService.excluir === "function") {
+        const result = await supaService.excluir(anamnese.idAnamnese);
+        if (!result.success) {
+          throw new Error(result.error || "Erro ao excluir anamnese");
+        }
+      } else {
+        // Fallback para API legada
+        await callApiData({
+          action: "Anamnese.Excluir",
+          payload: { idAnamnese: anamnese.idAnamnese }
+        });
+      }
 
       showToast_("Anamnese excluida com sucesso!", "success");
 
@@ -307,17 +337,40 @@
     }
 
     try {
-      const payload = { idPaciente: idPaciente, limit: limit };
-      if (append && anamnesePaging.cursor) payload.cursor = anamnesePaging.cursor;
+      // ✅ Usa Supabase service diretamente
+      const supaService = getAnamneseService();
+      let items = [];
+      let hasMore = false;
+      let nextCursor = null;
 
-      const data = await callApiDataTry_(
-        ["Anamnese.ListarPorPacientePaged", "Anamnese.ListarPorPaciente"],
-        payload
-      );
+      if (supaService && typeof supaService.listarPorPaciente === "function") {
+        const result = await supaService.listarPorPaciente({
+          idPaciente: idPaciente,
+          limit: limit,
+          cursor: append && anamnesePaging.cursor ? anamnesePaging.cursor : null
+        });
 
-      const items = data && (data.items || data.anamneses || []);
-      const hasMore = !!(data && data.hasMore);
-      const nextCursor = data && data.nextCursor ? data.nextCursor : null;
+        if (result.success && result.data) {
+          items = result.data.items || [];
+          hasMore = result.data.hasMore || false;
+          nextCursor = result.data.nextCursor || null;
+        } else {
+          throw new Error(result.error || "Erro ao carregar anamneses");
+        }
+      } else {
+        // Fallback para API legada
+        const payload = { idPaciente: idPaciente, limit: limit };
+        if (append && anamnesePaging.cursor) payload.cursor = anamnesePaging.cursor;
+
+        const data = await callApiDataTry_(
+          ["Anamnese.ListarPorPacientePaged", "Anamnese.ListarPorPaciente"],
+          payload
+        );
+
+        items = data && (data.items || data.anamneses || []);
+        hasMore = !!(data && data.hasMore);
+        nextCursor = data && data.nextCursor ? data.nextCursor : null;
+      }
 
       if (!append) anamnesePaging.lista = items.slice();
       else anamnesePaging.lista = anamnesePaging.lista.concat(items);

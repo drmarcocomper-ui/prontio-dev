@@ -7,6 +7,10 @@
   const { callApiDataTry_ } = PRONTIO.features.prontuario.api;
   const { carregarResumoPaciente_ } = PRONTIO.features.prontuario.paciente;
 
+  // ✅ Helper para serviço Supabase de evoluções
+  const getEvolucoesService = () => PRONTIO.services?.evolucoes || null;
+  const getAnamneseService = () => PRONTIO.services?.anamnese || null;
+
   // Cache de anamneses para o modal
   let anamnesesCache = [];
 
@@ -149,23 +153,45 @@
     }
 
     try {
-      const payload = { idPaciente: ctx.idPaciente, limit: limit };
-      if (append && evoPaging.cursor) payload.cursor = evoPaging.cursor;
+      // ✅ Usa Supabase service diretamente (sem fallback para API legada)
+      const supaService = getEvolucoesService();
+      let lista = [];
+      let nextCursor = null;
+      let hasMore = false;
 
-      const data = await callApiDataTry_(
-        ["Prontuario.Evolucao.ListarPorPacientePaged", "Prontuario.Evolucao.ListarPorPaciente", "Evolucao.ListarPorPaciente"],
-        payload
-      );
+      if (supaService && typeof supaService.listarPorPaciente === "function") {
+        const result = await supaService.listarPorPaciente({
+          idPaciente: ctx.idPaciente,
+          limit: limit,
+          cursor: append && evoPaging.cursor ? evoPaging.cursor : null
+        });
 
-      const itemsPaged = data && (data.items || data.evolucoes || data.lista);
-      let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
-      lista = ordenarEvolucoes(lista);
+        if (result.success && result.data) {
+          lista = result.data.items || [];
+          nextCursor = result.data.nextCursor || null;
+          hasMore = result.data.hasMore || false;
+        } else {
+          throw new Error(result.error || "Erro ao carregar evoluções");
+        }
+      } else {
+        // Fallback para API legada apenas se serviço não disponível
+        const payload = { idPaciente: ctx.idPaciente, limit: limit };
+        if (append && evoPaging.cursor) payload.cursor = evoPaging.cursor;
 
-      const nextCursor =
-        data && (data.nextCursor || (data.page && data.page.nextCursor))
+        const data = await callApiDataTry_(
+          ["Prontuario.Evolucao.ListarPorPacientePaged", "Prontuario.Evolucao.ListarPorPaciente", "Evolucao.ListarPorPaciente"],
+          payload
+        );
+
+        const itemsPaged = data && (data.items || data.evolucoes || data.lista);
+        lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
+        nextCursor = data && (data.nextCursor || (data.page && data.page.nextCursor))
           ? data.nextCursor || data.page.nextCursor
           : null;
-      const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
+        hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
+      }
+
+      lista = ordenarEvolucoes(lista);
 
       if (!append) evoPaging.lista = lista.slice();
       else evoPaging.lista = evoPaging.lista.concat(lista);
@@ -200,11 +226,34 @@
       return;
     }
 
-    const payload = { idPaciente: ctx.idPaciente, idAgenda: ctx.idAgenda, texto, origem: "PRONTUARIO" };
-    if (idEvolucaoEmEdicao) payload.idEvolucao = idEvolucaoEmEdicao;
-
     try {
-      await callApiDataTry_(["Prontuario.Evolucao.Salvar", "Evolucao.Salvar"], payload);
+      // ✅ Usa Supabase service diretamente
+      const supaService = getEvolucoesService();
+
+      if (supaService) {
+        let result;
+        if (idEvolucaoEmEdicao) {
+          // Atualiza evolução existente
+          result = await supaService.atualizar(idEvolucaoEmEdicao, { texto });
+        } else {
+          // Cria nova evolução
+          result = await supaService.salvar({
+            idPaciente: ctx.idPaciente,
+            idAgenda: ctx.idAgenda || null,
+            texto,
+            origem: "PRONTUARIO"
+          });
+        }
+
+        if (!result.success) {
+          throw new Error(result.error || "Erro ao salvar evolução");
+        }
+      } else {
+        // Fallback para API legada
+        const payload = { idPaciente: ctx.idPaciente, idAgenda: ctx.idAgenda, texto, origem: "PRONTUARIO" };
+        if (idEvolucaoEmEdicao) payload.idEvolucao = idEvolucaoEmEdicao;
+        await callApiDataTry_(["Prontuario.Evolucao.Salvar", "Evolucao.Salvar"], payload);
+      }
 
       setMensagemEvolucao({
         tipo: "sucesso",
@@ -282,12 +331,24 @@
     }
 
     try {
-      const data = await callApiDataTry_(
-        ["Anamnese.ListarPorPaciente"],
-        { idPaciente: idPaciente }
-      );
+      // ✅ Usa Supabase service diretamente
+      const supaService = getAnamneseService();
 
-      anamnesesCache = data && data.anamneses ? data.anamneses : [];
+      if (supaService && typeof supaService.listarPorPaciente === "function") {
+        const result = await supaService.listarPorPaciente({ idPaciente: idPaciente, limit: 50 });
+        if (result.success && result.data) {
+          anamnesesCache = result.data.items || [];
+        } else {
+          throw new Error(result.error || "Erro ao carregar anamneses");
+        }
+      } else {
+        // Fallback para API legada
+        const data = await callApiDataTry_(
+          ["Anamnese.ListarPorPaciente"],
+          { idPaciente: idPaciente }
+        );
+        anamnesesCache = data && data.anamneses ? data.anamneses : [];
+      }
 
       if (!anamnesesCache.length) {
         if (vazio) vazio.textContent = "Nenhuma anamnese registrada para este paciente.";

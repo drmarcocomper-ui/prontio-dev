@@ -64,7 +64,10 @@
       loader.loadOnce("assets/js/services/supabase/auth.service.js"),
       loader.loadOnce("assets/js/services/supabase/pacientes.service.js"),
       loader.loadOnce("assets/js/services/supabase/agenda.service.js"),
-      loader.loadOnce("assets/js/services/supabase/profissionais.service.js")
+      loader.loadOnce("assets/js/services/supabase/profissionais.service.js"),
+      loader.loadOnce("assets/js/services/supabase/evolucoes.service.js"),
+      loader.loadOnce("assets/js/services/supabase/receitas.service.js"),
+      loader.loadOnce("assets/js/services/supabase/anamnese.service.js")
     ]);
 
     // ✅ Aguarda recuperação da sessão Supabase (se existir)

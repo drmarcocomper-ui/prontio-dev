@@ -7,6 +7,9 @@
     PRONTIO.features.prontuario.utils;
   const { callApiData, callApiDataTry_ } = PRONTIO.features.prontuario.api;
 
+  // ✅ Helper para serviço Supabase de receitas
+  const getReceitasService = () => PRONTIO.services?.receitas || null;
+
   let receitaPanel = null;
   let receitaPanelAside = null;
   let receitaPanelLastFocus = null;
@@ -193,6 +196,24 @@
 
   async function buscarSugestoesMedicamento_(q) {
     try {
+      // ✅ Usa Supabase service diretamente
+      const supaService = getReceitasService();
+
+      if (supaService && typeof supaService.buscarMedicamentos === "function") {
+        const result = await supaService.buscarMedicamentos(q, 50);
+        if (result.success && result.data) {
+          const meds = result.data.medicamentos || [];
+          return meds.map((m) => {
+            const nome = String(m.Nome_Medicacao || m.nome || "").trim();
+            const posologias = splitPosologias_(m.Posologia || "");
+            const quantidade = String(m.Quantidade || m.quantidade || "").trim();
+            const via = String(m.Via_Administracao || m.via || m.viaAdministracao || "").trim();
+            return { nome, posologias, quantidade, via };
+          }).filter((x) => x.nome);
+        }
+      }
+
+      // Fallback para API legada
       const data = await callApiDataTry_(
         ["Medicamentos.ListarAtivos", "Medicamentos_ListarAtivos", "Remedios.ListarAtivos", "Remedios_ListarAtivos"],
         { q: q, limit: 50 }
@@ -429,64 +450,59 @@
 
     const idPaciente = String(ctx.idPaciente || ctx.ID_Paciente || "").trim();
     if (!idPaciente) {
-      // ✅ P1: Usa toast em vez de alert()
       showToast_("Paciente não identificado.");
       return;
     }
 
     const itens = collectItensFromCards_();
     if (!itens.length) {
-      // ✅ P1: Usa toast em vez de alert()
       showToast_("Informe ao menos um medicamento.");
       return;
     }
 
-    const payload = {
-      idPaciente: idPaciente,
-      idAgenda: String(ctx.idAgenda || ctx.ID_Agenda || "").trim(),
-      dataReceita: qs("#receitaData")?.value || "",
-      observacoes: qs("#receitaObservacoes")?.value || "",
-      itens: itens,
-    };
+    const dataReceita = qs("#receitaData")?.value || "";
+    const observacoes = qs("#receitaObservacoes")?.value || "";
+    const idAgenda = String(ctx.idAgenda || ctx.ID_Agenda || "").trim() || null;
 
-    const acao =
-      ev.submitter?.dataset?.acaoReceita === "rascunho"
-        ? "Receita.SalvarRascunho"
-        : "Receita.SalvarFinal";
+    let idReceita = "";
 
-    // ✅ P0-4: Envolver chamada de API em try-catch para evitar estado inconsistente
-    let resp;
     try {
-      resp = await callApiData({ action: acao, payload: payload });
+      // ✅ Usa Supabase service diretamente
+      const supaService = getReceitasService();
+
+      if (supaService && typeof supaService.salvar === "function") {
+        const result = await supaService.salvar({
+          idPaciente,
+          idAgenda,
+          dataReceita,
+          observacoes,
+          itens
+        });
+
+        if (!result.success) {
+          throw new Error(result.error || "Erro ao salvar receita");
+        }
+
+        idReceita = result.data?.idReceita || result.data?.receita?.idReceita || "";
+      } else {
+        // Fallback para API legada
+        const payload = { idPaciente, idAgenda, dataReceita, observacoes, itens };
+        const acao = ev.submitter?.dataset?.acaoReceita === "rascunho"
+          ? "Receita.SalvarRascunho"
+          : "Receita.SalvarFinal";
+
+        const resp = await callApiData({ action: acao, payload: payload });
+
+        idReceita = (resp && (resp.idReceita || resp.ID_Receita)) ||
+          (resp && resp.receita && (resp.receita.idReceita || resp.receita.ID_Receita)) || "";
+      }
+
+      showToast_("Receita salva com sucesso!", "success");
+
     } catch (err) {
       console.error("[PRONTIO] Erro ao salvar receita:", err);
-      // ✅ P1: Usa toast em vez de alert()
       showToast_("Erro ao salvar receita: " + extractErrorMessage_(err));
-      return; // ✅ Não limpa formulário se falhou
-    }
-
-    const idReceita =
-      (resp && (resp.idReceita || resp.ID_Receita)) ||
-      (resp && resp.receita && (resp.receita.idReceita || resp.receita.ID_Receita)) ||
-      "";
-
-    if (acao === "Receita.SalvarFinal" && idReceita) {
-      try {
-        const pdf = await callApiData({ action: "Receita.GerarPdf", payload: { idReceita } });
-        const win = global.open("", "_blank");
-        if (!win) {
-          // ✅ P1: Usa toast em vez de alert()
-          showToast_("Pop-up bloqueado. Libere para imprimir a receita.", "warning");
-        } else {
-          win.document.open();
-          win.document.write(pdf && pdf.html ? pdf.html : "");
-          win.document.close();
-        }
-      } catch (pdfErr) {
-        console.warn("[PRONTIO] Erro ao gerar PDF da receita:", pdfErr);
-        // ✅ P1: Usa toast em vez de alert()
-        showToast_("Receita salva, mas ocorreu um erro ao gerar o PDF.", "warning");
-      }
+      return;
     }
 
     // ✅ Só limpa formulário após sucesso
@@ -695,25 +711,47 @@
 
     try {
       const limit = opts && opts.limit ? Number(opts.limit) : 25;
-      const payload = { idPaciente: ctx.idPaciente, limit: limit };
-      if (append && recPaging.cursor) payload.cursor = recPaging.cursor;
 
-      const data = await callApiDataTry_(
-        ["Prontuario.Receita.ListarPorPacientePaged", "Prontuario.Receita.ListarPorPaciente", "Receita.ListarPorPaciente"],
-        payload
-      );
+      // ✅ Usa Supabase service diretamente
+      const supaService = getReceitasService();
+      let lista = [];
+      let nextCursor = null;
+      let hasMore = false;
 
-      const itemsPaged = data && (data.items || data.receitas || data.lista);
-      let lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
+      if (supaService && typeof supaService.listarPorPaciente === "function") {
+        const result = await supaService.listarPorPaciente({
+          idPaciente: ctx.idPaciente,
+          limit: limit,
+          cursor: append && recPaging.cursor ? recPaging.cursor : null
+        });
+
+        if (result.success && result.data) {
+          lista = result.data.items || [];
+          nextCursor = result.data.nextCursor || null;
+          hasMore = result.data.hasMore || false;
+        } else {
+          throw new Error(result.error || "Erro ao carregar receitas");
+        }
+      } else {
+        // Fallback para API legada
+        const payload = { idPaciente: ctx.idPaciente, limit: limit };
+        if (append && recPaging.cursor) payload.cursor = recPaging.cursor;
+
+        const data = await callApiDataTry_(
+          ["Prontuario.Receita.ListarPorPacientePaged", "Prontuario.Receita.ListarPorPaciente", "Receita.ListarPorPaciente"],
+          payload
+        );
+
+        const itemsPaged = data && (data.items || data.receitas || data.lista);
+        lista = Array.isArray(itemsPaged) ? itemsPaged : Array.isArray(data) ? data : [];
+        nextCursor = data && (data.nextCursor || (data.page && data.page.nextCursor))
+          ? data.nextCursor || data.page.nextCursor
+          : null;
+        hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
+      }
 
       // ✅ P2: Usa função genérica de ordenação
       lista = sortByDateDesc_(lista, ["dataHoraCriacao", "dataHora", "data", "criadoEm"]);
-
-      const nextCursor =
-        data && (data.nextCursor || (data.page && data.page.nextCursor))
-          ? data.nextCursor || data.page.nextCursor
-          : null;
-      const hasMore = !!(data && (data.hasMore || (data.page && data.page.hasMore)));
 
       if (!append) recPaging.lista = lista.slice();
       else recPaging.lista = recPaging.lista.concat(lista);
