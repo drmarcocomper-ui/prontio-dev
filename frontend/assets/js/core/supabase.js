@@ -196,6 +196,16 @@
       return this;
     }
 
+    or(conditions) {
+      this.queryParams.push(`or=(${conditions})`);
+      return this;
+    }
+
+    and(conditions) {
+      this.queryParams.push(`and=(${conditions})`);
+      return this;
+    }
+
     order(column, { ascending = true } = {}) {
       this.orderByColumn = column;
       this.orderAscending = ascending;

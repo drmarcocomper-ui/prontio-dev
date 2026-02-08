@@ -161,6 +161,21 @@
   // URL helpers
   // ------------------------------------------------------------
 
+  const LS_POST_LOGIN_REDIRECT = "prontio.auth.postLoginRedirect";
+
+  function setPostLoginRedirect(url) {
+    if (!url) return;
+    safeSet_(LS_POST_LOGIN_REDIRECT, String(url));
+  }
+
+  function popPostLoginRedirect() {
+    const url = safeGet_(LS_POST_LOGIN_REDIRECT);
+    if (url) {
+      safeRemove_(LS_POST_LOGIN_REDIRECT);
+    }
+    return url || null;
+  }
+
   function resolveLoginUrl_() {
     // ✅ evita quebrar em GitHub Pages/subpath (não usa "/login.html")
     try {
@@ -203,6 +218,13 @@
     opts = opts || {};
     const redirect = opts.redirect !== false;
     const clearChat = opts.clearChat !== false;
+
+    // ✅ Tenta Supabase primeiro
+    if (PRONTIO.services && PRONTIO.services.auth && typeof PRONTIO.services.auth.logout === "function") {
+      try {
+        await PRONTIO.services.auth.logout();
+      } catch (_) {}
+    }
 
     const token = getToken();
     if (!token) {
@@ -256,6 +278,8 @@
    * Login:
    * payload: { login, senha }
    * retorno esperado do backend: { token, user, expiresIn }
+   *
+   * ✅ Prioridade: Supabase → Legacy API (fallback)
    */
   async function login(args) {
     args = args || {};
@@ -269,6 +293,36 @@
       throw err;
     }
 
+    // ✅ Tenta Supabase primeiro (novo fluxo profissional)
+    if (PRONTIO.services && PRONTIO.services.auth && typeof PRONTIO.services.auth.login === "function") {
+      const result = await PRONTIO.services.auth.login(loginStr, senhaStr);
+
+      if (result.success) {
+        // ✅ Supabase gerencia seu próprio token, mas mantemos compatibilidade
+        const supabaseSession = PRONTIO.supabase?.getSession?.();
+        if (supabaseSession?.access_token) {
+          setToken(supabaseSession.access_token);
+        }
+
+        // ✅ Estado de sessão UI + cache imediato para topbar
+        if (result.data && result.data.user) {
+          setSessionUser_(result.data.user);
+          cacheTopbarUser_(result.data.user);
+        }
+
+        return {
+          token: supabaseSession?.access_token || "supabase_session",
+          user: result.data?.user || null,
+          session: result.data?.session || null
+        };
+      } else {
+        const err = new Error(result.error || "Falha no login");
+        err.code = "AUTH_FAILED";
+        throw err;
+      }
+    }
+
+    // ✅ Fallback: Legacy API (Google Apps Script)
     const callApiData = getCallApiData_();
     if (!callApiData) {
       const err = new Error("API não disponível (PRONTIO.api.callApiData indefinido).");
@@ -382,6 +436,22 @@
   }
 
   // ------------------------------------------------------------
+  // isAuthenticated: verifica se usuário está logado
+  // ------------------------------------------------------------
+
+  function isAuthenticated() {
+    // ✅ Verifica Supabase primeiro
+    if (PRONTIO.services && PRONTIO.services.auth && typeof PRONTIO.services.auth.isAuthenticated === "function") {
+      if (PRONTIO.services.auth.isAuthenticated()) {
+        return true;
+      }
+    }
+
+    // ✅ Fallback: verifica token local
+    return !!getToken();
+  }
+
+  // ------------------------------------------------------------
   // Exports
   // ------------------------------------------------------------
 
@@ -391,6 +461,11 @@
 
   PRONTIO.auth.getLastAuthReason = getLastAuthReason;
   PRONTIO.auth.setLastAuthReason = setLastAuthReason;
+
+  PRONTIO.auth.isAuthenticated = isAuthenticated;
+
+  PRONTIO.auth.setPostLoginRedirect = setPostLoginRedirect;
+  PRONTIO.auth.popPostLoginRedirect = popPostLoginRedirect;
 
   PRONTIO.auth.login = login;
   PRONTIO.auth.signIn = login;
