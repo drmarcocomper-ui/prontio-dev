@@ -210,7 +210,7 @@
       try {
         const { data, error } = await supabase
           .from("paciente")
-          .select("id, nome_completo, nome_social, cpf, telefone_principal, data_nascimento")
+          .select("id,nome_completo,nome_social,cpf,telefone_principal,data_nascimento")
           .eq("clinica_id", clinicaId)
           .eq("ativo", true)
           .or(`nome_completo.ilike.%${termo}%,cpf.ilike.%${termo}%,telefone_principal.ilike.%${termo}%`)
