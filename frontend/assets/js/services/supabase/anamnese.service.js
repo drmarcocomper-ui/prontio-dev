@@ -116,10 +116,12 @@
           id: anamneseId,
           clinica_id: clinicaId,
           paciente_id: idPaciente,
-          profissional_id: profissionalId || null,
           nome_template: nomeTemplate,
           dados: dados || {}
         };
+
+        // Só inclui campos opcionais se tiverem valor
+        if (profissionalId) anamnese.profissional_id = profissionalId;
 
         const { error } = await supabase
           .from("anamnese")

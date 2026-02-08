@@ -89,11 +89,13 @@
         const evolucao = {
           clinica_id: clinicaId,
           paciente_id: idPaciente,
-          profissional_id: profissionalId || null,
-          agenda_id: idAgenda || null,
           texto: texto.trim(),
           origem: origem || "PRONTUARIO"
         };
+
+        // Só inclui campos opcionais se tiverem valor
+        if (profissionalId) evolucao.profissional_id = profissionalId;
+        if (idAgenda) evolucao.agenda_id = idAgenda;
 
         const { error } = await supabase
           .from("evolucao")

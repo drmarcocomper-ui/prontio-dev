@@ -138,11 +138,13 @@
           id: receitaId,
           clinica_id: clinicaId,
           paciente_id: idPaciente,
-          profissional_id: profissionalId || null,
-          agenda_id: idAgenda || null,
           data_receita: dataReceita || new Date().toISOString().split("T")[0],
           observacoes: observacoes || ""
         };
+
+        // Só inclui campos opcionais se tiverem valor
+        if (profissionalId) receita.profissional_id = profissionalId;
+        if (idAgenda) receita.agenda_id = idAgenda;
 
         const { error: errReceita } = await supabase
           .from("receita")
