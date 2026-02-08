@@ -40,15 +40,37 @@
     }
   }
 
+  // ✅ Timeout rápido para não bloquear a página
+  const API_TIMEOUT_MS = 3000;
+
+  function withTimeout_(promise, ms) {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error("Timeout: API legada indisponível"));
+      }, ms);
+
+      promise
+        .then((result) => {
+          clearTimeout(timer);
+          resolve(result);
+        })
+        .catch((err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
+    });
+  }
+
   /**
    * Tenta chamar uma lista de actions até uma funcionar
    * @param {string|string[]} actions - Action ou lista de actions para tentar
    * @param {object} payload - Payload da requisição
-   * @param {object} opts - Opções: { signal?: AbortSignal }
+   * @param {object} opts - Opções: { signal?: AbortSignal, timeout?: number }
    */
   async function callApiDataTry_(actions, payload, opts) {
     const list = Array.isArray(actions) ? actions : [actions];
     const signal = opts && opts.signal ? opts.signal : null;
+    const timeout = opts && opts.timeout ? opts.timeout : API_TIMEOUT_MS;
     let lastErr = null;
 
     for (let i = 0; i < list.length; i++) {
@@ -62,7 +84,11 @@
       }
 
       try {
-        const data = await callApiData({ action, payload: payload || {}, signal });
+        // ✅ Adiciona timeout para não bloquear a página
+        const data = await withTimeout_(
+          callApiData({ action, payload: payload || {}, signal }),
+          timeout
+        );
         return data;
       } catch (e) {
         // ✅ P4: Se foi cancelado, propaga o erro imediatamente
