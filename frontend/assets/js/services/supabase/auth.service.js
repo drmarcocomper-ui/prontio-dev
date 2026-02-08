@@ -41,14 +41,18 @@
           return { success: false, error: "Usuário não encontrado no sistema" };
         }
 
-        // Salva sessão
+        // Salva sessão (usa nomes compatíveis com session.js)
         PRONTIO.session = {
           userId: userData.id,
+          idUsuario: userData.id,
           authUserId: result.user?.id,
           clinicaId: userData.clinica_id,
+          idClinica: userData.clinica_id,
           nome: userData.nome_completo,
+          nomeCompleto: userData.nome_completo,
           email: userData.email,
           perfil: userData.perfil,
+          idProfissional: userData.profissional_id,
           profissionalId: userData.profissional_id
         };
 
