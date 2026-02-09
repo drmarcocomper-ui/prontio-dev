@@ -10,7 +10,19 @@
   PRONTIO.services = PRONTIO.services || {};
 
   const getSupabase = () => PRONTIO.supabase;
-  const getClinicaId = () => PRONTIO.session?.clinicaId || null;
+  const getClinicaId = () => {
+    if (PRONTIO.session?.clinicaId) return PRONTIO.session.clinicaId;
+    if (PRONTIO.session?.idClinica) return PRONTIO.session.idClinica;
+    // Fallback: tenta ler do localStorage
+    try {
+      const raw = localStorage.getItem("prontio_session");
+      if (raw) {
+        const s = JSON.parse(raw);
+        return s.clinicaId || s.idClinica || null;
+      }
+    } catch (_) {}
+    return null;
+  };
 
   // ============================================================
   // MEDICAMENTOS SERVICE

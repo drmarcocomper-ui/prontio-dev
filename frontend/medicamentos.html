@@ -145,8 +145,9 @@
               <button type="button" class="modal-close" data-close-modal>&times;</button>
             </div>
             <div class="modal-body">
-              <p>Formato esperado do CSV:</p>
-              <code>Nome_Medicacao,Posologia,Quantidade,Via_Administracao,Tipo_Receita,Favorito</code>
+              <p>O CSV deve ter cabecalho com as colunas. Colunas reconhecidas:</p>
+              <code>Nome_Medicacao, Posologia, Quantidade, Via_Administracao, Tipo_Receita, Favorito, Ativo</code>
+              <p class="texto-menor texto-suave" style="margin-top:4px;">Colunas extras (como ID_Medicamento) sao ignoradas automaticamente.</p>
               <br><br>
 
               <div class="csv-upload-area">

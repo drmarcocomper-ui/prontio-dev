@@ -373,6 +373,33 @@
     return campos;
   }
 
+  function normalizarNomeColuna(col) {
+    return col.toLowerCase().replace(/[^a-z]/g, "");
+  }
+
+  function detectarCabecalho(cols) {
+    const nomes = cols.map(normalizarNomeColuna);
+    return nomes.some(n => n.includes("nome") || n.includes("medicacao") || n.includes("posologia"));
+  }
+
+  function mapearPorCabecalho(cabecalho, valores) {
+    const mapa = {};
+    cabecalho.forEach((col, i) => {
+      const chave = normalizarNomeColuna(col);
+      const val = (valores[i] || "").trim();
+
+      if (chave.includes("nome") && chave.includes("medica")) mapa.Nome_Medicacao = val;
+      else if (chave === "nome") mapa.Nome_Medicacao = val;
+      else if (chave.includes("posologia")) mapa.Posologia = val;
+      else if (chave.includes("quantidade")) mapa.Quantidade = val;
+      else if (chave.includes("via")) mapa.Via_Administracao = val;
+      else if (chave.includes("tipo") && chave.includes("receita")) mapa.Tipo_Receita = val;
+      else if (chave.includes("favorito")) mapa.Favorito = val.toLowerCase() === "true" || val === "1";
+      else if (chave.includes("ativo")) mapa.Ativo = val.toLowerCase() === "true" || val === "1";
+    });
+    return mapa;
+  }
+
   async function processarCsv() {
     const csv = qs("#csvImportArea")?.value || "";
     if (!csv.trim()) {
@@ -382,6 +409,7 @@
 
     const linhas = csv.trim().split("\n");
     const medicamentos = [];
+    let cabecalho = null;
 
     for (let i = 0; i < linhas.length; i++) {
       const linha = linhas[i].trim();
@@ -389,22 +417,36 @@
 
       const cols = parseCsvLine(linha);
 
-      // Pula cabecalho
-      if (i === 0 && (cols[0]?.toLowerCase().includes("nome") || cols[0]?.toLowerCase().includes("medicacao"))) {
+      // Detecta cabecalho na primeira linha
+      if (i === 0 && detectarCabecalho(cols)) {
+        cabecalho = cols;
         continue;
       }
 
-      const nome = (cols[0] || "").trim();
-      if (!nome) continue;
+      let med;
 
-      medicamentos.push({
-        Nome_Medicacao: nome,
-        Posologia: (cols[1] || "").trim(),
-        Quantidade: (cols[2] || "").trim(),
-        Via_Administracao: (cols[3] || "").trim(),
-        Tipo_Receita: (cols[4] || "COMUM").trim(),
-        Favorito: (cols[5] || "").toLowerCase() === "true" || cols[5] === "1"
-      });
+      if (cabecalho) {
+        // Mapeia pelas colunas do cabecalho
+        med = mapearPorCabecalho(cabecalho, cols);
+      } else {
+        // Fallback: ordem fixa
+        med = {
+          Nome_Medicacao: (cols[0] || "").trim(),
+          Posologia: (cols[1] || "").trim(),
+          Quantidade: (cols[2] || "").trim(),
+          Via_Administracao: (cols[3] || "").trim(),
+          Tipo_Receita: (cols[4] || "COMUM").trim(),
+          Favorito: (cols[5] || "").toLowerCase() === "true" || cols[5] === "1"
+        };
+      }
+
+      if (!med.Nome_Medicacao) continue;
+
+      // Defaults
+      if (!med.Tipo_Receita) med.Tipo_Receita = "COMUM";
+      if (med.Favorito === undefined) med.Favorito = false;
+
+      medicamentos.push(med);
     }
 
     if (!medicamentos.length) {
