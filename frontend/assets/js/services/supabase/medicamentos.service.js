@@ -144,15 +144,16 @@
         const medicamento = {
           id: medicamentoId,
           nome: nome.trim(),
-          posologia_padrao: posologia || "",
-          quantidade_padrao: quantidade || "",
-          via_padrao: via || "",
-          tipo_receita: tipoReceita || "COMUM",
-          favorito: !!favorito,
           ativo: true
         };
 
+        // Só inclui campos opcionais se tiverem valor
         if (clinicaId) medicamento.clinica_id = clinicaId;
+        if (posologia) medicamento.posologia_padrao = posologia;
+        if (quantidade) medicamento.quantidade_padrao = quantidade;
+        if (via) medicamento.via_padrao = via;
+        if (tipoReceita) medicamento.tipo_receita = tipoReceita;
+        if (favorito) medicamento.favorito = true;
 
         const { error } = await supabase
           .from("medicamento")
@@ -236,23 +237,44 @@
       }
 
       try {
-        const itens = medicamentos.map(m => ({
-          id: crypto.randomUUID(),
-          clinica_id: clinicaId || null,
-          nome: String(m.Nome_Medicacao || m.nome || "").trim(),
-          posologia_padrao: String(m.Posologia || m.posologia || "").trim(),
-          quantidade_padrao: String(m.Quantidade || m.quantidade || "").trim(),
-          via_padrao: String(m.Via_Administracao || m.via || "").trim(),
-          tipo_receita: String(m.Tipo_Receita || m.tipoReceita || "COMUM").toUpperCase(),
-          favorito: m.Favorito === true || m.Favorito === "true" || m.Favorito === "TRUE" || m.favorito === true,
-          ativo: m.Ativo !== false && m.Ativo !== "false" && m.Ativo !== "FALSE" && m.ativo !== false
-        })).filter(m => m.nome);
+        const itens = medicamentos.map(m => {
+          const item = {
+            id: crypto.randomUUID(),
+            nome: String(m.Nome_Medicacao || m.nome || "").trim(),
+            ativo: true
+          };
+
+          // Só inclui campos opcionais se tiverem valor
+          if (clinicaId) item.clinica_id = clinicaId;
+
+          const posologia = String(m.Posologia || m.posologia || "").trim();
+          if (posologia) item.posologia_padrao = posologia;
+
+          const quantidade = String(m.Quantidade || m.quantidade || "").trim();
+          if (quantidade) item.quantidade_padrao = quantidade;
+
+          const via = String(m.Via_Administracao || m.via || "").trim();
+          if (via) item.via_padrao = via;
+
+          const tipoReceita = String(m.Tipo_Receita || m.tipoReceita || "").trim().toUpperCase();
+          if (tipoReceita) item.tipo_receita = tipoReceita;
+
+          const favorito = m.Favorito === true || m.Favorito === "true" || m.Favorito === "TRUE" || m.favorito === true;
+          if (favorito) item.favorito = true;
+
+          return item;
+        }).filter(m => m.nome);
+
+        if (!itens.length) {
+          return { success: false, error: "Nenhum medicamento valido encontrado" };
+        }
 
         const { error } = await supabase
           .from("medicamento")
           .insert(itens);
 
         if (error) {
+          console.error("[MedicamentosService] Erro insert:", error);
           return { success: false, error: error.message };
         }
 
@@ -261,6 +283,7 @@
           data: { importados: itens.length }
         };
       } catch (err) {
+        console.error("[MedicamentosService] Erro importarLote:", err);
         return { success: false, error: err.message };
       }
     },
