@@ -98,6 +98,7 @@
           <button type="button" class="btn btn-sm ${m.ativo ? 'perigo' : 'sucesso'} js-toggle-ativo">
             ${m.ativo ? 'Inativar' : 'Reativar'}
           </button>
+          <button type="button" class="btn btn-sm perigo js-deletar" title="Excluir permanentemente">Excluir</button>
         </div>
       </div>
     `).join("");
@@ -121,6 +122,11 @@
       card.querySelector(".js-toggle-ativo")?.addEventListener("click", async (e) => {
         e.stopPropagation();
         await toggleAtivo(med);
+      });
+
+      card.querySelector(".js-deletar")?.addEventListener("click", async (e) => {
+        e.stopPropagation();
+        await deletarMedicamento(med);
       });
 
       card.addEventListener("click", () => editarMedicamento(med));
@@ -220,6 +226,72 @@
     if (result.success) {
       med.favorito = !med.favorito;
       renderLista();
+    }
+  }
+
+  async function excluirTodos() {
+    const total = medicamentosLista.length;
+    if (!total) {
+      mostrarMensagem("Nenhum medicamento para excluir", "erro");
+      return;
+    }
+
+    if (!confirm(`Excluir TODOS os ${total} medicamentos da lista?`)) return;
+
+    const service = getService();
+    if (!service) return;
+
+    const btnExcluir = qs("#btnExcluirTodos");
+    if (btnExcluir) {
+      btnExcluir.disabled = true;
+      btnExcluir.textContent = "Excluindo...";
+    }
+
+    let excluidos = 0;
+    let erros = 0;
+
+    console.log("[ExcluirTodos] Total na lista:", medicamentosLista.length);
+
+    for (const med of medicamentosLista) {
+      console.log("[ExcluirTodos] Excluindo:", med.idMedicamento, med.nome);
+      const result = await service.atualizar(med.idMedicamento, { ativo: false });
+      console.log("[ExcluirTodos] Resultado:", result);
+      if (result.success) {
+        excluidos++;
+      } else {
+        erros++;
+        console.error(`[ExcluirTodos] Erro ao excluir ${med.nome}:`, result.error);
+      }
+    }
+
+    if (btnExcluir) {
+      btnExcluir.disabled = false;
+      btnExcluir.textContent = "Excluir todos";
+    }
+
+    if (excluidos > 0) {
+      const msg = erros ? `${excluidos} excluidos, ${erros} erros` : `${excluidos} medicamentos excluidos`;
+      mostrarMensagem(msg, "sucesso");
+    } else {
+      mostrarMensagem("Nenhum medicamento foi excluido", "erro");
+    }
+
+    await carregarMedicamentos();
+  }
+
+  async function deletarMedicamento(med) {
+    if (!confirm(`Excluir "${med.nome}" permanentemente?`)) return;
+
+    const service = getService();
+    if (!service) return;
+
+    const result = await service.deletar(med.idMedicamento);
+
+    if (result.success) {
+      mostrarMensagem("Medicamento excluido", "sucesso");
+      await carregarMedicamentos();
+    } else {
+      mostrarMensagem(`Erro: ${result.error}`, "erro");
     }
   }
 
@@ -401,6 +473,7 @@
     qs("#btnNovoMedicamento")?.addEventListener("click", limparFormulario);
     qs("#btnCancelarEdicao")?.addEventListener("click", limparFormulario);
     qs("#btnImportarCsv")?.addEventListener("click", abrirModalImportar);
+    qs("#btnExcluirTodos")?.addEventListener("click", excluirTodos);
     qs("#btnProcessarCsv")?.addEventListener("click", processarCsv);
     qs("#csvFileInput")?.addEventListener("change", handleCsvFile);
 

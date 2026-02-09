@@ -195,8 +195,8 @@
 
         const { error } = await supabase
           .from("medicamento")
-          .update(updateData)
-          .eq("id", idMedicamento);
+          .eq("id", idMedicamento)
+          .update(updateData);
 
         if (error) {
           return { success: false, error: error.message };
@@ -223,6 +223,41 @@
      */
     async excluir(idMedicamento) {
       return this.atualizar(idMedicamento, { ativo: false });
+    },
+
+    /**
+     * Remove medicamento (soft delete - inativa)
+     */
+    async deletar(idMedicamento) {
+      return this.atualizar(idMedicamento, { ativo: false });
+    },
+
+    /**
+     * Inativa todos os medicamentos da clinica
+     */
+    async deletarTodos() {
+      const supabase = getSupabase();
+      const clinicaId = getClinicaId();
+
+      if (!clinicaId) {
+        return { success: false, error: "Clinica nao identificada" };
+      }
+
+      try {
+        const { error } = await supabase
+          .from("medicamento")
+          .eq("clinica_id", clinicaId)
+          .eq("ativo", true)
+          .update({ ativo: false });
+
+        if (error) {
+          return { success: false, error: error.message };
+        }
+
+        return { success: true };
+      } catch (err) {
+        return { success: false, error: err.message };
+      }
     },
 
     /**
