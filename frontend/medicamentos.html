@@ -144,9 +144,17 @@
               <button type="button" class="modal-close" data-close-modal>&times;</button>
             </div>
             <div class="modal-body">
-              <p>Cole o conteudo CSV da planilha abaixo. O formato esperado e:</p>
+              <p>Formato esperado do CSV:</p>
               <code>Nome_Medicacao,Posologia,Quantidade,Via_Administracao,Tipo_Receita,Favorito</code>
               <br><br>
+
+              <div class="csv-upload-area">
+                <label for="csvFileInput" class="btn secundario" style="cursor:pointer;">Selecionar arquivo .csv</label>
+                <input type="file" id="csvFileInput" accept=".csv,.txt" style="display:none;">
+                <span id="csvFileName" class="texto-menor texto-suave" style="margin-left:8px;">Nenhum arquivo selecionado</span>
+              </div>
+              <br>
+              <p class="texto-menor texto-suave">Ou cole o conteudo diretamente:</p>
               <textarea id="csvImportArea" rows="10" placeholder="Cole o CSV aqui..." style="width:100%;font-family:monospace;"></textarea>
               <p class="texto-menor texto-suave">Dica: No Google Sheets, selecione as linhas e copie (Ctrl+C). Cole aqui.</p>
             </div>

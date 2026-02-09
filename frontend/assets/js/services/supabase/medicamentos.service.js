@@ -143,29 +143,29 @@
 
         const medicamento = {
           id: medicamentoId,
+          clinica_id: clinicaId,
           nome: nome.trim(),
-          ativo: true
+          tipo_receita: tipoReceita || "COMUM",
+          favorito: !!favorito
         };
 
-        // Só inclui campos opcionais se tiverem valor
-        if (clinicaId) medicamento.clinica_id = clinicaId;
-        if (posologia) medicamento.posologia_padrao = posologia;
-        if (quantidade) medicamento.quantidade_padrao = quantidade;
-        if (via) medicamento.via_padrao = via;
-        if (tipoReceita) medicamento.tipo_receita = tipoReceita;
-        if (favorito) medicamento.favorito = true;
+        // Campos opcionais - só envia se tiver valor
+        if (posologia && posologia.trim()) medicamento.posologia = posologia.trim();
+        if (quantidade && quantidade.trim()) medicamento.quantidade = quantidade.trim();
+        if (via && via.trim()) medicamento.via_administracao = via.trim();
 
         const { error } = await supabase
           .from("medicamento")
           .insert(medicamento);
 
         if (error) {
+          console.error("[MedicamentosService] Erro criar:", error);
           return { success: false, error: error.message };
         }
 
         return {
           success: true,
-          data: { medicamento: { idMedicamento: medicamentoId, ...medicamento } }
+          data: { medicamento: { idMedicamento: medicamentoId, nome: nome.trim() } }
         };
       } catch (err) {
         return { success: false, error: err.message };
@@ -186,9 +186,9 @@
         const updateData = {};
 
         if (nome !== undefined) updateData.nome = nome.trim();
-        if (posologia !== undefined) updateData.posologia_padrao = posologia;
-        if (quantidade !== undefined) updateData.quantidade_padrao = quantidade;
-        if (via !== undefined) updateData.via_padrao = via;
+        if (posologia !== undefined) updateData.posologia = posologia;
+        if (quantidade !== undefined) updateData.quantidade = quantidade;
+        if (via !== undefined) updateData.via_administracao = via;
         if (tipoReceita !== undefined) updateData.tipo_receita = tipoReceita;
         if (favorito !== undefined) updateData.favorito = !!favorito;
         if (ativo !== undefined) updateData.ativo = !!ativo;
@@ -237,38 +237,53 @@
       }
 
       try {
-        // Todos os objetos devem ter EXATAMENTE as mesmas chaves para batch insert
-        const itens = medicamentos.map(m => {
+        // Monta lista de medicamentos válidos
+        const itensParaInserir = medicamentos.map(m => {
           const nome = String(m.Nome_Medicacao || m.nome || "").trim();
           if (!nome) return null;
 
           return {
-            id: crypto.randomUUID(),
-            clinica_id: clinicaId || null,
             nome: nome,
-            posologia_padrao: String(m.Posologia || m.posologia || "").trim() || null,
-            quantidade_padrao: String(m.Quantidade || m.quantidade || "").trim() || null,
-            via_padrao: String(m.Via_Administracao || m.via || "").trim() || null,
-            ativo: true
+            posologia: String(m.Posologia || m.posologia || "").trim() || "",
+            quantidade: String(m.Quantidade || m.quantidade || "").trim() || "",
+            via: String(m.Via_Administracao || m.via || "").trim() || "",
+            tipoReceita: String(m.Tipo_Receita || m.tipoReceita || "COMUM").trim(),
+            favorito: m.Favorito === true || m.favorito === true
           };
         }).filter(Boolean);
 
-        if (!itens.length) {
+        if (!itensParaInserir.length) {
           return { success: false, error: "Nenhum medicamento valido encontrado" };
         }
 
-        const { error } = await supabase
-          .from("medicamento")
-          .insert(itens);
+        // Insere um por um para evitar problemas de schema cache
+        let importados = 0;
+        let erros = [];
 
-        if (error) {
-          console.error("[MedicamentosService] Erro insert:", error);
-          return { success: false, error: error.message };
+        for (const item of itensParaInserir) {
+          const result = await this.criar({
+            nome: item.nome,
+            posologia: item.posologia,
+            quantidade: item.quantidade,
+            via: item.via,
+            tipoReceita: item.tipoReceita,
+            favorito: item.favorito
+          });
+
+          if (result.success) {
+            importados++;
+          } else {
+            erros.push(`${item.nome}: ${result.error}`);
+          }
+        }
+
+        if (importados === 0) {
+          return { success: false, error: erros.join("; ") || "Nenhum medicamento importado" };
         }
 
         return {
           success: true,
-          data: { importados: itens.length }
+          data: { importados, erros: erros.length }
         };
       } catch (err) {
         console.error("[MedicamentosService] Erro importarLote:", err);
@@ -288,12 +303,12 @@
         ID_Medicamento: m.id,
         nome: m.nome,
         Nome_Medicacao: m.nome,
-        posologia: m.posologia_padrao,
-        Posologia: m.posologia_padrao,
-        quantidade: m.quantidade_padrao,
-        Quantidade: m.quantidade_padrao,
-        via: m.via_padrao,
-        Via_Administracao: m.via_padrao,
+        posologia: m.posologia,
+        Posologia: m.posologia,
+        quantidade: m.quantidade,
+        Quantidade: m.quantidade,
+        via: m.via_administracao,
+        Via_Administracao: m.via_administracao,
         tipoReceita: m.tipo_receita,
         Tipo_Receita: m.tipo_receita,
         favorito: m.favorito,

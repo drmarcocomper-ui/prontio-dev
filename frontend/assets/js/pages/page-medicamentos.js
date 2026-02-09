@@ -247,6 +247,10 @@
     if (modal) {
       modal.style.display = "flex";
       qs("#csvImportArea").value = "";
+      const fileInput = qs("#csvFileInput");
+      if (fileInput) fileInput.value = "";
+      const fileName = qs("#csvFileName");
+      if (fileName) fileName.textContent = "Nenhum arquivo selecionado";
       qs("#csvImportArea")?.focus();
     }
   }
@@ -256,10 +260,51 @@
     if (modal) modal.style.display = "none";
   }
 
+  function handleCsvFile(ev) {
+    const file = ev.target.files?.[0];
+    if (!file) return;
+
+    const fileName = qs("#csvFileName");
+    if (fileName) fileName.textContent = file.name;
+
+    const reader = new FileReader();
+    reader.onload = function (e) {
+      const textarea = qs("#csvImportArea");
+      if (textarea) textarea.value = e.target.result;
+    };
+    reader.readAsText(file, "UTF-8");
+  }
+
+  function parseCsvLine(linha) {
+    const campos = [];
+    let atual = "";
+    let dentroAspas = false;
+
+    for (let i = 0; i < linha.length; i++) {
+      const ch = linha[i];
+
+      if (ch === '"') {
+        if (dentroAspas && linha[i + 1] === '"') {
+          atual += '"';
+          i++;
+        } else {
+          dentroAspas = !dentroAspas;
+        }
+      } else if ((ch === ',' || ch === '\t' || ch === ';') && !dentroAspas) {
+        campos.push(atual.trim());
+        atual = "";
+      } else {
+        atual += ch;
+      }
+    }
+    campos.push(atual.trim());
+    return campos;
+  }
+
   async function processarCsv() {
     const csv = qs("#csvImportArea")?.value || "";
     if (!csv.trim()) {
-      mostrarMensagem("Cole o conteudo CSV", "erro");
+      mostrarMensagem("Cole o conteudo CSV ou selecione um arquivo", "erro");
       return;
     }
 
@@ -270,8 +315,7 @@
       const linha = linhas[i].trim();
       if (!linha) continue;
 
-      // Tenta separar por tab ou virgula
-      let cols = linha.includes("\t") ? linha.split("\t") : linha.split(",");
+      const cols = parseCsvLine(linha);
 
       // Pula cabecalho
       if (i === 0 && (cols[0]?.toLowerCase().includes("nome") || cols[0]?.toLowerCase().includes("medicacao"))) {
@@ -302,10 +346,25 @@
       return;
     }
 
+    // Feedback visual
+    const btnProcessar = qs("#btnProcessarCsv");
+    if (btnProcessar) {
+      btnProcessar.disabled = true;
+      btnProcessar.textContent = `Importando 0/${medicamentos.length}...`;
+    }
+
     const result = await service.importarLote(medicamentos);
 
+    if (btnProcessar) {
+      btnProcessar.disabled = false;
+      btnProcessar.textContent = "Importar";
+    }
+
     if (result.success) {
-      mostrarMensagem(`${result.data?.importados || medicamentos.length} medicamentos importados!`, "sucesso");
+      const msg = result.data?.erros
+        ? `${result.data.importados} importados, ${result.data.erros} erros`
+        : `${result.data?.importados || medicamentos.length} medicamentos importados!`;
+      mostrarMensagem(msg, "sucesso");
       fecharModalImportar();
       await carregarMedicamentos();
     } else {
@@ -343,6 +402,7 @@
     qs("#btnCancelarEdicao")?.addEventListener("click", limparFormulario);
     qs("#btnImportarCsv")?.addEventListener("click", abrirModalImportar);
     qs("#btnProcessarCsv")?.addEventListener("click", processarCsv);
+    qs("#csvFileInput")?.addEventListener("change", handleCsvFile);
 
     // Modal fechar
     qsa("[data-close-modal]").forEach(btn => {
