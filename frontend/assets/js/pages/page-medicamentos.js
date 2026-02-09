@@ -76,32 +76,20 @@
       return;
     }
 
-    container.innerHTML = lista.map(m => `
-      <div class="medicamento-card ${m.favorito ? 'is-favorito' : ''} ${!m.ativo ? 'is-inativo' : ''}" data-id="${m.idMedicamento}">
-        <div class="medicamento-card__main">
-          <div class="medicamento-card__nome">
-            ${m.favorito ? '<span class="star" title="Favorito">&#9733;</span>' : ''}
-            ${escapeHtml(m.nome || "")}
-          </div>
-          <div class="medicamento-card__info texto-menor texto-suave">
-            ${m.posologia ? `<span>${escapeHtml(m.posologia)}</span>` : ''}
-            ${m.quantidade ? `<span>Qtd: ${escapeHtml(m.quantidade)}</span>` : ''}
-            ${m.via ? `<span>Via: ${escapeHtml(m.via)}</span>` : ''}
-            ${m.tipoReceita && m.tipoReceita !== 'COMUM' ? `<span class="badge badge-${m.tipoReceita.toLowerCase()}">${escapeHtml(m.tipoReceita)}</span>` : ''}
-          </div>
-        </div>
+    // Ordena alfabeticamente
+    lista.sort((a, b) => (a.nome || "").localeCompare(b.nome || "", "pt-BR"));
+
+    container.innerHTML = lista.map(m => {
+      const nome = m.nome || m.Nome_Medicacao || "(sem nome)";
+      return `
+      <div class="medicamento-card ${!m.ativo ? 'is-inativo' : ''}" data-id="${m.idMedicamento}">
+        <div style="flex:1;font-weight:600;font-size:1rem;">${escapeHtml(nome)}</div>
         <div class="medicamento-card__actions">
-          <button type="button" class="btn btn-sm btn-icon js-toggle-favorito" title="${m.favorito ? 'Remover favorito' : 'Marcar favorito'}">
-            ${m.favorito ? '&#9733;' : '&#9734;'}
-          </button>
           <button type="button" class="btn btn-sm secundario js-editar">Editar</button>
-          <button type="button" class="btn btn-sm ${m.ativo ? 'perigo' : 'sucesso'} js-toggle-ativo">
-            ${m.ativo ? 'Inativar' : 'Reativar'}
-          </button>
-          <button type="button" class="btn btn-sm perigo js-deletar" title="Excluir permanentemente">Excluir</button>
+          <button type="button" class="btn btn-sm perigo js-deletar">Excluir</button>
         </div>
-      </div>
-    `).join("");
+      </div>`;
+    }).join("");
 
     // Bind eventos
     container.querySelectorAll(".medicamento-card").forEach(card => {
@@ -112,16 +100,6 @@
       card.querySelector(".js-editar")?.addEventListener("click", (e) => {
         e.stopPropagation();
         editarMedicamento(med);
-      });
-
-      card.querySelector(".js-toggle-favorito")?.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        await toggleFavorito(med);
-      });
-
-      card.querySelector(".js-toggle-ativo")?.addEventListener("click", async (e) => {
-        e.stopPropagation();
-        await toggleAtivo(med);
       });
 
       card.querySelector(".js-deletar")?.addEventListener("click", async (e) => {
@@ -143,6 +121,16 @@
   // FORMULARIO
   // ============================================================
 
+  function mostrarFormulario() {
+    const sec = qs("#secCadastroMedicamento");
+    if (sec) sec.style.display = "";
+  }
+
+  function esconderFormulario() {
+    const sec = qs("#secCadastroMedicamento");
+    if (sec) sec.style.display = "none";
+  }
+
   function limparFormulario() {
     editandoId = null;
     qs("#idMedicamento").value = "";
@@ -155,6 +143,7 @@
 
     qs("#tituloFormMedicamento").textContent = "Novo Medicamento";
     qs("#btnCancelarEdicao").style.display = "none";
+    mostrarFormulario();
     qs("#nomeMedicamento")?.focus();
   }
 
@@ -170,6 +159,7 @@
 
     qs("#tituloFormMedicamento").textContent = "Editar Medicamento";
     qs("#btnCancelarEdicao").style.display = "inline-flex";
+    mostrarFormulario();
 
     qs("#secCadastroMedicamento")?.scrollIntoView({ behavior: "smooth", block: "start" });
     qs("#nomeMedicamento")?.focus();
@@ -207,7 +197,8 @@
 
     if (result.success) {
       mostrarMensagem(editandoId ? "Medicamento atualizado!" : "Medicamento cadastrado!", "sucesso");
-      limparFormulario();
+      esconderFormulario();
+      editandoId = null;
       await carregarMedicamentos();
     } else {
       mostrarMensagem(`Erro: ${result.error}`, "erro");
@@ -250,12 +241,8 @@
     let excluidos = 0;
     let erros = 0;
 
-    console.log("[ExcluirTodos] Total na lista:", medicamentosLista.length);
-
     for (const med of medicamentosLista) {
-      console.log("[ExcluirTodos] Excluindo:", med.idMedicamento, med.nome);
       const result = await service.atualizar(med.idMedicamento, { ativo: false });
-      console.log("[ExcluirTodos] Resultado:", result);
       if (result.success) {
         excluidos++;
       } else {
@@ -347,7 +334,19 @@
     reader.readAsText(file, "UTF-8");
   }
 
-  function parseCsvLine(linha) {
+  function detectarDelimitador(texto) {
+    // Usa a primeira linha para detectar o delimitador
+    const primeiraLinha = texto.split("\n")[0] || "";
+    const tabs = (primeiraLinha.match(/\t/g) || []).length;
+    const virgulas = (primeiraLinha.match(/,/g) || []).length;
+    const pontoVirgulas = (primeiraLinha.match(/;/g) || []).length;
+
+    if (tabs >= virgulas && tabs >= pontoVirgulas && tabs > 0) return "\t";
+    if (pontoVirgulas >= virgulas && pontoVirgulas > 0) return ";";
+    return ",";
+  }
+
+  function parseCsvLine(linha, delimitador) {
     const campos = [];
     let atual = "";
     let dentroAspas = false;
@@ -362,7 +361,7 @@
         } else {
           dentroAspas = !dentroAspas;
         }
-      } else if ((ch === ',' || ch === '\t' || ch === ';') && !dentroAspas) {
+      } else if (ch === delimitador && !dentroAspas) {
         campos.push(atual.trim());
         atual = "";
       } else {
@@ -408,6 +407,7 @@
     }
 
     const linhas = csv.trim().split("\n");
+    const delimitador = detectarDelimitador(csv);
     const medicamentos = [];
     let cabecalho = null;
 
@@ -415,7 +415,7 @@
       const linha = linhas[i].trim();
       if (!linha) continue;
 
-      const cols = parseCsvLine(linha);
+      const cols = parseCsvLine(linha, delimitador);
 
       // Detecta cabecalho na primeira linha
       if (i === 0 && detectarCabecalho(cols)) {
@@ -426,10 +426,8 @@
       let med;
 
       if (cabecalho) {
-        // Mapeia pelas colunas do cabecalho
         med = mapearPorCabecalho(cabecalho, cols);
       } else {
-        // Fallback: ordem fixa
         med = {
           Nome_Medicacao: (cols[0] || "").trim(),
           Posologia: (cols[1] || "").trim(),
@@ -442,7 +440,6 @@
 
       if (!med.Nome_Medicacao) continue;
 
-      // Defaults
       if (!med.Tipo_Receita) med.Tipo_Receita = "COMUM";
       if (med.Favorito === undefined) med.Favorito = false;
 
@@ -513,7 +510,7 @@
 
     // Botoes
     qs("#btnNovoMedicamento")?.addEventListener("click", limparFormulario);
-    qs("#btnCancelarEdicao")?.addEventListener("click", limparFormulario);
+    qs("#btnCancelarEdicao")?.addEventListener("click", esconderFormulario);
     qs("#btnImportarCsv")?.addEventListener("click", abrirModalImportar);
     qs("#btnExcluirTodos")?.addEventListener("click", excluirTodos);
     qs("#btnProcessarCsv")?.addEventListener("click", processarCsv);

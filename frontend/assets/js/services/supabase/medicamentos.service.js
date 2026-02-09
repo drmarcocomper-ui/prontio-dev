@@ -153,18 +153,20 @@
       try {
         const medicamentoId = crypto.randomUUID();
 
+        const limitar = (str, max) => str && str.length > max ? str.substring(0, max) : str;
+
         const medicamento = {
           id: medicamentoId,
           clinica_id: clinicaId,
-          nome: nome.trim(),
-          tipo_receita: tipoReceita || "COMUM",
+          nome: limitar(nome.trim(), 200),
+          tipo_receita: limitar(tipoReceita || "COMUM", 50),
           favorito: !!favorito
         };
 
         // Campos opcionais - só envia se tiver valor
-        if (posologia && posologia.trim()) medicamento.posologia = posologia.trim();
-        if (quantidade && quantidade.trim()) medicamento.quantidade = quantidade.trim();
-        if (via && via.trim()) medicamento.via_administracao = via.trim();
+        if (posologia && posologia.trim()) medicamento.posologia = limitar(posologia.trim(), 500);
+        if (quantidade && quantidade.trim()) medicamento.quantidade = limitar(quantidade.trim(), 50);
+        if (via && via.trim()) medicamento.via_administracao = limitar(via.trim(), 50);
 
         const { error } = await supabase
           .from("medicamento")
