@@ -113,15 +113,18 @@ CREATE POLICY "anamnese_all" ON anamnese FOR ALL USING (true) WITH CHECK (true);
 -- ============================================================
 CREATE TABLE IF NOT EXISTS medicamento (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  clinica_id UUID REFERENCES clinica(id), -- NULL = global
+  clinica_id UUID NOT NULL REFERENCES clinica(id),
 
   nome VARCHAR(255) NOT NULL,
-  posologia_padrao TEXT,
-  via_padrao VARCHAR(50),
-  quantidade_padrao VARCHAR(100),
+  posologia VARCHAR(200),
+  via_administracao VARCHAR(50),
+  quantidade VARCHAR(50),
+  tipo_receita VARCHAR(50),
+  favorito BOOLEAN DEFAULT FALSE,
 
   ativo BOOLEAN DEFAULT TRUE,
-  criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 -- Índice para busca

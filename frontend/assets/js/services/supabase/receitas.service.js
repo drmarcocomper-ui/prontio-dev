@@ -10,8 +10,19 @@
   PRONTIO.services = PRONTIO.services || {};
 
   const getSupabase = () => PRONTIO.supabase;
-  const getClinicaId = () => PRONTIO.session?.clinicaId || null;
-  const getProfissionalId = () => PRONTIO.session?.idProfissional || null;
+  const getClinicaId = () => {
+    if (PRONTIO.session?.clinicaId) return PRONTIO.session.clinicaId;
+    if (PRONTIO.session?.idClinica) return PRONTIO.session.idClinica;
+    try {
+      const raw = localStorage.getItem("prontio_session");
+      if (raw) {
+        const s = JSON.parse(raw);
+        return s.clinicaId || s.idClinica || null;
+      }
+    } catch (_) {}
+    return null;
+  };
+  const getProfissionalId = () => PRONTIO.session?.idProfissional || PRONTIO.session?.profissionalId || null;
 
   // ============================================================
   // RECEITAS SERVICE
@@ -198,8 +209,8 @@
       try {
         const { error } = await supabase
           .from("receita")
-          .update({ ativo: false })
-          .eq("id", idReceita);
+          .eq("id", idReceita)
+          .update({ ativo: false });
 
         if (error) {
           return { success: false, error: error.message };
@@ -244,9 +255,9 @@
         const medicamentos = (data || []).map(m => ({
           nome: m.nome,
           Nome_Medicacao: m.nome,
-          Posologia: m.posologia_padrao || "",
-          Via_Administracao: m.via_padrao || "",
-          Quantidade: m.quantidade_padrao || ""
+          Posologia: m.posologia || "",
+          Via_Administracao: m.via_administracao || "",
+          Quantidade: m.quantidade || ""
         }));
 
         return { success: true, data: { medicamentos } };
