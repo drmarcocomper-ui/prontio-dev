@@ -413,6 +413,128 @@
   }
 
   // -----------------------------------------
+  // Migração: Importar evoluções
+  // -----------------------------------------
+  function detectarDelimitadorEv(linha) {
+    const tabs = (linha.match(/\t/g) || []).length;
+    const virgulas = (linha.match(/,/g) || []).length;
+    const pontoVirgulas = (linha.match(/;/g) || []).length;
+    if (tabs >= virgulas && tabs >= pontoVirgulas) return "\t";
+    if (pontoVirgulas >= virgulas) return ";";
+    return ",";
+  }
+
+  function parseCsvLineEv(linha, delimitador) {
+    const cols = [];
+    let atual = "";
+    let dentroAspas = false;
+
+    for (let i = 0; i < linha.length; i++) {
+      const ch = linha[i];
+      if (ch === '"') {
+        if (dentroAspas && linha[i + 1] === '"') {
+          atual += '"';
+          i++;
+        } else {
+          dentroAspas = !dentroAspas;
+        }
+      } else if (ch === delimitador && !dentroAspas) {
+        cols.push(atual);
+        atual = "";
+      } else {
+        atual += ch;
+      }
+    }
+    cols.push(atual);
+    return cols;
+  }
+
+  async function importarEvolucoes() {
+    const textarea = document.getElementById("csvEvolucoes");
+    const status = document.getElementById("statusImportEvolucoes");
+    const btn = document.getElementById("btnImportarEvolucoes");
+    const service = PRONTIO.services && PRONTIO.services.evolucoes;
+
+    if (!service) {
+      if (status) status.textContent = "Servico de evolucoes nao disponivel.";
+      return;
+    }
+
+    const csv = (textarea ? textarea.value : "").trim();
+    if (!csv) {
+      if (status) status.textContent = "Cole os dados da planilha antes de importar.";
+      return;
+    }
+
+    const linhas = csv.split(/\r?\n/);
+    if (linhas.length < 2) {
+      if (status) status.textContent = "Dados insuficientes. Verifique se copiou o cabecalho e as linhas.";
+      return;
+    }
+
+    const delimitador = detectarDelimitadorEv(linhas[0]);
+    const cabecalho = parseCsvLineEv(linhas[0], delimitador).map(c => c.trim());
+
+    // Mapeia índices das colunas
+    const iIdPaciente = cabecalho.findIndex(c => /^idPaciente$/i.test(c));
+    const iData = cabecalho.findIndex(c => /^data$/i.test(c));
+    const iTexto = cabecalho.findIndex(c => /^texto$/i.test(c));
+    const iCriadoEm = cabecalho.findIndex(c => /^criadoEm$/i.test(c));
+    const iAtualizadoEm = cabecalho.findIndex(c => /^atualizadoEm$/i.test(c));
+    const iAtivo = cabecalho.findIndex(c => /^ativo$/i.test(c));
+
+    if (iIdPaciente === -1 || iTexto === -1) {
+      if (status) status.textContent = "Cabecalho invalido. Precisa ter pelo menos: idPaciente, texto";
+      return;
+    }
+
+    // Monta lista de evoluções
+    const evolucoes = [];
+    for (let i = 1; i < linhas.length; i++) {
+      const linha = linhas[i].trim();
+      if (!linha) continue;
+
+      const cols = parseCsvLineEv(linha, delimitador);
+      const idPaciente = (cols[iIdPaciente] || "").trim();
+      const texto = (cols[iTexto] || "").trim();
+
+      if (!idPaciente || !texto) continue;
+
+      const ev = { idPaciente, texto };
+      if (iData !== -1) ev.data = (cols[iData] || "").trim();
+      if (iCriadoEm !== -1) ev.criadoEm = (cols[iCriadoEm] || "").trim() || undefined;
+      if (iAtualizadoEm !== -1) ev.atualizadoEm = (cols[iAtualizadoEm] || "").trim() || undefined;
+      if (iAtivo !== -1) {
+        const val = (cols[iAtivo] || "").trim().toLowerCase();
+        ev.ativo = val !== "false" && val !== "0" && val !== "nao";
+      }
+
+      evolucoes.push(ev);
+    }
+
+    if (!evolucoes.length) {
+      if (status) status.textContent = "Nenhuma evolucao valida encontrada nos dados.";
+      return;
+    }
+
+    if (btn) btn.disabled = true;
+    if (status) status.textContent = `Importando ${evolucoes.length} evolucoes...`;
+
+    const result = await service.importarLote(evolucoes);
+
+    if (btn) btn.disabled = false;
+
+    if (result.success) {
+      const msg = `${result.data.importados} evolucoes importadas.`;
+      const errosMsg = result.data.erros > 0 ? ` (${result.data.erros} erros)` : "";
+      if (status) status.textContent = msg + errosMsg;
+      if (textarea) textarea.value = "";
+    } else {
+      if (status) status.textContent = "Erro: " + result.error;
+    }
+  }
+
+  // -----------------------------------------
   // Inicializador da página
   // -----------------------------------------
   function initConfiguracoesPage() {
@@ -444,6 +566,20 @@
         } catch (err) {
           console.error("[Configuracoes] Erro não tratado ao recarregar:", err);
           mostrarMensagemConfig("Erro inesperado ao recarregar.", "erro");
+        }
+      });
+    }
+
+    // Migração: botão importar evoluções
+    const btnImportEv = document.getElementById("btnImportarEvolucoes");
+    if (btnImportEv) {
+      btnImportEv.addEventListener("click", async function () {
+        try {
+          await importarEvolucoes();
+        } catch (err) {
+          console.error("[Configuracoes] Erro ao importar evolucoes:", err);
+          const st = document.getElementById("statusImportEvolucoes");
+          if (st) st.textContent = "Erro inesperado: " + err.message;
         }
       });
     }

@@ -316,6 +316,29 @@
             </div>
           </section>
         </form>
+
+        <section class="card" aria-labelledby="sec-migracao-titulo">
+          <div class="card-header">
+            <h2 id="sec-migracao-titulo" class="secao-config-titulo">Migração de dados</h2>
+            <p class="secao-config-subtitulo">
+              Importe dados da planilha antiga para o Supabase. Cole os dados copiados do Google Sheets.
+            </p>
+          </div>
+          <div style="padding: 0 24px 24px;">
+            <div style="margin-bottom: 16px;">
+              <label class="campo-label" style="margin-bottom:4px;display:block;">Importar Evoluções</label>
+              <p class="campo-ajuda" style="margin-bottom:8px;">
+                Colunas esperadas: <code>idEvolucao, idPaciente, data, texto, criadoEm, atualizadoEm, ativo, Ativo</code><br>
+                Copie as linhas da aba Evolucao do Google Sheets e cole abaixo.
+              </p>
+              <textarea id="csvEvolucoes" rows="8" placeholder="Cole os dados da planilha aqui..." style="width:100%;font-family:monospace;font-size:12px;"></textarea>
+            </div>
+            <div style="display:flex;gap:10px;align-items:center;">
+              <button type="button" id="btnImportarEvolucoes" class="btn primario">Importar evoluções</button>
+              <span id="statusImportEvolucoes" class="texto-menor texto-suave"></span>
+            </div>
+          </div>
+        </section>
       </section>
     </main>
   </div>

@@ -10,7 +10,18 @@
   PRONTIO.services = PRONTIO.services || {};
 
   const getSupabase = () => PRONTIO.supabase;
-  const getClinicaId = () => PRONTIO.session?.clinicaId || null;
+  const getClinicaId = () => {
+    if (PRONTIO.session?.clinicaId) return PRONTIO.session.clinicaId;
+    if (PRONTIO.session?.idClinica) return PRONTIO.session.idClinica;
+    try {
+      const raw = localStorage.getItem("prontio_session");
+      if (raw) {
+        const s = JSON.parse(raw);
+        return s.clinicaId || s.idClinica || null;
+      }
+    } catch (_) {}
+    return null;
+  };
   const getProfissionalId = () => PRONTIO.session?.idProfissional || null;
   const getProfissionalNome = () => PRONTIO.session?.nomeCompleto || PRONTIO.session?.nome || "Profissional";
 
@@ -170,6 +181,86 @@
       } catch (err) {
         return { success: false, error: err.message };
       }
+    },
+
+    /**
+     * Importa evoluções em lote (migração da planilha)
+     */
+    async importarLote(evolucoes) {
+      const supabase = getSupabase();
+      const clinicaId = getClinicaId();
+
+      if (!clinicaId) {
+        return { success: false, error: "Clinica nao identificada" };
+      }
+
+      if (!evolucoes || !evolucoes.length) {
+        return { success: false, error: "Nenhuma evolucao para importar" };
+      }
+
+      let importados = 0;
+      let erros = [];
+
+      for (const ev of evolucoes) {
+        const texto = String(ev.texto || "").trim();
+        const idPaciente = String(ev.idPaciente || "").trim();
+
+        if (!texto || !idPaciente) {
+          erros.push("Evolucao sem texto ou paciente");
+          continue;
+        }
+
+        // Monta data_evolucao a partir do campo 'data' da planilha
+        let dataEvolucao = null;
+        const dataRaw = String(ev.data || "").trim();
+        if (dataRaw) {
+          // Suporta formatos: YYYY-MM-DD, DD/MM/YYYY, ISO string
+          if (/^\d{4}-\d{2}-\d{2}/.test(dataRaw)) {
+            dataEvolucao = dataRaw.substring(0, 10);
+          } else if (/^\d{2}\/\d{2}\/\d{4}/.test(dataRaw)) {
+            const [d, m, y] = dataRaw.split("/");
+            dataEvolucao = `${y}-${m}-${d}`;
+          }
+        }
+        if (!dataEvolucao) {
+          dataEvolucao = new Date().toISOString().split("T")[0];
+        }
+
+        const registro = {
+          clinica_id: clinicaId,
+          paciente_id: idPaciente,
+          texto: texto,
+          data_evolucao: dataEvolucao,
+          ativo: ev.ativo !== false && ev.ativo !== "false" && ev.ativo !== "FALSE"
+        };
+
+        // Preserva timestamps originais se disponíveis
+        if (ev.criadoEm) registro.criado_em = ev.criadoEm;
+        if (ev.atualizadoEm) registro.atualizado_em = ev.atualizadoEm;
+
+        try {
+          const { error } = await supabase
+            .from("evolucao")
+            .insert(registro);
+
+          if (error) {
+            erros.push(error.message);
+          } else {
+            importados++;
+          }
+        } catch (err) {
+          erros.push(err.message);
+        }
+      }
+
+      if (importados === 0) {
+        return { success: false, error: erros.join("; ") || "Nenhuma evolucao importada" };
+      }
+
+      return {
+        success: true,
+        data: { importados, erros: erros.length }
+      };
     },
 
     // ========================================
