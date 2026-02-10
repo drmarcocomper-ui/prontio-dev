@@ -11,10 +11,9 @@ CREATE TABLE IF NOT EXISTS evolucao (
   clinica_id UUID NOT NULL REFERENCES clinica(id),
   paciente_id UUID NOT NULL REFERENCES paciente(id),
   profissional_id UUID REFERENCES profissional(id),
-  agenda_id UUID REFERENCES agenda_evento(id),
+  agenda_evento_id UUID REFERENCES agenda_evento(id),
 
   texto TEXT NOT NULL,
-  origem VARCHAR(50) DEFAULT 'PRONTUARIO',
 
   criado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   atualizado_em TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

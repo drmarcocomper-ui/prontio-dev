@@ -292,8 +292,6 @@ CREATE TABLE evolucao (
     profissional_id UUID REFERENCES profissional(id) ON DELETE SET NULL,
     agenda_evento_id UUID REFERENCES agenda_evento(id) ON DELETE SET NULL,
 
-    data_evolucao DATE NOT NULL,
-    tipo VARCHAR(100),
     texto TEXT NOT NULL,
 
     ativo BOOLEAN DEFAULT true,
@@ -303,7 +301,7 @@ CREATE TABLE evolucao (
 
 -- Índices
 CREATE INDEX idx_evolucao_paciente ON evolucao(paciente_id);
-CREATE INDEX idx_evolucao_data ON evolucao(data_evolucao DESC);
+CREATE INDEX idx_evolucao_criado ON evolucao(criado_em DESC);
 CREATE INDEX idx_evolucao_profissional ON evolucao(profissional_id);
 
 -- ============================================================

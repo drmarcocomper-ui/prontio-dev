@@ -39,6 +39,7 @@
       const clinicaId = getClinicaId();
 
       if (!clinicaId || !idPaciente) {
+        console.warn("[evolucoes.service] listar: clinicaId=%s, idPaciente=%s", clinicaId, idPaciente);
         return { success: false, error: "Paciente ou clínica não identificados" };
       }
 
@@ -100,19 +101,20 @@
         const evolucao = {
           clinica_id: clinicaId,
           paciente_id: idPaciente,
-          texto: texto.trim(),
-          data_evolucao: new Date().toISOString().split("T")[0]
+          texto: texto.trim()
         };
 
-        // Só inclui campos opcionais se tiverem valor
         if (profissionalId) evolucao.profissional_id = profissionalId;
         if (idAgenda) evolucao.agenda_evento_id = idAgenda;
+
+        console.info("[evolucoes.service] Inserindo evolucao:", { clinicaId, idPaciente, temProfissional: !!profissionalId });
 
         const { error } = await supabase
           .from("evolucao")
           .insert(evolucao);
 
         if (error) {
+          console.error("[evolucoes.service] Erro ao inserir:", error.message);
           return { success: false, error: error.message };
         }
 
@@ -121,6 +123,7 @@
           data: { evolucao: { texto: evolucao.texto } }
         };
       } catch (err) {
+        console.error("[evolucoes.service] Exceção ao salvar:", err);
         return { success: false, error: err.message };
       }
     },
@@ -210,27 +213,10 @@
           continue;
         }
 
-        // Monta data_evolucao a partir do campo 'data' da planilha
-        let dataEvolucao = null;
-        const dataRaw = String(ev.data || "").trim();
-        if (dataRaw) {
-          // Suporta formatos: YYYY-MM-DD, DD/MM/YYYY, ISO string
-          if (/^\d{4}-\d{2}-\d{2}/.test(dataRaw)) {
-            dataEvolucao = dataRaw.substring(0, 10);
-          } else if (/^\d{2}\/\d{2}\/\d{4}/.test(dataRaw)) {
-            const [d, m, y] = dataRaw.split("/");
-            dataEvolucao = `${y}-${m}-${d}`;
-          }
-        }
-        if (!dataEvolucao) {
-          dataEvolucao = new Date().toISOString().split("T")[0];
-        }
-
         const registro = {
           clinica_id: clinicaId,
           paciente_id: idPaciente,
           texto: texto,
-          data_evolucao: dataEvolucao,
           ativo: ev.ativo !== false && ev.ativo !== "false" && ev.ativo !== "FALSE"
         };
 
@@ -276,8 +262,6 @@
         idProfissional: e.profissional_id,
         idAgenda: e.agenda_evento_id,
         texto: e.texto,
-        tipo: e.tipo,
-        dataEvolucao: e.data_evolucao,
         autor: getProfissionalNome(),
         dataHoraRegistro: e.criado_em,
         dataHora: e.criado_em,
